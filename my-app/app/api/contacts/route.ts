@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
-import { Contact } from "@/models/Contact";
+import { Contact } from "@/app/models/Contact";
 import { getCurrentUser } from "@/lib/auth";
 
 export async function GET() {
   await connectDB();
-  const user = getCurrentUser();
+  const user = await getCurrentUser();
   if (!user)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -17,7 +17,7 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   await connectDB();
-  const user = getCurrentUser();
+  const user = await getCurrentUser();
   if (!user)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
