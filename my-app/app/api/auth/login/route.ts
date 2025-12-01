@@ -26,12 +26,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
   }
 
-  if (!user.isVerified) {
-    return NextResponse.json(
-      { error: "Please verify your email first" },
-      { status: 403 }
-    );
-  }
+  // Temporarily disabled for testing
+  // if (!user.isVerified) {
+  //   return NextResponse.json(
+  //     { error: "Please verify your email first" },
+  //     { status: 403 }
+  //   );
+  // }
 
   const isMatch = await bcrypt.compare(password, user.passwordHash);
   if (!isMatch) {

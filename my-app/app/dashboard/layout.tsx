@@ -1,12 +1,17 @@
-import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
-import { AppSidebar } from "@/components/app-sidebar";
-import { Topbar } from "@/components/layout/topbar";
+// app/dashboard/layout.tsx
+"use client"
+import dynamic from "next/dynamic";
+import { SidebarProvider } from "@/components/ui/sidebar";
 
-export default function DashboardLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+const AppSidebar = dynamic(() => import("@/components/app-sidebar").then(m => m.AppSidebar), {
+  ssr: false,
+});
+
+const Topbar = dynamic(() => import("@/components/layout/topbar").then(m => m.Topbar), {
+  ssr: false,
+});
+
+export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
     <SidebarProvider>
       <AppSidebar />
