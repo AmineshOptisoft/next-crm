@@ -3,9 +3,15 @@
 import * as React from "react";
 import { ThemeProvider as NextThemesProvider } from "next-themes";
 
+type TableDensity = "comfortable" | "compact" | "spacious";
+
 type LayoutPreferences = {
   compact: boolean;
   setCompact: (value: boolean) => void;
+  showAvatars: boolean;
+  setShowAvatars: (value: boolean) => void;
+  tableDensity: TableDensity;
+  setTableDensity: (value: TableDensity) => void;
 };
 
 const LayoutContext = React.createContext<LayoutPreferences | null>(null);
@@ -18,6 +24,9 @@ export function ThemeProvider({
   defaultTheme?: "light" | "dark" | "system";
 }) {
   const [compact, setCompact] = React.useState(false);
+  const [showAvatars, setShowAvatars] = React.useState(true);
+  const [tableDensity, setTableDensity] =
+    React.useState<TableDensity>("comfortable");
 
   return (
     <NextThemesProvider
@@ -26,7 +35,16 @@ export function ThemeProvider({
       enableSystem
       disableTransitionOnChange
     >
-      <LayoutContext.Provider value={{ compact, setCompact }}>
+      <LayoutContext.Provider
+        value={{
+          compact,
+          setCompact,
+          showAvatars,
+          setShowAvatars,
+          tableDensity,
+          setTableDensity,
+        }}
+      >
         {children}
       </LayoutContext.Provider>
     </NextThemesProvider>

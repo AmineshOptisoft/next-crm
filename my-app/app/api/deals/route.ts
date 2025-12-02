@@ -1,35 +1,75 @@
 import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
+import { Deal } from "@/app/models/Deal";
 import { Contact } from "@/app/models/Contact";
 import { getCurrentUser } from "@/lib/auth";
 
-export async function GET() {
-  await connectDB();
+export async function GET(req: NextRequest) {
   const user = await getCurrentUser();
-  if (!user)
+  if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
 
-  const contacts = await Contact.find({ ownerId: user.userId }).sort({
-    createdAt: -1,
-  });
-  return NextResponse.json(contacts);
+  await connectDB();
+  const deals = await Deal.find({ ownerId: user.userId })
+    .populate("contactId")
+    .sort({ createdAt: -1 })
+    .lean();
+
+  return NextResponse.json(deals);
 }
 
 export async function POST(req: NextRequest) {
-  await connectDB();
   const user = await getCurrentUser();
-  if (!user)
+  if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
 
   const body = await req.json();
-  const contact = await Contact.create({
+  const { title, value, stage, contactId, closeDate } = body as {
+    title?: string;
+    value?: number | string;
+    stage?: string;
+    contactId?: string;
+    closeDate?: string;
+  };
+
+  if (!title || value === undefined || value === null || value === "") {
+    return NextResponse.json(
+      { error: "Title and value are required" },
+      { status: 400 }
+    );
+  }
+
+  const numericValue =
+    typeof value === "string" ? parseFloat(value) : Number(value);
+
+  await connectDB();
+
+  // Optional: verify contact belongs to this user if contactId is present
+  let contactObjectId = undefined;
+  if (contactId) {
+    const contact = await Contact.findOne({
+      _id: contactId,
+      ownerId: user.userId,
+    }).lean();
+    if (!contact) {
+      return NextResponse.json(
+        { error: "Invalid contact for this user" },
+        { status: 400 }
+      );
+    }
+    contactObjectId = contactId;
+  }
+
+  const deal = await Deal.create({
     ownerId: user.userId,
-    name: body.name,
-    email: body.email,
-    phone: body.phone,
-    company: body.company,
-    status: body.status || "lead",
+    title,
+    value: numericValue,
+    stage: stage || "new",
+    contactId: contactObjectId,
+    closeDate: closeDate ? new Date(closeDate) : undefined,
   });
 
-  return NextResponse.json(contact, { status: 201 });
+  return NextResponse.json(deal, { status: 201 });
 }

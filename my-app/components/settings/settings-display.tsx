@@ -1,13 +1,26 @@
 "use client";
 
-import { useState } from "react";
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardContent,
+} from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import { useLayoutPreferences } from "@/components/theme-provider";
 
 export function SettingsDisplay() {
-  const [showAvatars, setShowAvatars] = useState(true);
+  const { showAvatars, setShowAvatars, tableDensity, setTableDensity } =
+    useLayoutPreferences();
 
   return (
     <Card>
@@ -20,7 +33,12 @@ export function SettingsDisplay() {
       <CardContent className="space-y-6">
         <div className="space-y-1">
           <Label>Default table density</Label>
-          <Select defaultValue="comfortable">
+          <Select
+            value={tableDensity}
+            onValueChange={(value) =>
+              setTableDensity(value as "comfortable" | "compact" | "spacious")
+            }
+          >
             <SelectTrigger className="w-64">
               <SelectValue />
             </SelectTrigger>

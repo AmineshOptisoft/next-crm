@@ -1,13 +1,17 @@
-import { Schema, model, models, Types } from "mongoose";
+import { Schema, model, models } from "mongoose";
 
 const ContactSchema = new Schema(
   {
-    ownerId: { type: Types.ObjectId, ref: "User", required: true },
+    ownerId: { type: String, required: true },
     name: { type: String, required: true },
     email: { type: String },
     phone: { type: String },
     company: { type: String },
-    status: { type: String, enum: ["lead", "customer"], default: "lead" },
+    status: {
+      type: String,
+      enum: ["lead", "prospect", "customer", "inactive"],
+      default: "lead",
+    },
   },
   { timestamps: true }
 );

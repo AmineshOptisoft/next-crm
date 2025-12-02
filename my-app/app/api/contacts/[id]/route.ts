@@ -1,0 +1,80 @@
+import { NextRequest, NextResponse } from "next/server";
+import { connectDB } from "@/lib/db";
+import { Contact } from "@/app/models/Contact";
+import { getCurrentUser } from "@/lib/auth";
+
+type Context = { params: Promise<{ id: string }> } | { params: { id: string } };
+
+async function resolveParams(context: Context) {
+  const maybePromise = (context as any).params;
+  const resolved =
+    maybePromise && typeof maybePromise.then === "function"
+      ? await maybePromise
+      : maybePromise;
+  return resolved as { id: string };
+}
+
+export async function GET(req: NextRequest, context: Context) {
+  const user = await getCurrentUser();
+  if (!user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const { id } = await resolveParams(context);
+
+  await connectDB();
+  const contact = await Contact.findOne({
+    _id: id,
+    ownerId: user.userId,
+  }).lean();
+
+  if (!contact) {
+    return NextResponse.json({ error: "Contact not found" }, { status: 404 });
+  }
+
+  return NextResponse.json(contact);
+}
+
+export async function PUT(req: NextRequest, context: Context) {
+  const user = await getCurrentUser();
+  if (!user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const { id } = await resolveParams(context);
+  const { name, email, phone, company, status } = await req.json();
+
+  await connectDB();
+  const contact = await Contact.findOneAndUpdate(
+    { _id: id, ownerId: user.userId },
+    { name, email, phone, company, status },
+    { new: true }
+  ).lean();
+
+  if (!contact) {
+    return NextResponse.json({ error: "Contact not found" }, { status: 404 });
+  }
+
+  return NextResponse.json(contact);
+}
+
+export async function DELETE(req: NextRequest, context: Context) {
+  const user = await getCurrentUser();
+  if (!user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const { id } = await resolveParams(context);
+
+  await connectDB();
+  const deleted = await Contact.findOneAndDelete({
+    _id: id,
+    ownerId: user.userId,
+  }).lean();
+
+  if (!deleted) {
+    return NextResponse.json({ error: "Contact not found" }, { status: 404 });
+  }
+
+  return NextResponse.json({ message: "Contact deleted" });
+}
