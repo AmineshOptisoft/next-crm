@@ -2,6 +2,7 @@ import { Schema, model, models, Types } from "mongoose";
 
 const TaskSchema = new Schema(
   {
+    companyId: { type: Types.ObjectId, ref: "Company", required: true },
     ownerId: { type: Types.ObjectId, ref: "User", required: true },
     title: { type: String, required: true },
     description: { type: String },
@@ -20,5 +21,8 @@ const TaskSchema = new Schema(
   },
   { timestamps: true }
 );
+
+TaskSchema.index({ companyId: 1, status: 1 });
+TaskSchema.index({ ownerId: 1 });
 
 export const Task = models.Task || model("Task", TaskSchema);

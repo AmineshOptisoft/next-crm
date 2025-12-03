@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
 import { User } from "../../../models/User";
+import { Company } from "../../../models/Company";
+import { createDefaultRoles } from "../../../models/Role";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import { sendVerificationEmail } from "@/lib/mail";
@@ -42,24 +44,63 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  if (!companyName) {
+    return NextResponse.json(
+      { error: "Company name is required" },
+      { status: 400 }
+    );
+  }
+
   const passwordHash = await bcrypt.hash(password, 10);
   const token = crypto.randomBytes(32).toString("hex");
   const tokenExpires = new Date(Date.now() + 1000 * 60 * 60 * 24);
 
-  const user = await User.create({
-    firstName,
-    lastName,
-    email,
-    passwordHash,
-    companyName,
-    countryId,
-    stateId,
-    cityId,
-    verificationToken: token,
-    verificationTokenExpires: tokenExpires,
-  });
+  try {
+    // Create user first (as company_admin)
+    const user = await User.create({
+      firstName,
+      lastName,
+      email,
+      passwordHash,
+      role: "company_admin", // Set as company admin
+      companyName,
+      countryId,
+      stateId,
+      cityId,
+      verificationToken: token,
+      verificationTokenExpires: tokenExpires,
+    });
 
-  await sendVerificationEmail(user.email, token);
+    // Create company
+    const company = await Company.create({
+      name: companyName,
+      adminId: user._id,
+      email: email,
+      address: {
+        city: cityId,
+        state: stateId,
+        country: countryId,
+      },
+    });
 
-  return NextResponse.json({ message: "Registered. Check email to verify." });
+    // Update user with companyId
+    await User.findByIdAndUpdate(user._id, {
+      companyId: company._id,
+    });
+
+    // Create default roles for the company
+    await createDefaultRoles(company._id.toString(), user._id.toString());
+
+    await sendVerificationEmail(user.email, token);
+
+    return NextResponse.json({
+      message: "Company registered successfully. Check email to verify.",
+    });
+  } catch (error) {
+    console.error("Signup error:", error);
+    return NextResponse.json(
+      { error: "Failed to create account. Please try again." },
+      { status: 500 }
+    );
+  }
 }

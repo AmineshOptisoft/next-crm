@@ -5,6 +5,12 @@ import { Employee } from "@/app/models/Employee";
 import { Task } from "@/app/models/Task";
 import { Contact } from "@/app/models/Contact";
 import { Deal } from "@/app/models/Deal";
+import { Invoice } from "@/app/models/Invoice";
+import { Meeting } from "@/app/models/Meeting";
+import { Activity } from "@/app/models/Activity";
+import { Product } from "@/app/models/Product";
+import { Notification } from "@/app/models/Notification";
+import { Types } from "mongoose";
 
 export async function GET(req: NextRequest) {
   try {
@@ -54,7 +60,7 @@ export async function GET(req: NextRequest) {
     const productivityData = await Task.aggregate([
       {
         $match: {
-          ownerId: user.userId,
+          ownerId: new Types.ObjectId(user.userId),
           status: "completed",
           createdAt: {
             $gte: new Date(now.getFullYear(), 0, 1), // Start of year
@@ -109,6 +115,97 @@ export async function GET(req: NextRequest) {
     });
     const totalDeals = await Deal.countDocuments({ ownerId: user.userId });
     const totalTasks = await Task.countDocuments({ ownerId: user.userId });
+    const completedTasks = await Task.countDocuments({
+      ownerId: user.userId,
+      status: "completed",
+    });
+
+    // Get deal stats
+    const wonDeals = await Deal.countDocuments({
+      ownerId: user.userId,
+      stage: "won",
+    });
+    const totalRevenue = await Deal.aggregate([
+      {
+        $match: {
+          ownerId: new Types.ObjectId(user.userId),
+          stage: "won",
+        },
+      },
+      {
+        $group: {
+          _id: null,
+          total: { $sum: "$value" },
+        },
+      },
+    ]);
+
+    // Get invoice stats
+    const totalInvoices = await Invoice.countDocuments({
+      ownerId: user.userId,
+    });
+    const paidInvoices = await Invoice.countDocuments({
+      ownerId: user.userId,
+      status: "paid",
+    });
+    const overdueInvoices = await Invoice.countDocuments({
+      ownerId: user.userId,
+      status: "overdue",
+    });
+    const invoiceRevenue = await Invoice.aggregate([
+      {
+        $match: {
+          ownerId: new Types.ObjectId(user.userId),
+          status: "paid",
+        },
+      },
+      {
+        $group: {
+          _id: null,
+          total: { $sum: "$total" },
+        },
+      },
+    ]);
+
+    // Get meeting stats
+    const upcomingMeetings = await Meeting.countDocuments({
+      ownerId: user.userId,
+      startTime: { $gte: now },
+      status: "scheduled",
+    });
+    const todayMeetings = await Meeting.countDocuments({
+      ownerId: user.userId,
+      startTime: {
+        $gte: new Date(now.setHours(0, 0, 0, 0)),
+        $lt: new Date(now.setHours(23, 59, 59, 999)),
+      },
+    });
+
+    // Get activity stats
+    const totalActivities = await Activity.countDocuments({
+      ownerId: user.userId,
+    });
+    const thisMonthActivities = await Activity.countDocuments({
+      ownerId: user.userId,
+      createdAt: { $gte: currentMonthStart },
+    });
+
+    // Get product stats
+    const totalProducts = await Product.countDocuments({
+      ownerId: user.userId,
+      isActive: true,
+    });
+    const lowStockProducts = await Product.countDocuments({
+      ownerId: user.userId,
+      isActive: true,
+      stock: { $lt: 10 },
+    });
+
+    // Get notification stats
+    const unreadNotifications = await Notification.countDocuments({
+      userId: user.userId,
+      isRead: false,
+    });
 
     return NextResponse.json({
       employees: {
@@ -123,8 +220,44 @@ export async function GET(req: NextRequest) {
       productivity,
       stats: {
         contacts: totalContacts,
-        deals: totalDeals,
-        tasks: totalTasks,
+        deals: {
+          total: totalDeals,
+          won: wonDeals,
+          winRate: totalDeals > 0 ? ((wonDeals / totalDeals) * 100).toFixed(1) : 0,
+        },
+        tasks: {
+          total: totalTasks,
+          completed: completedTasks,
+          completionRate:
+            totalTasks > 0 ? ((completedTasks / totalTasks) * 100).toFixed(1) : 0,
+        },
+        revenue: {
+          deals: totalRevenue[0]?.total || 0,
+          invoices: invoiceRevenue[0]?.total || 0,
+          total: (totalRevenue[0]?.total || 0) + (invoiceRevenue[0]?.total || 0),
+        },
+        invoices: {
+          total: totalInvoices,
+          paid: paidInvoices,
+          overdue: overdueInvoices,
+          paymentRate:
+            totalInvoices > 0 ? ((paidInvoices / totalInvoices) * 100).toFixed(1) : 0,
+        },
+        meetings: {
+          upcoming: upcomingMeetings,
+          today: todayMeetings,
+        },
+        activities: {
+          total: totalActivities,
+          thisMonth: thisMonthActivities,
+        },
+        products: {
+          total: totalProducts,
+          lowStock: lowStockProducts,
+        },
+        notifications: {
+          unread: unreadNotifications,
+        },
       },
     });
   } catch (error) {

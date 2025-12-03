@@ -2,6 +2,7 @@ import { Schema, model, models, Types } from "mongoose";
 
 const EmployeeSchema = new Schema(
   {
+    companyId: { type: Types.ObjectId, ref: "Company", required: true },
     ownerId: { type: Types.ObjectId, ref: "User", required: true },
     firstName: { type: String, required: true },
     lastName: { type: String, required: true },
@@ -19,4 +20,8 @@ const EmployeeSchema = new Schema(
   { timestamps: true }
 );
 
+EmployeeSchema.index({ companyId: 1, status: 1 });
+EmployeeSchema.index({ ownerId: 1 });
+
 export const Employee = models.Employee || model("Employee", EmployeeSchema);
+
