@@ -30,6 +30,7 @@ import {
 } from "@/components/ui/select";
 import { Plus, Pencil, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { toast } from "sonner";
 
 interface ContactType {
   _id: string;
@@ -65,9 +66,13 @@ export default function ContactsPage() {
       if (res.ok) {
         const data = await res.json();
         setContacts(data);
+      } else {
+        const error = await res.json();
+        toast.error(error.error || "Failed to fetch contacts");
       }
     } catch (e) {
       console.error("Error fetching contacts:", e);
+      toast.error("Failed to fetch contacts");
     } finally {
       setLoading(false);
     }
@@ -89,26 +94,40 @@ export default function ContactsPage() {
       });
 
       if (res.ok) {
+        toast.success(
+          editingContact
+            ? "Contact updated successfully"
+            : "Contact created successfully"
+        );
         await fetchContacts();
         setIsDialogOpen(false);
         resetForm();
+      } else {
+        const error = await res.json();
+        toast.error(error.error || "Failed to save contact");
       }
     } catch (e) {
       console.error("Error saving contact:", e);
+      toast.error("Failed to save contact");
     }
   }
 
   async function handleDelete(id: string) {
-    if (!confirm("Are you sure you want to delete this contact?")) return;
-
-    try {
-      const res = await fetch(`/api/contacts/${id}`, { method: "DELETE" });
-      if (res.ok) {
+    toast.promise(
+      fetch(`/api/contacts/${id}`, { method: "DELETE" }).then(async (res) => {
+        if (!res.ok) {
+          const error = await res.json();
+          throw new Error(error.error || "Failed to delete contact");
+        }
         await fetchContacts();
+        return res;
+      }),
+      {
+        loading: "Deleting contact...",
+        success: "Contact deleted successfully",
+        error: (err) => err.message || "Failed to delete contact",
       }
-    } catch (e) {
-      console.error("Error deleting contact:", e);
-    }
+    );
   }
 
   function handleEdit(contact: ContactType) {

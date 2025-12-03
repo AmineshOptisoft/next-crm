@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
 import { Notification } from "@/app/models/Notification";
 import { getCurrentUser } from "@/lib/auth";
-
+  
 export async function GET(req: NextRequest) {
   const user = await getCurrentUser();
   if (!user) {

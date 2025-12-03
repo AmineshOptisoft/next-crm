@@ -30,6 +30,9 @@ import {
 } from "@/components/ui/select";
 import { Plus, Pencil, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { ProtectedPage } from "@/components/protected-page";
+import { usePermissions } from "@/hooks/use-permissions";
+import { toast } from "sonner";
 
 interface Employee {
   _id: string;
@@ -59,6 +62,8 @@ export default function EmployeesPage() {
     hireDate: "",
   });
 
+  const { hasPermission } = usePermissions();
+
   useEffect(() => {
     fetchEmployees();
   }, []);
@@ -69,9 +74,13 @@ export default function EmployeesPage() {
       if (response.ok) {
         const data = await response.json();
         setEmployees(data);
+      } else {
+        const error = await response.json();
+        toast.error(error.error || "Failed to fetch employees");
       }
     } catch (error) {
       console.error("Error fetching employees:", error);
+      toast.error("Failed to fetch employees");
     } finally {
       setLoading(false);
     }
@@ -95,29 +104,40 @@ export default function EmployeesPage() {
       });
 
       if (response.ok) {
+        toast.success(
+          editingEmployee
+            ? "Employee updated successfully"
+            : "Employee created successfully"
+        );
         fetchEmployees();
         setIsDialogOpen(false);
         resetForm();
+      } else {
+        const error = await response.json();
+        toast.error(error.error || "Failed to save employee");
       }
     } catch (error) {
       console.error("Error saving employee:", error);
+      toast.error("Failed to save employee");
     }
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this employee?")) return;
-
-    try {
-      const response = await fetch(`/api/employees/${id}`, {
-        method: "DELETE",
-      });
-
-      if (response.ok) {
-        fetchEmployees();
+    toast.promise(
+      fetch(`/api/employees/${id}`, { method: "DELETE" }).then(async (response) => {
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.error || "Failed to delete employee");
+        }
+        await fetchEmployees();
+        return response;
+      }),
+      {
+        loading: "Deleting employee...",
+        success: "Employee deleted successfully",
+        error: (err) => err.message || "Failed to delete employee",
       }
-    } catch (error) {
-      console.error("Error deleting employee:", error);
-    }
+    );
   };
 
   const handleEdit = (employee: Employee) => {
@@ -165,7 +185,8 @@ export default function EmployeesPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <ProtectedPage module="employees" requiredPermission="view">
+      <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Employees</h1>
@@ -173,11 +194,12 @@ export default function EmployeesPage() {
             Manage your team members and their information
           </p>
         </div>
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
-            <Button onClick={resetForm}>
-              <Plus className="mr-2 h-4 w-4" />
-              Add Employee
+        {hasPermission("employees", "create") && (
+          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <DialogTrigger asChild>
+              <Button onClick={resetForm}>
+                <Plus className="mr-2 h-4 w-4" />
+                Add Employee
             </Button>
           </DialogTrigger>
           <DialogContent className="max-w-2xl">
@@ -307,6 +329,7 @@ export default function EmployeesPage() {
             </form>
           </DialogContent>
         </Dialog>
+        )}
       </div>
 
       {loading ? (
@@ -353,20 +376,24 @@ export default function EmployeesPage() {
                     <TableCell>{getStatusBadge(employee.status)}</TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleEdit(employee)}
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleDelete(employee._id)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        {hasPermission("employees", "edit") && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleEdit(employee)}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                        )}
+                        {hasPermission("employees", "delete") && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleDelete(employee._id)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>
@@ -377,5 +404,6 @@ export default function EmployeesPage() {
         </div>
       )}
     </div>
+    </ProtectedPage>
   );
 }

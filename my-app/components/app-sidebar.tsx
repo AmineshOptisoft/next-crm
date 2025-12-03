@@ -40,6 +40,7 @@ const menuItems = {
     {
       title: "Dashboard",
       href: "/dashboard",
+      module: "dashboard",
       icon: (
         <svg
           xmlns="http://www.w3.org/2000/svg"
@@ -62,6 +63,7 @@ const menuItems = {
     {
       title: "Employees",
       href: "/dashboard/employees",
+      module: "employees",
       icon: (
         <svg
           xmlns="http://www.w3.org/2000/svg"
@@ -84,6 +86,7 @@ const menuItems = {
     {
       title: "Tasks",
       href: "/dashboard/tasks",
+      module: "tasks",
       icon: (
         <svg
           xmlns="http://www.w3.org/2000/svg"
@@ -104,6 +107,7 @@ const menuItems = {
     {
       title: "Contacts",
       href: "/dashboard/contacts",
+      module: "contacts",
       icon: (
         <svg
           xmlns="http://www.w3.org/2000/svg"
@@ -124,6 +128,7 @@ const menuItems = {
     {
       title: "Deals",
       href: "/dashboard/deals",
+      module: "deals",
       icon: (
         <svg
           xmlns="http://www.w3.org/2000/svg"
@@ -146,6 +151,7 @@ const menuItems = {
     {
       title: "Products",
       href: "/dashboard/products",
+      module: "products",
       icon: (
         <svg
           xmlns="http://www.w3.org/2000/svg"
@@ -167,6 +173,7 @@ const menuItems = {
     {
       title: "Invoices",
       href: "/dashboard/invoices",
+      module: "invoices",
       icon: (
         <svg
           xmlns="http://www.w3.org/2000/svg"
@@ -190,6 +197,7 @@ const menuItems = {
     {
       title: "Meetings",
       href: "/dashboard/meetings",
+      module: "meetings",
       icon: (
         <svg
           xmlns="http://www.w3.org/2000/svg"
@@ -212,6 +220,7 @@ const menuItems = {
     {
       title: "Activities",
       href: "/dashboard/activities",
+      module: "activities",
       icon: (
         <svg
           xmlns="http://www.w3.org/2000/svg"
@@ -231,6 +240,7 @@ const menuItems = {
     {
       title: "Analytics",
       href: "/dashboard/analytics",
+      module: "analytics",
       icon: (
         <svg
           xmlns="http://www.w3.org/2000/svg"
@@ -379,6 +389,8 @@ type MeUser = {
   firstName?: string;
   lastName?: string;
   email: string;
+  role?: string;
+  permissions?: any[];
 };
 
 export function AppSidebar() {
@@ -424,6 +436,29 @@ export function AppSidebar() {
     }
   }
 
+  // Check if user has permission to view a module
+  const hasModulePermission = (module: string): boolean => {
+    if (!me) return false;
+    
+    // Super admin and company admin have access to all modules
+    if (me.role === "super_admin" || me.role === "company_admin") {
+      return true;
+    }
+    
+    // Company user - check permissions
+    if (me.role === "company_user" && me.permissions) {
+      const permission = me.permissions.find((p: any) => p.module === module);
+      return permission?.canView === true;
+    }
+    
+    return false;
+  };
+
+  // Filter menu items based on permissions
+  const filteredGeneralItems = menuItems.general.filter((item) => 
+    hasModulePermission(item.module)
+  );
+
   return (
     <Sidebar>
       {/* Fixed app card */}
@@ -449,7 +484,7 @@ export function AppSidebar() {
           <SidebarGroupLabel>General</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {menuItems.general.map((item) => (
+              {filteredGeneralItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton
                     asChild
@@ -466,26 +501,29 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        <SidebarGroup>
-          <SidebarGroupLabel>Administration</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {menuItems.admin.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton
-                    asChild
-                    isActive={pathname === item.href}
-                  >
-                    <Link href={item.href}>
-                      {item.icon}
-                      <span>{item.title}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        {/* Administration section - only for super_admin and company_admin */}
+        {me?.role && (me.role === "super_admin" || me.role === "company_admin") && (
+          <SidebarGroup>
+            <SidebarGroupLabel>Administration</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {menuItems.admin.map((item) => (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={pathname === item.href}
+                    >
+                      <Link href={item.href}>
+                        {item.icon}
+                        <span>{item.title}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
 
         <SidebarGroup>
           <SidebarGroupLabel>Other</SidebarGroupLabel>

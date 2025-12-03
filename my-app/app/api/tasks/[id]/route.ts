@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { connectDB } from "@/lib/db";
 import { Task } from "@/app/models/Task";
+import { checkPermission } from "@/lib/permissions";
 
 type Context = { params: { id: string } } | { params: Promise<{ id: string }> };
 
@@ -14,10 +15,11 @@ async function resolveParams(context: Context) {
 
 export async function GET(req: NextRequest, context: Context) {
   try {
-    const user = await getCurrentUser();
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const permCheck = await checkPermission("tasks", "view");
+    if (!permCheck.authorized) {
+      return permCheck.response;
     }
+    const user = permCheck.user;
 
     if (!user.companyId) {
       return NextResponse.json({ error: "No company associated" }, { status: 400 });
@@ -47,10 +49,11 @@ export async function GET(req: NextRequest, context: Context) {
 
 export async function PUT(req: NextRequest, context: Context) {
   try {
-    const user = await getCurrentUser();
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const permCheck = await checkPermission("tasks", "edit");
+    if (!permCheck.authorized) {
+      return permCheck.response;
     }
+    const user = permCheck.user;
 
     if (!user.companyId) {
       return NextResponse.json({ error: "No company associated" }, { status: 400 });
@@ -82,10 +85,11 @@ export async function PUT(req: NextRequest, context: Context) {
 
 export async function DELETE(req: NextRequest, context: Context) {
   try {
-    const user = await getCurrentUser();
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const permCheck = await checkPermission("tasks", "delete");
+    if (!permCheck.authorized) {
+      return permCheck.response;
     }
+    const user = permCheck.user;
 
     if (!user.companyId) {
       return NextResponse.json({ error: "No company associated" }, { status: 400 });

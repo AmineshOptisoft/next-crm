@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
 import { Role } from "@/app/models/Role";
 import { getCurrentUser, requireCompanyAdmin } from "@/lib/auth";
-
+  
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }

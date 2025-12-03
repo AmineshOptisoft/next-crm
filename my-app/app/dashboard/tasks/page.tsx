@@ -31,6 +31,7 @@ import {
 } from "@/components/ui/select";
 import { Plus, Pencil, Trash2, CheckCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { toast } from "sonner";
 
 interface Task {
   _id: string;
@@ -80,9 +81,13 @@ export default function TasksPage() {
       if (response.ok) {
         const data = await response.json();
         setTasks(data);
+      } else {
+        const error = await response.json();
+        toast.error(error.error || "Failed to fetch tasks");
       }
     } catch (error) {
       console.error("Error fetching tasks:", error);
+      toast.error("Failed to load tasks");
     } finally {
       setLoading(false);
     }
@@ -119,47 +124,63 @@ export default function TasksPage() {
       });
 
       if (response.ok) {
+        toast.success(
+          editingTask
+            ? "Task updated successfully"
+            : "Task created successfully"
+        );
         fetchTasks();
         setIsDialogOpen(false);
         resetForm();
+      } else {
+        const error = await response.json();
+        toast.error(error.error || "Failed to save task");
       }
     } catch (error) {
       console.error("Error saving task:", error);
+      toast.error("Failed to save task");
     }
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this task?")) return;
-
-    try {
-      const response = await fetch(`/api/tasks/${id}`, {
-        method: "DELETE",
-      });
-
-      if (response.ok) {
-        fetchTasks();
+    toast.promise(
+      fetch(`/api/tasks/${id}`, { method: "DELETE" }).then(async (response) => {
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.error || "Failed to delete task");
+        }
+        await fetchTasks();
+        return response;
+      }),
+      {
+        loading: "Deleting task...",
+        success: "Task deleted successfully",
+        error: (err) => err.message || "Failed to delete task",
       }
-    } catch (error) {
-      console.error("Error deleting task:", error);
-    }
+    );
   };
 
   const handleComplete = async (task: Task) => {
-    try {
-      const response = await fetch(`/api/tasks/${task._id}`, {
+    const newStatus = task.status === "completed" ? "todo" : "completed";
+    toast.promise(
+      fetch(`/api/tasks/${task._id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          status: task.status === "completed" ? "todo" : "completed",
-        }),
-      });
-
-      if (response.ok) {
-        fetchTasks();
+        body: JSON.stringify({ status: newStatus }),
+      }).then(async (response) => {
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.error || "Failed to update task status");
+        }
+        await fetchTasks();
+        return response;
+      }),
+      {
+        loading: "Updating task...",
+        success: newStatus === "completed" ? "Task marked as complete" : "Task marked as incomplete",
+        error: (err) => err.message || "Failed to update task",
       }
-    } catch (error) {
-      console.error("Error updating task:", error);
-    }
+    );
   };
 
   const handleEdit = (task: Task) => {

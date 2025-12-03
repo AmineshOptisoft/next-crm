@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
 import { Contact } from "@/app/models/Contact";
 import { getCurrentUser } from "@/lib/auth";
+import { checkPermission } from "@/lib/permissions";
 
 type Context = { params: Promise<{ id: string }> } | { params: { id: string } };
 
@@ -15,9 +16,14 @@ async function resolveParams(context: Context) {
 }
 
 export async function GET(req: NextRequest, context: Context) {
-  const user = await getCurrentUser();
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const permCheck = await checkPermission("contacts", "view");
+  if (!permCheck.authorized) {
+    return permCheck.response;
+  }
+  const user = permCheck.user;
+
+  if (!user.companyId) {
+    return NextResponse.json({ error: "No company associated" }, { status: 400 });
   }
 
   if (!user.companyId) {
@@ -40,9 +46,14 @@ export async function GET(req: NextRequest, context: Context) {
 }
 
 export async function PUT(req: NextRequest, context: Context) {
-  const user = await getCurrentUser();
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const permCheck = await checkPermission("contacts", "edit");
+  if (!permCheck.authorized) {
+    return permCheck.response;
+  }
+  const user = permCheck.user;
+
+  if (!user.companyId) {
+    return NextResponse.json({ error: "No company associated" }, { status: 400 });
   }
 
   if (!user.companyId) {
@@ -67,10 +78,11 @@ export async function PUT(req: NextRequest, context: Context) {
 }
 
 export async function DELETE(req: NextRequest, context: Context) {
-  const user = await getCurrentUser();
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const permCheck = await checkPermission("contacts", "delete");
+  if (!permCheck.authorized) {
+    return permCheck.response;
   }
+  const user = permCheck.user;
 
   if (!user.companyId) {
     return NextResponse.json({ error: "No company associated" }, { status: 400 });

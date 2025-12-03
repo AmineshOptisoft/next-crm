@@ -2,12 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
 import { Invoice } from "@/app/models/Invoice";
 import { getCurrentUser } from "@/lib/auth";
+import { checkPermission } from "@/lib/permissions";
 
 export async function GET(req: NextRequest) {
-  const user = await getCurrentUser();
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const permCheck = await checkPermission("invoices", "view");
+  if (!permCheck.authorized) {
+    return permCheck.response;
   }
+  const user = permCheck.user;
 
   if (!user.companyId) {
     return NextResponse.json({ error: "No company associated" }, { status: 400 });
@@ -33,10 +35,11 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const user = await getCurrentUser();
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const permCheck = await checkPermission("invoices", "create");
+  if (!permCheck.authorized) {
+    return permCheck.response;
   }
+  const user = permCheck.user;
 
   if (!user.companyId) {
     return NextResponse.json({ error: "No company associated" }, { status: 400 });

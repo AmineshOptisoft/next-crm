@@ -9,6 +9,14 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const isAdmin = await requireCompanyAdmin(user.userId);
+  if (!isAdmin) {
+    return NextResponse.json(
+      { error: "Only company admins can view roles" },
+      { status: 403 }
+    );
+  }
+
   if (!user.companyId) {
     return NextResponse.json({ error: "No company associated" }, { status: 400 });
   }

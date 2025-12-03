@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
 import { Invoice } from "@/app/models/Invoice";
 import { getCurrentUser } from "@/lib/auth";
-
+import { checkPermission } from "@/lib/permissions";
 type Context = { params: { id: string } } | { params: Promise<{ id: string }> };
 
 async function resolveParams(context: Context) {
@@ -13,10 +13,11 @@ async function resolveParams(context: Context) {
 }
 
 export async function GET(req: NextRequest, context: Context) {
-  const user = await getCurrentUser();
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const permCheck = await checkPermission("invoices", "view");
+  if (!permCheck.authorized) {
+    return permCheck.response;
   }
+  const user = permCheck.user;
 
   if (!user.companyId) {
     return NextResponse.json({ error: "No company associated" }, { status: 400 });
@@ -41,10 +42,11 @@ export async function GET(req: NextRequest, context: Context) {
 }
 
 export async function PUT(req: NextRequest, context: Context) {
-  const user = await getCurrentUser();
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const permCheck = await checkPermission("invoices", "edit");
+  if (!permCheck.authorized) {
+    return permCheck.response;
   }
+  const user = permCheck.user;
 
   if (!user.companyId) {
     return NextResponse.json({ error: "No company associated" }, { status: 400 });
@@ -110,10 +112,11 @@ export async function PUT(req: NextRequest, context: Context) {
 }
 
 export async function DELETE(req: NextRequest, context: Context) {
-  const user = await getCurrentUser();
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const permCheck = await checkPermission("invoices", "delete");
+  if (!permCheck.authorized) {
+    return permCheck.response;
   }
+  const user = permCheck.user;
 
   if (!user.companyId) {
     return NextResponse.json({ error: "No company associated" }, { status: 400 });

@@ -31,6 +31,7 @@ import {
 } from "@/components/ui/select";
 import { Plus, Pencil, Trash2, Package } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { toast } from "sonner";
 
 interface Product {
   _id: string;
@@ -77,9 +78,13 @@ export default function ProductsPage() {
       if (response.ok) {
         const data = await response.json();
         setProducts(data);
+      } else {
+        const error = await response.json();
+        toast.error(error.error || "Failed to fetch products");
       }
     } catch (error) {
       console.error("Error fetching products:", error);
+      toast.error("Failed to load products");
     } finally {
       setLoading(false);
     }
@@ -106,29 +111,40 @@ export default function ProductsPage() {
       });
 
       if (response.ok) {
+        toast.success(
+          editingProduct
+            ? "Product updated successfully"
+            : "Product created successfully"
+        );
         fetchProducts();
         setIsDialogOpen(false);
         resetForm();
+      } else {
+        const error = await response.json();
+        toast.error(error.error || "Failed to save product");
       }
     } catch (error) {
       console.error("Error saving product:", error);
+      toast.error("Failed to save product");
     }
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this product?")) return;
-
-    try {
-      const response = await fetch(`/api/products/${id}`, {
-        method: "DELETE",
-      });
-
-      if (response.ok) {
-        fetchProducts();
+    toast.promise(
+      fetch(`/api/products/${id}`, { method: "DELETE" }).then(async (response) => {
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.error || "Failed to delete product");
+        }
+        await fetchProducts();
+        return response;
+      }),
+      {
+        loading: "Deleting product...",
+        success: "Product deleted successfully",
+        error: (err) => err.message || "Failed to delete product",
       }
-    } catch (error) {
-      console.error("Error deleting product:", error);
-    }
+    );
   };
 
   const handleEdit = (product: Product) => {

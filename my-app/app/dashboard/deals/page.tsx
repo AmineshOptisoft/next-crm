@@ -30,6 +30,7 @@ import {
 } from "@/components/ui/select";
 import { Plus, Pencil, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { toast } from "sonner";
 
 interface ContactOption {
   _id: string;
@@ -77,6 +78,9 @@ export default function DealsPage() {
       if (dealsRes.ok) {
         const dealsData = await dealsRes.json();
         setDeals(dealsData);
+      } else {
+        const error = await dealsRes.json();
+        toast.error(error.error || "Failed to fetch deals");
       }
       if (contactsRes.ok) {
         const contactsData = await contactsRes.json();
@@ -86,6 +90,7 @@ export default function DealsPage() {
       }
     } catch (e) {
       console.error("Error fetching deals/contacts:", e);
+      toast.error("Failed to load data");
     } finally {
       setLoading(false);
     }
@@ -161,26 +166,40 @@ export default function DealsPage() {
       });
 
       if (res.ok) {
+        toast.success(
+          editingDeal
+            ? "Deal updated successfully"
+            : "Deal created successfully"
+        );
         await fetchAll();
         setIsDialogOpen(false);
         resetForm();
+      } else {
+        const error = await res.json();
+        toast.error(error.error || "Failed to save deal");
       }
     } catch (e) {
       console.error("Error saving deal:", e);
+      toast.error("Failed to save deal");
     }
   }
 
   async function handleDelete(id: string) {
-    if (!confirm("Are you sure you want to delete this deal?")) return;
-
-    try {
-      const res = await fetch(`/api/deals/${id}`, { method: "DELETE" });
-      if (res.ok) {
+    toast.promise(
+      fetch(`/api/deals/${id}`, { method: "DELETE" }).then(async (res) => {
+        if (!res.ok) {
+          const error = await res.json();
+          throw new Error(error.error || "Failed to delete deal");
+        }
         await fetchAll();
+        return res;
+      }),
+      {
+        loading: "Deleting deal...",
+        success: "Deal deleted successfully",
+        error: (err) => err.message || "Failed to delete deal",
       }
-    } catch (e) {
-      console.error("Error deleting deal:", e);
-    }
+    );
   }
 
   return (
