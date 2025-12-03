@@ -178,13 +178,13 @@ export default function AnalyticsPage() {
     if (!analyticsData?.data) return null;
     const { byStage, byMonth } = analyticsData.data;
 
-    const stageData = byStage.map((item: any) => ({
+    const stageData = byStage?.map((item: any) => ({
       name: item._id,
       count: item.count,
       value: item.totalValue,
     }));
 
-    const monthData = byMonth.map((item: any) => ({
+    const monthData = byMonth?.map((item: any) => ({
       name: `${item._id.month}/${item._id.year}`,
       deals: item.count,
       value: item.totalValue,
@@ -211,7 +211,7 @@ export default function AnalyticsPage() {
                     fill="#8884d8"
                     dataKey="count"
                   >
-                    {stageData.map((entry: any, index: number) => (
+                    {stageData?.map((entry: any, index: number) => (
                       <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                     ))}
                   </Pie>
@@ -280,13 +280,13 @@ export default function AnalyticsPage() {
     if (!analyticsData?.data) return null;
     const { invoiceRevenue, dealRevenue, outstanding } = analyticsData.data;
 
-    const invoiceData = invoiceRevenue.map((item: any) => ({
+    const invoiceData = invoiceRevenue?.map((item: any) => ({
       name: `${item._id.month}/${item._id.year}`,
       revenue: item.revenue,
       count: item.count,
     }));
 
-    const dealData = dealRevenue.map((item: any) => ({
+    const dealData = dealRevenue?.map((item: any) => ({
       name: `${item._id.month}/${item._id.year}`,
       revenue: item.revenue,
       count: item.count,
@@ -363,7 +363,7 @@ export default function AnalyticsPage() {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {performanceData.map((emp: any, index: number) => (
+              {performanceData?.map((emp: any, index: number) => (
                 <div key={index} className="border rounded-lg p-4">
                   <div className="flex items-center justify-between mb-2">
                     <div>
@@ -404,7 +404,7 @@ export default function AnalyticsPage() {
     if (!analyticsData?.data) return null;
     const { pipeline } = analyticsData.data;
 
-    const pipelineData = pipeline.map((item: any) => ({
+    const pipelineData = pipeline?.map((item: any) => ({
       stage: item._id,
       count: item.count,
       value: item.totalValue,
@@ -440,7 +440,7 @@ export default function AnalyticsPage() {
         </Card>
 
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {pipelineData.map((stage: any, index: number) => (
+          {pipelineData?.map((stage: any, index: number) => (
             <Card key={index}>
               <CardHeader>
                 <CardTitle className="capitalize">{stage.stage}</CardTitle>
@@ -472,17 +472,17 @@ export default function AnalyticsPage() {
     if (!analyticsData?.data) return null;
     const { byType, byStatus, byMonth } = analyticsData.data;
 
-    const typeData = byType.map((item: any) => ({
+    const typeData = byType?.map((item: any) => ({
       name: item._id,
       count: item.count,
     }));
 
-    const statusData = byStatus.map((item: any) => ({
+    const statusData = byStatus?.map((item: any) => ({
       name: item._id,
       count: item.count,
     }));
 
-    const monthData = byMonth.map((item: any) => ({
+    const monthData = byMonth?.map((item: any) => ({
       name: `${item._id.month}/${item._id.year}`,
       count: item.count,
     }));
@@ -508,7 +508,7 @@ export default function AnalyticsPage() {
                     fill="#8884d8"
                     dataKey="count"
                   >
-                    {typeData.map((entry: any, index: number) => (
+                    {typeData?.map((entry: any, index: number) => (
                       <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                     ))}
                   </Pie>

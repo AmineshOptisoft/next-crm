@@ -285,16 +285,16 @@ export default function UsersPage() {
                 <div className="space-y-2">
                   <Label htmlFor="customRoleId">Role</Label>
                   <Select
-                    value={formData.customRoleId}
+                    value={formData.customRoleId || "none"}
                     onValueChange={(value) =>
-                      setFormData({ ...formData, customRoleId: value })
+                      setFormData({ ...formData, customRoleId: value === "none" ? "" : value })
                     }
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Select a role (optional)" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">No Role</SelectItem>
+                      <SelectItem value="none">No Role</SelectItem>
                       {roles.map((role) => (
                         <SelectItem key={role._id} value={role._id}>
                           {role.name}

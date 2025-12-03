@@ -403,16 +403,16 @@ export default function ActivitiesPage() {
                   <div className="space-y-2">
                     <Label htmlFor="dealId">Related Deal</Label>
                     <Select
-                      value={formData.dealId}
+                      value={formData.dealId || "none"}
                       onValueChange={(value) =>
-                        setFormData({ ...formData, dealId: value })
+                        setFormData({ ...formData, dealId: value === "none" ? "" : value })
                       }
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Select deal (optional)" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">None</SelectItem>
+                        <SelectItem value="none">None</SelectItem>
                         {deals.map((deal) => (
                           <SelectItem key={deal._id} value={deal._id}>
                             {deal.title}
@@ -424,16 +424,16 @@ export default function ActivitiesPage() {
                   <div className="space-y-2">
                     <Label htmlFor="assignedTo">Assigned To</Label>
                     <Select
-                      value={formData.assignedTo}
+                      value={formData.assignedTo || "none"}
                       onValueChange={(value) =>
-                        setFormData({ ...formData, assignedTo: value })
+                        setFormData({ ...formData, assignedTo: value === "none" ? "" : value })
                       }
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Select employee (optional)" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">None</SelectItem>
+                        <SelectItem value="none">None</SelectItem>
                         {employees.map((emp) => (
                           <SelectItem key={emp._id} value={emp._id}>
                             {emp.firstName} {emp.lastName}
