@@ -9,6 +9,10 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  if (!user.companyId) {
+    return NextResponse.json({ error: "No company associated" }, { status: 400 });
+  }
+
   const { searchParams } = new URL(req.url);
   const contactId = searchParams.get("contactId");
   const dealId = searchParams.get("dealId");
@@ -16,7 +20,7 @@ export async function GET(req: NextRequest) {
 
   await connectDB();
 
-  const filter: any = { ownerId: user.userId };
+  const filter: any = { companyId: user.companyId };
   if (contactId) filter.contactId = contactId;
   if (dealId) filter.dealId = dealId;
   if (type) filter.type = type;
@@ -34,6 +38,10 @@ export async function POST(req: NextRequest) {
   const user = await getCurrentUser();
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  if (!user.companyId) {
+    return NextResponse.json({ error: "No company associated" }, { status: 400 });
   }
 
   const body = await req.json();
@@ -61,6 +69,7 @@ export async function POST(req: NextRequest) {
   await connectDB();
 
   const activity = await Activity.create({
+    companyId: user.companyId,
     ownerId: user.userId,
     contactId,
     dealId,

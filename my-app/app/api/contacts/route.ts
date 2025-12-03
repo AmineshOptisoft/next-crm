@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
-import { Contact } from "@/app/models/Contact"; // ✅ consistent import
+import { Contact } from "@/app/models/Contact";
 import { getCurrentUser } from "@/lib/auth";
 
 export async function GET(req: NextRequest) {
@@ -9,8 +9,12 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  if (!user.companyId) {
+    return NextResponse.json({ error: "No company associated" }, { status: 400 });
+  }
+
   await connectDB();
-  const contacts = await Contact.find({ ownerId: user.userId })
+  const contacts = await Contact.find({ companyId: user.companyId })
     .sort({ createdAt: -1 })
     .lean();
 
@@ -23,6 +27,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  if (!user.companyId) {
+    return NextResponse.json({ error: "No company associated" }, { status: 400 });
+  }
+
   const { name, email, phone, company, status } = await req.json();
 
   if (!name) {
@@ -31,6 +39,7 @@ export async function POST(req: NextRequest) {
 
   await connectDB();
   const contact = await Contact.create({
+    companyId: user.companyId,
     ownerId: user.userId,
     name,
     email,

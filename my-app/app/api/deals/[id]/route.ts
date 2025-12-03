@@ -19,10 +19,14 @@ export async function GET(req: NextRequest, context: Context) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  if (!user.companyId) {
+    return NextResponse.json({ error: "No company associated" }, { status: 400 });
+  }
+
   const { id } = await resolveParams(context);
 
   await connectDB();
-  const deal = await Deal.findOne({ _id: id, ownerId: user.userId })
+  const deal = await Deal.findOne({ _id: id, companyId: user.companyId })
     .populate("contactId")
     .lean();
 
@@ -37,6 +41,10 @@ export async function PUT(req: NextRequest, context: Context) {
   const user = await getCurrentUser();
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  if (!user.companyId) {
+    return NextResponse.json({ error: "No company associated" }, { status: 400 });
   }
 
   const { id } = await resolveParams(context);
@@ -55,11 +63,11 @@ export async function PUT(req: NextRequest, context: Context) {
   if (contactId) {
     const contact = await Contact.findOne({
       _id: contactId,
-      ownerId: user.userId,
+      companyId: user.companyId,
     }).lean();
     if (!contact) {
       return NextResponse.json(
-        { error: "Invalid contact for this user" },
+        { error: "Invalid contact for this company" },
         { status: 400 }
       );
     }
@@ -79,7 +87,7 @@ export async function PUT(req: NextRequest, context: Context) {
     update.closeDate = closeDate ? new Date(closeDate) : null;
 
   const deal = await Deal.findOneAndUpdate(
-    { _id: id, ownerId: user.userId },
+    { _id: id, companyId: user.companyId },
     update,
     { new: true }
   )
@@ -99,12 +107,16 @@ export async function DELETE(req: NextRequest, context: Context) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  if (!user.companyId) {
+    return NextResponse.json({ error: "No company associated" }, { status: 400 });
+  }
+
   const { id } = await resolveParams(context);
 
   await connectDB();
   const deleted = await Deal.findOneAndDelete({
     _id: id,
-    ownerId: user.userId,
+    companyId: user.companyId,
   }).lean();
 
   if (!deleted) {

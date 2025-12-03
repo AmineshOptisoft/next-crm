@@ -3,20 +3,33 @@ import { connectDB } from "@/lib/db";
 import { Invoice } from "@/app/models/Invoice";
 import { getCurrentUser } from "@/lib/auth";
 
-export async function GET(
-  req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+type Context = { params: { id: string } } | { params: Promise<{ id: string }> };
+
+async function resolveParams(context: Context) {
+  const maybe = (context as any).params;
+  const resolved =
+    maybe && typeof maybe.then === "function" ? await maybe : maybe;
+  return resolved as { id: string };
+}
+
+export async function GET(req: NextRequest, context: Context) {
   const user = await getCurrentUser();
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { id } = await params;
-  await connectDB();
+  if (!user.companyId) {
+    return NextResponse.json({ error: "No company associated" }, { status: 400 });
+  }
 
-  const invoice = await Invoice.findOne({ _id: id, ownerId: user.userId })
-    .populate("contactId", "name email company phone")
+  const { id } = await resolveParams(context);
+
+  await connectDB();
+  const invoice = await Invoice.findOne({
+    _id: id,
+    companyId: user.companyId,
+  })
+    .populate("contactId", "name email company")
     .populate("items.productId", "name sku")
     .lean();
 
@@ -27,27 +40,30 @@ export async function GET(
   return NextResponse.json(invoice);
 }
 
-export async function PUT(
-  req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function PUT(req: NextRequest, context: Context) {
   const user = await getCurrentUser();
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { id } = await params;
+  if (!user.companyId) {
+    return NextResponse.json({ error: "No company associated" }, { status: 400 });
+  }
+
+  const { id } = await resolveParams(context);
   const body = await req.json();
+  const { items, status } = body;
 
   await connectDB();
 
   // Recalculate totals if items are updated
-  if (body.items) {
+  let update: any = { ...body };
+  if (items) {
     let subtotal = 0;
     let taxAmount = 0;
     let discountAmount = 0;
 
-    body.items = body.items.map((item: any) => {
+    const processedItems = items.map((item: any) => {
       const itemSubtotal = item.quantity * item.unitPrice;
       const itemTax = (itemSubtotal * (item.taxRate || 0)) / 100;
       const itemDiscount = item.discount || 0;
@@ -63,22 +79,28 @@ export async function PUT(
       };
     });
 
-    body.subtotal = subtotal;
-    body.taxAmount = taxAmount;
-    body.discountAmount = discountAmount;
-    body.total = subtotal + taxAmount - discountAmount;
+    const total = subtotal + taxAmount - discountAmount;
+
+    update.items = processedItems;
+    update.subtotal = subtotal;
+    update.taxAmount = taxAmount;
+    update.discountAmount = discountAmount;
+    update.total = total;
   }
 
-  // If marking as paid, set paidDate
-  if (body.status === "paid" && !body.paidDate) {
-    body.paidDate = new Date();
+  // Set paid date if status is being changed to paid
+  if (status === "paid" && !body.paidDate) {
+    update.paidDate = new Date();
   }
 
   const invoice = await Invoice.findOneAndUpdate(
-    { _id: id, ownerId: user.userId },
-    { $set: body },
+    { _id: id, companyId: user.companyId },
+    update,
     { new: true, runValidators: true }
-  );
+  )
+    .populate("contactId", "name email company")
+    .populate("items.productId", "name sku")
+    .lean();
 
   if (!invoice) {
     return NextResponse.json({ error: "Invoice not found" }, { status: 404 });
@@ -87,24 +109,25 @@ export async function PUT(
   return NextResponse.json(invoice);
 }
 
-export async function DELETE(
-  req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function DELETE(req: NextRequest, context: Context) {
   const user = await getCurrentUser();
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { id } = await params;
+  if (!user.companyId) {
+    return NextResponse.json({ error: "No company associated" }, { status: 400 });
+  }
+
+  const { id } = await resolveParams(context);
+
   await connectDB();
-
-  const invoice = await Invoice.findOneAndDelete({
+  const deleted = await Invoice.findOneAndDelete({
     _id: id,
-    ownerId: user.userId,
-  });
+    companyId: user.companyId,
+  }).lean();
 
-  if (!invoice) {
+  if (!deleted) {
     return NextResponse.json({ error: "Invoice not found" }, { status: 404 });
   }
 

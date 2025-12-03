@@ -3,19 +3,32 @@ import { connectDB } from "@/lib/db";
 import { Meeting } from "@/app/models/Meeting";
 import { getCurrentUser } from "@/lib/auth";
 
-export async function GET(
-  req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+type Context = { params: { id: string } } | { params: Promise<{ id: string }> };
+
+async function resolveParams(context: Context) {
+  const maybe = (context as any).params;
+  const resolved =
+    maybe && typeof maybe.then === "function" ? await maybe : maybe;
+  return resolved as { id: string };
+}
+
+export async function GET(req: NextRequest, context: Context) {
   const user = await getCurrentUser();
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { id } = await params;
-  await connectDB();
+  if (!user.companyId) {
+    return NextResponse.json({ error: "No company associated" }, { status: 400 });
+  }
 
-  const meeting = await Meeting.findOne({ _id: id, ownerId: user.userId })
+  const { id } = await resolveParams(context);
+
+  await connectDB();
+  const meeting = await Meeting.findOne({
+    _id: id,
+    companyId: user.companyId,
+  })
     .populate("attendees.contactId", "name email")
     .populate("attendees.employeeId", "firstName lastName email")
     .populate("dealId", "title value stage")
@@ -28,25 +41,29 @@ export async function GET(
   return NextResponse.json(meeting);
 }
 
-export async function PUT(
-  req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function PUT(req: NextRequest, context: Context) {
   const user = await getCurrentUser();
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { id } = await params;
+  if (!user.companyId) {
+    return NextResponse.json({ error: "No company associated" }, { status: 400 });
+  }
+
+  const { id } = await resolveParams(context);
   const body = await req.json();
 
   await connectDB();
-
   const meeting = await Meeting.findOneAndUpdate(
-    { _id: id, ownerId: user.userId },
-    { $set: body },
+    { _id: id, companyId: user.companyId },
+    body,
     { new: true, runValidators: true }
-  );
+  )
+    .populate("attendees.contactId", "name email")
+    .populate("attendees.employeeId", "firstName lastName email")
+    .populate("dealId", "title value stage")
+    .lean();
 
   if (!meeting) {
     return NextResponse.json({ error: "Meeting not found" }, { status: 404 });
@@ -55,24 +72,25 @@ export async function PUT(
   return NextResponse.json(meeting);
 }
 
-export async function DELETE(
-  req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function DELETE(req: NextRequest, context: Context) {
   const user = await getCurrentUser();
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { id } = await params;
+  if (!user.companyId) {
+    return NextResponse.json({ error: "No company associated" }, { status: 400 });
+  }
+
+  const { id } = await resolveParams(context);
+
   await connectDB();
-
-  const meeting = await Meeting.findOneAndDelete({
+  const deleted = await Meeting.findOneAndDelete({
     _id: id,
-    ownerId: user.userId,
-  });
+    companyId: user.companyId,
+  }).lean();
 
-  if (!meeting) {
+  if (!deleted) {
     return NextResponse.json({ error: "Meeting not found" }, { status: 404 });
   }
 

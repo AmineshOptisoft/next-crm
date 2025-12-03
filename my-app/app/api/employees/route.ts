@@ -10,8 +10,12 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    if (!user.companyId) {
+      return NextResponse.json({ error: "No company associated" }, { status: 400 });
+    }
+
     await connectDB();
-    const employees = await Employee.find({ ownerId: user.userId }).sort({
+    const employees = await Employee.find({ companyId: user.companyId }).sort({
       createdAt: -1,
     });
 
@@ -32,11 +36,16 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    if (!user.companyId) {
+      return NextResponse.json({ error: "No company associated" }, { status: 400 });
+    }
+
     const body = await req.json();
     await connectDB();
 
     const employee = await Employee.create({
       ...body,
+      companyId: user.companyId,
       ownerId: user.userId,
     });
 

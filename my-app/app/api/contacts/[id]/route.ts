@@ -20,12 +20,16 @@ export async function GET(req: NextRequest, context: Context) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  if (!user.companyId) {
+    return NextResponse.json({ error: "No company associated" }, { status: 400 });
+  }
+
   const { id } = await resolveParams(context);
 
   await connectDB();
   const contact = await Contact.findOne({
     _id: id,
-    ownerId: user.userId,
+    companyId: user.companyId,
   }).lean();
 
   if (!contact) {
@@ -41,12 +45,16 @@ export async function PUT(req: NextRequest, context: Context) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  if (!user.companyId) {
+    return NextResponse.json({ error: "No company associated" }, { status: 400 });
+  }
+
   const { id } = await resolveParams(context);
   const { name, email, phone, company, status } = await req.json();
 
   await connectDB();
   const contact = await Contact.findOneAndUpdate(
-    { _id: id, ownerId: user.userId },
+    { _id: id, companyId: user.companyId },
     { name, email, phone, company, status },
     { new: true }
   ).lean();
@@ -64,12 +72,16 @@ export async function DELETE(req: NextRequest, context: Context) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  if (!user.companyId) {
+    return NextResponse.json({ error: "No company associated" }, { status: 400 });
+  }
+
   const { id } = await resolveParams(context);
 
   await connectDB();
   const deleted = await Contact.findOneAndDelete({
     _id: id,
-    ownerId: user.userId,
+    companyId: user.companyId,
   }).lean();
 
   if (!deleted) {

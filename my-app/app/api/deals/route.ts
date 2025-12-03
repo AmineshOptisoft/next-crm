@@ -10,8 +10,12 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  if (!user.companyId) {
+    return NextResponse.json({ error: "No company associated" }, { status: 400 });
+  }
+
   await connectDB();
-  const deals = await Deal.find({ ownerId: user.userId })
+  const deals = await Deal.find({ companyId: user.companyId })
     .populate("contactId")
     .sort({ createdAt: -1 })
     .lean();
@@ -23,6 +27,10 @@ export async function POST(req: NextRequest) {
   const user = await getCurrentUser();
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  if (!user.companyId) {
+    return NextResponse.json({ error: "No company associated" }, { status: 400 });
   }
 
   const body = await req.json();
@@ -46,16 +54,16 @@ export async function POST(req: NextRequest) {
 
   await connectDB();
 
-  // Optional: verify contact belongs to this user if contactId is present
+  // Optional: verify contact belongs to this company if contactId is present
   let contactObjectId = undefined;
   if (contactId) {
     const contact = await Contact.findOne({
       _id: contactId,
-      ownerId: user.userId,
+      companyId: user.companyId,
     }).lean();
     if (!contact) {
       return NextResponse.json(
-        { error: "Invalid contact for this user" },
+        { error: "Invalid contact for this company" },
         { status: 400 }
       );
     }
@@ -63,6 +71,7 @@ export async function POST(req: NextRequest) {
   }
 
   const deal = await Deal.create({
+    companyId: user.companyId,
     ownerId: user.userId,
     title,
     value: numericValue,

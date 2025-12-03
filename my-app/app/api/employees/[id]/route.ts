@@ -3,22 +3,32 @@ import { getCurrentUser } from "@/lib/auth";
 import { connectDB } from "@/lib/db";
 import { Employee } from "@/app/models/Employee";
 
-export async function GET(
-  req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+type Context = { params: { id: string } } | { params: Promise<{ id: string }> };
+
+async function resolveParams(context: Context) {
+  const maybe = (context as any).params;
+  const resolved =
+    maybe && typeof maybe.then === "function" ? await maybe : maybe;
+  return resolved as { id: string };
+}
+
+export async function GET(req: NextRequest, context: Context) {
   try {
     const user = await getCurrentUser();
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { id } = await params;
-    await connectDB();
+    if (!user.companyId) {
+      return NextResponse.json({ error: "No company associated" }, { status: 400 });
+    }
 
+    const { id } = await resolveParams(context);
+
+    await connectDB();
     const employee = await Employee.findOne({
       _id: id,
-      ownerId: user.userId,
+      companyId: user.companyId,
     });
 
     if (!employee) {
@@ -38,24 +48,25 @@ export async function GET(
   }
 }
 
-export async function PUT(
-  req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function PUT(req: NextRequest, context: Context) {
   try {
     const user = await getCurrentUser();
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { id } = await params;
-    const body = await req.json();
-    await connectDB();
+    if (!user.companyId) {
+      return NextResponse.json({ error: "No company associated" }, { status: 400 });
+    }
 
+    const { id } = await resolveParams(context);
+    const body = await req.json();
+
+    await connectDB();
     const employee = await Employee.findOneAndUpdate(
-      { _id: id, ownerId: user.userId },
+      { _id: id, companyId: user.companyId },
       body,
-      { new: true }
+      { new: true, runValidators: true }
     );
 
     if (!employee) {
@@ -75,22 +86,23 @@ export async function PUT(
   }
 }
 
-export async function DELETE(
-  req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function DELETE(req: NextRequest, context: Context) {
   try {
     const user = await getCurrentUser();
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { id } = await params;
-    await connectDB();
+    if (!user.companyId) {
+      return NextResponse.json({ error: "No company associated" }, { status: 400 });
+    }
 
+    const { id } = await resolveParams(context);
+
+    await connectDB();
     const employee = await Employee.findOneAndDelete({
       _id: id,
-      ownerId: user.userId,
+      companyId: user.companyId,
     });
 
     if (!employee) {

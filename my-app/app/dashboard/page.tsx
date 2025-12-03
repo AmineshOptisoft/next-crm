@@ -13,10 +13,8 @@ import { Download } from "lucide-react";
 import { StatsCards } from "@/components/dashboard/stats-cards";
 import { ProductivityChart } from "@/components/dashboard/productivity-chart";
 import { EmployeeList } from "@/components/dashboard/employee-list";
-// import { DashboardHeader } from "@/components/dashboard/dashboard-header";
-// import { DashboardHeader } from "@/components/dashboard/dashboard-header";
 
-async function getStats(userId: string) {
+async function getStats(companyId: string) {
   await connectDB();
 
   const now = new Date();
@@ -25,12 +23,12 @@ async function getStats(userId: string) {
   const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0);
 
   const totalEmployees = await Employee.countDocuments({
-    ownerId: userId,
+    companyId: new Types.ObjectId(companyId),
     status: "active",
   });
 
   const employeesLastMonth = await Employee.countDocuments({
-    ownerId: userId,
+    companyId: new Types.ObjectId(companyId),
     status: "active",
     createdAt: { $lt: currentMonthStart },
   });
@@ -41,12 +39,12 @@ async function getStats(userId: string) {
       : 0;
 
   const leavesCount = await Employee.countDocuments({
-    ownerId: userId,
+    companyId: new Types.ObjectId(companyId),
     status: "on-leave",
   });
 
   const leavesLastMonth = await Employee.countDocuments({
-    ownerId: userId,
+    companyId: new Types.ObjectId(companyId),
     status: "on-leave",
     updatedAt: { $gte: lastMonthStart, $lte: lastMonthEnd },
   });
@@ -54,7 +52,7 @@ async function getStats(userId: string) {
   const productivityData = await Task.aggregate([
     {
       $match: {
-        ownerId: new Types.ObjectId(userId),
+        companyId: new Types.ObjectId(companyId),
         status: "completed",
         createdAt: {
           $gte: new Date(now.getFullYear(), 0, 1),
@@ -94,7 +92,7 @@ async function getStats(userId: string) {
   });
 
   const recentEmployees = await Employee.find({
-    ownerId: userId,
+    companyId: new Types.ObjectId(companyId),
     status: "active",
   })
     .sort({ createdAt: -1 })
@@ -125,7 +123,18 @@ export default async function DashboardPage() {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
 
-  const stats = await getStats(user.userId);
+  if (!user.companyId) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold">No Company Associated</h1>
+          <p className="text-muted-foreground">Please contact your administrator.</p>
+        </div>
+      </div>
+    );
+  }
+
+  const stats = await getStats(user.companyId);
 
   const fullName =
     user.firstName && user.lastName
@@ -135,8 +144,6 @@ export default async function DashboardPage() {
   return (
     <div className="flex flex-col space-y-6">
       {/* Top header with user info and search */}
-      
-      {/* <DashboardHeader userName={fullName} userEmail={user.email} /> */}
 
       <div className="flex items-center justify-between px-6">
         <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>

@@ -9,6 +9,10 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  if (!user.companyId) {
+    return NextResponse.json({ error: "No company associated" }, { status: 400 });
+  }
+
   const { searchParams } = new URL(req.url);
   const status = searchParams.get("status");
   const startDate = searchParams.get("startDate");
@@ -16,7 +20,7 @@ export async function GET(req: NextRequest) {
 
   await connectDB();
 
-  const filter: any = { ownerId: user.userId };
+  const filter: any = { companyId: user.companyId };
   if (status) filter.status = status;
   if (startDate || endDate) {
     filter.startTime = {};
@@ -38,6 +42,10 @@ export async function POST(req: NextRequest) {
   const user = await getCurrentUser();
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  if (!user.companyId) {
+    return NextResponse.json({ error: "No company associated" }, { status: 400 });
   }
 
   const body = await req.json();
@@ -65,6 +73,7 @@ export async function POST(req: NextRequest) {
   await connectDB();
 
   const meeting = await Meeting.create({
+    companyId: user.companyId,
     ownerId: user.userId,
     title,
     description,

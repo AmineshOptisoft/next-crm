@@ -9,13 +9,17 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  if (!user.companyId) {
+    return NextResponse.json({ error: "No company associated" }, { status: 400 });
+  }
+
   const { searchParams } = new URL(req.url);
   const isActive = searchParams.get("isActive");
   const category = searchParams.get("category");
 
   await connectDB();
 
-  const filter: any = { ownerId: user.userId };
+  const filter: any = { companyId: user.companyId };
   if (isActive !== null) filter.isActive = isActive === "true";
   if (category) filter.category = category;
 
@@ -28,6 +32,10 @@ export async function POST(req: NextRequest) {
   const user = await getCurrentUser();
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  if (!user.companyId) {
+    return NextResponse.json({ error: "No company associated" }, { status: 400 });
   }
 
   const body = await req.json();
@@ -55,9 +63,9 @@ export async function POST(req: NextRequest) {
 
   await connectDB();
 
-  // Check if SKU already exists
+  // Check if SKU already exists in this company
   if (sku) {
-    const existing = await Product.findOne({ sku });
+    const existing = await Product.findOne({ sku, companyId: user.companyId });
     if (existing) {
       return NextResponse.json(
         { error: "Product with this SKU already exists" },
@@ -67,6 +75,7 @@ export async function POST(req: NextRequest) {
   }
 
   const product = await Product.create({
+    companyId: user.companyId,
     ownerId: user.userId,
     name,
     description,
