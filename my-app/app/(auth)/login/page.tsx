@@ -11,6 +11,7 @@ import {
   CardTitle,
   CardDescription,
   CardContent,
+  CardFooter,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,6 +23,7 @@ import {
   FormControl,
   FormMessage,
 } from "@/components/ui/form";
+import Link from "next/link";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -129,6 +131,12 @@ export default function LoginPage() {
               </Button>
             </form>
           </Form>
+          <p className="text-center text-sm text-muted-foreground">
+            Don't have account?
+            <Link href="/signup" className="text-primary">
+              Signup
+            </Link>
+          </p>
         </CardContent>
       </Card>
     </div>

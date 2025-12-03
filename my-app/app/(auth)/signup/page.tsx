@@ -117,6 +117,7 @@ export default function SignupPage() {
       return;
     }
     alert("Registered. Check your email to verify.");
+    form.reset();
   }
 
   return (

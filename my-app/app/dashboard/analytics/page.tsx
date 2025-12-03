@@ -9,9 +9,22 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { BarChart, TrendingUp, DollarSign, Users, Target, Activity } from "lucide-react";
+import {
+  BarChart,
+  TrendingUp,
+  DollarSign,
+  Users,
+  Target,
+  Activity,
+} from "lucide-react";
 import {
   LineChart,
   Line,
@@ -38,7 +51,14 @@ interface AnalyticsData {
   data: any;
 }
 
-const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042", "#8884D8", "#82CA9D"];
+const COLORS = [
+  "#0088FE",
+  "#00C49F",
+  "#FFBB28",
+  "#FF8042",
+  "#8884D8",
+  "#82CA9D",
+];
 
 export default function AnalyticsPage() {
   const [reportType, setReportType] = useState("overview");
@@ -46,7 +66,9 @@ export default function AnalyticsPage() {
     startDate: "",
     endDate: "",
   });
-  const [analyticsData, setAnalyticsData] = useState<AnalyticsData | null>(null);
+  const [analyticsData, setAnalyticsData] = useState<AnalyticsData | null>(
+    null
+  );
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -87,7 +109,14 @@ export default function AnalyticsPage() {
 
   const renderOverviewReport = () => {
     if (!analyticsData?.data) return null;
-    const { deals, revenue, contacts, tasks, employees, invoices } = analyticsData.data;
+    const {
+      deals = { total: 0, won: 0, winRate: 0 },
+      revenue = { total: 0 },
+      contacts = { total: 0 },
+      tasks = { total: 0, completed: 0, completionRate: 0 },
+      employees = { total: 0 },
+      invoices = { total: 0, paid: 0, paymentRate: 0 },
+    } = analyticsData.data;
 
     return (
       <div className="space-y-6">
@@ -98,20 +127,24 @@ export default function AnalyticsPage() {
               <Target className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{deals.total}</div>
+              <div className="text-2xl font-bold">{deals?.total || 0}</div>
               <p className="text-xs text-muted-foreground">
-                {deals.won} won • {deals.winRate}% win rate
+                {deals?.won || 0} won • {deals?.winRate || 0}% win rate
               </p>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
+              <CardTitle className="text-sm font-medium">
+                Total Revenue
+              </CardTitle>
               <DollarSign className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{formatCurrency(revenue.total)}</div>
+              <div className="text-2xl font-bold">
+                {formatCurrency(revenue?.total || 0)}
+              </div>
               <p className="text-xs text-muted-foreground">
                 From deals and invoices
               </p>
@@ -120,11 +153,13 @@ export default function AnalyticsPage() {
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Contacts</CardTitle>
+              <CardTitle className="text-sm font-medium">
+                Total Contacts
+              </CardTitle>
               <Users className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{contacts.total}</div>
+              <div className="text-2xl font-bold">{contacts?.total || 0}</div>
               <p className="text-xs text-muted-foreground">
                 Active contacts in CRM
               </p>
@@ -133,39 +168,47 @@ export default function AnalyticsPage() {
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Task Completion</CardTitle>
+              <CardTitle className="text-sm font-medium">
+                Task Completion
+              </CardTitle>
               <Activity className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{tasks.completionRate}%</div>
+              <div className="text-2xl font-bold">
+                {tasks?.completionRate || 0}%
+              </div>
               <p className="text-xs text-muted-foreground">
-                {tasks.completed} of {tasks.total} tasks completed
+                {tasks?.completed || 0} of {tasks?.total || 0} tasks completed
               </p>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Active Employees</CardTitle>
+              <CardTitle className="text-sm font-medium">
+                Active Employees
+              </CardTitle>
               <Users className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{employees.total}</div>
-              <p className="text-xs text-muted-foreground">
-                Team members
-              </p>
+              <div className="text-2xl font-bold">{employees?.total || 0}</div>
+              <p className="text-xs text-muted-foreground">Team members</p>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Invoice Payment</CardTitle>
+              <CardTitle className="text-sm font-medium">
+                Invoice Payment
+              </CardTitle>
               <DollarSign className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{invoices.paymentRate}%</div>
+              <div className="text-2xl font-bold">
+                {invoices?.paymentRate || 0}%
+              </div>
               <p className="text-xs text-muted-foreground">
-                {invoices.paid} of {invoices.total} invoices paid
+                {invoices?.paid || 0} of {invoices?.total || 0} invoices paid
               </p>
             </CardContent>
           </Card>
@@ -176,19 +219,21 @@ export default function AnalyticsPage() {
 
   const renderSalesReport = () => {
     if (!analyticsData?.data) return null;
-    const { byStage, byMonth } = analyticsData.data;
+    const { byStage = [], byMonth = [] } = analyticsData.data;
 
-    const stageData = byStage?.map((item: any) => ({
-      name: item._id,
-      count: item.count,
-      value: item.totalValue,
-    }));
+    const stageData =
+      byStage?.map((item: any) => ({
+        name: item._id,
+        count: item.count,
+        value: item.totalValue,
+      })) || [];
 
-    const monthData = byMonth?.map((item: any) => ({
-      name: `${item._id.month}/${item._id.year}`,
-      deals: item.count,
-      value: item.totalValue,
-    }));
+    const monthData =
+      byMonth?.map((item: any) => ({
+        name: `${item._id?.month || 0}/${item._id?.year || 0}`,
+        deals: item.count || 0,
+        value: item.totalValue || 0,
+      })) || [];
 
     return (
       <div className="space-y-6">
@@ -196,7 +241,9 @@ export default function AnalyticsPage() {
           <Card>
             <CardHeader>
               <CardTitle>Deals by Stage</CardTitle>
-              <CardDescription>Distribution of deals across pipeline stages</CardDescription>
+              <CardDescription>
+                Distribution of deals across pipeline stages
+              </CardDescription>
             </CardHeader>
             <CardContent>
               <ResponsiveContainer width="100%" height={300}>
@@ -212,7 +259,10 @@ export default function AnalyticsPage() {
                     dataKey="count"
                   >
                     {stageData?.map((entry: any, index: number) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                      <Cell
+                        key={`cell-${index}`}
+                        fill={COLORS[index % COLORS.length]}
+                      />
                     ))}
                   </Pie>
                   <Tooltip />
@@ -224,7 +274,9 @@ export default function AnalyticsPage() {
           <Card>
             <CardHeader>
               <CardTitle>Deal Value by Stage</CardTitle>
-              <CardDescription>Total value of deals in each stage</CardDescription>
+              <CardDescription>
+                Total value of deals in each stage
+              </CardDescription>
             </CardHeader>
             <CardContent>
               <ResponsiveContainer width="100%" height={300}>
@@ -232,7 +284,9 @@ export default function AnalyticsPage() {
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="name" />
                   <YAxis />
-                  <Tooltip formatter={(value) => formatCurrency(Number(value))} />
+                  <Tooltip
+                    formatter={(value) => formatCurrency(Number(value))}
+                  />
                   <Bar dataKey="value" fill="#8884d8" />
                 </RechartsBarChart>
               </ResponsiveContainer>
@@ -243,7 +297,9 @@ export default function AnalyticsPage() {
         <Card>
           <CardHeader>
             <CardTitle>Deals Over Time</CardTitle>
-            <CardDescription>Monthly deal count and value trends</CardDescription>
+            <CardDescription>
+              Monthly deal count and value trends
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
@@ -278,19 +334,25 @@ export default function AnalyticsPage() {
 
   const renderRevenueReport = () => {
     if (!analyticsData?.data) return null;
-    const { invoiceRevenue, dealRevenue, outstanding } = analyticsData.data;
+    const {
+      invoiceRevenue = [],
+      dealRevenue = [],
+      outstanding = { total: 0, count: 0 },
+    } = analyticsData.data;
 
-    const invoiceData = invoiceRevenue?.map((item: any) => ({
-      name: `${item._id.month}/${item._id.year}`,
-      revenue: item.revenue,
-      count: item.count,
-    }));
+    const invoiceData =
+      invoiceRevenue?.map((item: any) => ({
+        name: `${item._id?.month || 0}/${item._id?.year || 0}`,
+        revenue: item.revenue || 0,
+        count: item.count || 0,
+      })) || [];
 
-    const dealData = dealRevenue?.map((item: any) => ({
-      name: `${item._id.month}/${item._id.year}`,
-      revenue: item.revenue,
-      count: item.count,
-    }));
+    const dealData =
+      dealRevenue?.map((item: any) => ({
+        name: `${item._id?.month || 0}/${item._id?.year || 0}`,
+        revenue: item.revenue || 0,
+        count: item.count || 0,
+      })) || [];
 
     return (
       <div className="space-y-6">
@@ -301,9 +363,11 @@ export default function AnalyticsPage() {
               <CardDescription>Unpaid invoices</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold">{formatCurrency(outstanding.total)}</div>
+              <div className="text-3xl font-bold">
+                {formatCurrency(outstanding?.total || 0)}
+              </div>
               <p className="text-sm text-muted-foreground mt-2">
-                {outstanding.count} invoices pending payment
+                {outstanding?.count || 0} invoices pending payment
               </p>
             </CardContent>
           </Card>
@@ -352,14 +416,18 @@ export default function AnalyticsPage() {
 
   const renderEmployeePerformanceReport = () => {
     if (!analyticsData?.data) return null;
-    const performanceData = analyticsData.data;
+    const performanceData = Array.isArray(analyticsData.data)
+      ? analyticsData.data
+      : [];
 
     return (
       <div className="space-y-6">
         <Card>
           <CardHeader>
             <CardTitle>Employee Performance</CardTitle>
-            <CardDescription>Task completion and activity metrics by employee</CardDescription>
+            <CardDescription>
+              Task completion and activity metrics by employee
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
@@ -367,28 +435,44 @@ export default function AnalyticsPage() {
                 <div key={index} className="border rounded-lg p-4">
                   <div className="flex items-center justify-between mb-2">
                     <div>
-                      <h3 className="font-semibold">{emp.employee.name}</h3>
+                      <h3 className="font-semibold">
+                        {emp?.employee?.name || "Unknown"}
+                      </h3>
                       <p className="text-sm text-muted-foreground">
-                        {emp.employee.position || "No position"}
+                        {emp?.employee?.position || "No position"}
                       </p>
                     </div>
                     <div className="text-right">
-                      <div className="text-2xl font-bold">{emp.tasks.completionRate}%</div>
-                      <p className="text-xs text-muted-foreground">Completion Rate</p>
+                      <div className="text-2xl font-bold">
+                        {emp?.tasks?.completionRate || 0}%
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Completion Rate
+                      </p>
                     </div>
                   </div>
                   <div className="grid grid-cols-3 gap-4 mt-4">
                     <div>
-                      <p className="text-sm text-muted-foreground">Total Tasks</p>
-                      <p className="text-lg font-semibold">{emp.tasks.total}</p>
+                      <p className="text-sm text-muted-foreground">
+                        Total Tasks
+                      </p>
+                      <p className="text-lg font-semibold">
+                        {emp?.tasks?.total || 0}
+                      </p>
                     </div>
                     <div>
                       <p className="text-sm text-muted-foreground">Completed</p>
-                      <p className="text-lg font-semibold">{emp.tasks.completed}</p>
+                      <p className="text-lg font-semibold">
+                        {emp?.tasks?.completed || 0}
+                      </p>
                     </div>
                     <div>
-                      <p className="text-sm text-muted-foreground">Activities</p>
-                      <p className="text-lg font-semibold">{emp.activities}</p>
+                      <p className="text-sm text-muted-foreground">
+                        Activities
+                      </p>
+                      <p className="text-lg font-semibold">
+                        {emp?.activities || 0}
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -402,21 +486,24 @@ export default function AnalyticsPage() {
 
   const renderPipelineReport = () => {
     if (!analyticsData?.data) return null;
-    const { pipeline } = analyticsData.data;
+    const { pipeline = [] } = analyticsData.data;
 
-    const pipelineData = pipeline?.map((item: any) => ({
-      stage: item._id,
-      count: item.count,
-      value: item.totalValue,
-      avgValue: item.avgValue,
-    }));
+    const pipelineData =
+      pipeline?.map((item: any) => ({
+        stage: item._id || "Unknown",
+        count: item.count || 0,
+        value: item.totalValue || 0,
+        avgValue: item.avgValue || 0,
+      })) || [];
 
     return (
       <div className="space-y-6">
         <Card>
           <CardHeader>
             <CardTitle>Pipeline Overview</CardTitle>
-            <CardDescription>Deal distribution and value across pipeline stages</CardDescription>
+            <CardDescription>
+              Deal distribution and value across pipeline stages
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
@@ -427,7 +514,12 @@ export default function AnalyticsPage() {
                 <YAxis yAxisId="right" orientation="right" />
                 <Tooltip />
                 <Legend />
-                <Bar yAxisId="left" dataKey="count" fill="#8884d8" name="Deal Count" />
+                <Bar
+                  yAxisId="left"
+                  dataKey="count"
+                  fill="#8884d8"
+                  name="Deal Count"
+                />
                 <Bar
                   yAxisId="right"
                   dataKey="value"
@@ -448,16 +540,26 @@ export default function AnalyticsPage() {
               <CardContent>
                 <div className="space-y-2">
                   <div className="flex justify-between">
-                    <span className="text-sm text-muted-foreground">Deals:</span>
+                    <span className="text-sm text-muted-foreground">
+                      Deals:
+                    </span>
                     <span className="font-semibold">{stage.count}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-sm text-muted-foreground">Total Value:</span>
-                    <span className="font-semibold">{formatCurrency(stage.value)}</span>
+                    <span className="text-sm text-muted-foreground">
+                      Total Value:
+                    </span>
+                    <span className="font-semibold">
+                      {formatCurrency(stage.value)}
+                    </span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-sm text-muted-foreground">Avg Value:</span>
-                    <span className="font-semibold">{formatCurrency(stage.avgValue)}</span>
+                    <span className="text-sm text-muted-foreground">
+                      Avg Value:
+                    </span>
+                    <span className="font-semibold">
+                      {formatCurrency(stage.avgValue)}
+                    </span>
                   </div>
                 </div>
               </CardContent>
@@ -470,22 +572,25 @@ export default function AnalyticsPage() {
 
   const renderActivityReport = () => {
     if (!analyticsData?.data) return null;
-    const { byType, byStatus, byMonth } = analyticsData.data;
+    const { byType = [], byStatus = [], byMonth = [] } = analyticsData.data;
 
-    const typeData = byType?.map((item: any) => ({
-      name: item._id,
-      count: item.count,
-    }));
+    const typeData =
+      byType?.map((item: any) => ({
+        name: item._id || "Unknown",
+        count: item.count || 0,
+      })) || [];
 
-    const statusData = byStatus?.map((item: any) => ({
-      name: item._id,
-      count: item.count,
-    }));
+    const statusData =
+      byStatus?.map((item: any) => ({
+        name: item._id || "Unknown",
+        count: item.count || 0,
+      })) || [];
 
-    const monthData = byMonth?.map((item: any) => ({
-      name: `${item._id.month}/${item._id.year}`,
-      count: item.count,
-    }));
+    const monthData =
+      byMonth?.map((item: any) => ({
+        name: `${item._id?.month || 0}/${item._id?.year || 0}`,
+        count: item.count || 0,
+      })) || [];
 
     return (
       <div className="space-y-6">
@@ -509,7 +614,10 @@ export default function AnalyticsPage() {
                     dataKey="count"
                   >
                     {typeData?.map((entry: any, index: number) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                      <Cell
+                        key={`cell-${index}`}
+                        fill={COLORS[index % COLORS.length]}
+                      />
                     ))}
                   </Pie>
                   <Tooltip />
@@ -550,7 +658,12 @@ export default function AnalyticsPage() {
                 <YAxis />
                 <Tooltip />
                 <Legend />
-                <Line type="monotone" dataKey="count" stroke="#8884d8" name="Activities" />
+                <Line
+                  type="monotone"
+                  dataKey="count"
+                  stroke="#8884d8"
+                  name="Activities"
+                />
               </LineChart>
             </ResponsiveContainer>
           </CardContent>
