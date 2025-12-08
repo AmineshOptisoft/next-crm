@@ -154,3 +154,40 @@ export async function requireSuperAdminAccess(): Promise<
     ),
   };
 }
+
+/**
+ * Helper function to build MongoDB query filter based on user role
+ * Super admins can access all data (returns empty filter)
+ * Regular users can only access data from their company
+ */
+export function buildCompanyFilter(user: CurrentUser): { companyId?: string } {
+  // Super admin can see all data from all companies
+  if (user.role === "super_admin") {
+    return {};
+  }
+  
+  // Regular users can only see data from their company
+  if (!user.companyId) {
+    throw new Error("No company associated with user");
+  }
+  
+  return { companyId: user.companyId };
+}
+
+/**
+ * Validates that a user has a companyId (unless they're a super admin)
+ * Returns true if valid, throws error with message if invalid
+ */
+export function validateCompanyAccess(user: CurrentUser): boolean {
+  // Super admins don't need a companyId
+  if (user.role === "super_admin") {
+    return true;
+  }
+  
+  // All other users must have a companyId
+  if (!user.companyId) {
+    throw new Error("No company associated");
+  }
+  
+  return true;
+}

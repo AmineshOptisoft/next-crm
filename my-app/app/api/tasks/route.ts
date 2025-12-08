@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { connectDB } from "@/lib/db";
 import { Task } from "@/app/models/Task";
-import { checkPermission } from "@/lib/permissions";
+import { checkPermission, buildCompanyFilter, validateCompanyAccess } from "@/lib/permissions";
 
 export async function GET(req: NextRequest) {
   try {
@@ -12,12 +12,11 @@ export async function GET(req: NextRequest) {
     }
     const user = permCheck.user;
 
-    if (!user.companyId) {
-      return NextResponse.json({ error: "No company associated" }, { status: 400 });
-    }
-
     await connectDB();
-    const tasks = await Task.find({ companyId: user.companyId })
+    
+    const filter = buildCompanyFilter(user);
+    
+    const tasks = await Task.find(filter)
       .populate("assignedTo")
       .sort({ createdAt: -1 });
 
@@ -39,8 +38,10 @@ export async function POST(req: NextRequest) {
     }
     const user = permCheck.user;
 
-    if (!user.companyId) {
-      return NextResponse.json({ error: "No company associated" }, { status: 400 });
+    try {
+      validateCompanyAccess(user);
+    } catch (error) {
+      return NextResponse.json({ error: (error as Error).message }, { status: 400 });
     }
 
     const body = await req.json();

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
 import { Contact } from "@/app/models/Contact";
 import { getCurrentUser } from "@/lib/auth";
-import { checkPermission } from "@/lib/permissions";
+import { checkPermission, buildCompanyFilter } from "@/lib/permissions";
 
 type Context = { params: Promise<{ id: string }> } | { params: { id: string } };
 
@@ -22,21 +22,13 @@ export async function GET(req: NextRequest, context: Context) {
   }
   const user = permCheck.user;
 
-  if (!user.companyId) {
-    return NextResponse.json({ error: "No company associated" }, { status: 400 });
-  }
-
-  if (!user.companyId) {
-    return NextResponse.json({ error: "No company associated" }, { status: 400 });
-  }
-
   const { id } = await resolveParams(context);
 
   await connectDB();
-  const contact = await Contact.findOne({
-    _id: id,
-    companyId: user.companyId,
-  }).lean();
+  
+  // Build filter: super admins can access any contact, regular users only their company's
+  const filter = { _id: id, ...buildCompanyFilter(user) };
+  const contact = await Contact.findOne(filter).lean();
 
   if (!contact) {
     return NextResponse.json({ error: "Contact not found" }, { status: 404 });
@@ -52,21 +44,26 @@ export async function PUT(req: NextRequest, context: Context) {
   }
   const user = permCheck.user;
 
-  if (!user.companyId) {
-    return NextResponse.json({ error: "No company associated" }, { status: 400 });
-  }
-
-  if (!user.companyId) {
-    return NextResponse.json({ error: "No company associated" }, { status: 400 });
-  }
-
   const { id } = await resolveParams(context);
-  const { name, email, phone, company, status } = await req.json();
+  const body = await req.json();
+  const { name, email, phone, company, status, companyId: newCompanyId } = body;
 
   await connectDB();
+  
+  // Build filter: super admins can edit any contact, regular users only their company's
+  const filter = { _id: id, ...buildCompanyFilter(user) };
+  
+  // Prepare update data
+  const updateData: any = { name, email, phone, company, status };
+  
+  // Super admins can change the companyId (reassign contact to different company)
+  if (user.role === "super_admin" && newCompanyId) {
+    updateData.companyId = newCompanyId;
+  }
+  
   const contact = await Contact.findOneAndUpdate(
-    { _id: id, companyId: user.companyId },
-    { name, email, phone, company, status },
+    filter,
+    updateData,
     { new: true }
   ).lean();
 
@@ -84,17 +81,13 @@ export async function DELETE(req: NextRequest, context: Context) {
   }
   const user = permCheck.user;
 
-  if (!user.companyId) {
-    return NextResponse.json({ error: "No company associated" }, { status: 400 });
-  }
-
   const { id } = await resolveParams(context);
 
   await connectDB();
-  const deleted = await Contact.findOneAndDelete({
-    _id: id,
-    companyId: user.companyId,
-  }).lean();
+  
+  // Build filter: super admins can delete any contact, regular users only their company's
+  const filter = { _id: id, ...buildCompanyFilter(user) };
+  const deleted = await Contact.findOneAndDelete(filter).lean();
 
   if (!deleted) {
     return NextResponse.json({ error: "Contact not found" }, { status: 404 });

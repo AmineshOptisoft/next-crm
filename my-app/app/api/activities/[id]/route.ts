@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
 import { Activity } from "@/app/models/Activity";
 import { getCurrentUser } from "@/lib/auth";
+import { checkPermission, buildCompanyFilter } from "@/lib/permissions";
 
 type Context = { params: { id: string } } | { params: Promise<{ id: string }> };
 
@@ -13,22 +14,17 @@ async function resolveParams(context: Context) {
 }
 
 export async function GET(req: NextRequest, context: Context) {
-  const user = await getCurrentUser();
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const permCheck = await checkPermission("activities", "view");
+  if (!permCheck.authorized) {
+    return permCheck.response;
   }
-
-  if (!user.companyId) {
-    return NextResponse.json({ error: "No company associated" }, { status: 400 });
-  }
+  const user = permCheck.user;
 
   const { id } = await resolveParams(context);
 
   await connectDB();
-  const activity = await Activity.findOne({
-    _id: id,
-    companyId: user.companyId,
-  })
+  const filter = { _id: id, ...buildCompanyFilter(user) };
+  const activity = await Activity.findOne(filter)
     .populate("contactId", "name email")
     .populate("assignedTo", "firstName lastName")
     .lean();
@@ -44,21 +40,19 @@ export async function GET(req: NextRequest, context: Context) {
 }
 
 export async function PUT(req: NextRequest, context: Context) {
-  const user = await getCurrentUser();
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const permCheck = await checkPermission("activities", "edit");
+  if (!permCheck.authorized) {
+    return permCheck.response;
   }
-
-  if (!user.companyId) {
-    return NextResponse.json({ error: "No company associated" }, { status: 400 });
-  }
+  const user = permCheck.user;
 
   const { id } = await resolveParams(context);
   const body = await req.json();
 
   await connectDB();
+  const filter = { _id: id, ...buildCompanyFilter(user) };
   const activity = await Activity.findOneAndUpdate(
-    { _id: id, companyId: user.companyId },
+    filter,
     body,
     { new: true, runValidators: true }
   )
@@ -77,22 +71,17 @@ export async function PUT(req: NextRequest, context: Context) {
 }
 
 export async function DELETE(req: NextRequest, context: Context) {
-  const user = await getCurrentUser();
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const permCheck = await checkPermission("activities", "delete");
+  if (!permCheck.authorized) {
+    return permCheck.response;
   }
-
-  if (!user.companyId) {
-    return NextResponse.json({ error: "No company associated" }, { status: 400 });
-  }
+  const user = permCheck.user;
 
   const { id } = await resolveParams(context);
 
   await connectDB();
-  const deleted = await Activity.findOneAndDelete({
-    _id: id,
-    companyId: user.companyId,
-  }).lean();
+  const filter = { _id: id, ...buildCompanyFilter(user) };
+  const deleted = await Activity.findOneAndDelete(filter).lean();
 
   if (!deleted) {
     return NextResponse.json(

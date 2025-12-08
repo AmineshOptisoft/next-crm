@@ -2,16 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
 import { Activity } from "@/app/models/Activity";
 import { getCurrentUser } from "@/lib/auth";
+import { checkPermission, buildCompanyFilter, validateCompanyAccess } from "@/lib/permissions";
 
 export async function GET(req: NextRequest) {
-  const user = await getCurrentUser();
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const permCheck = await checkPermission("activities", "view");
+  if (!permCheck.authorized) {
+    return permCheck.response;
   }
-
-  if (!user.companyId) {
-    return NextResponse.json({ error: "No company associated" }, { status: 400 });
-  }
+  const user = permCheck.user;
 
   const { searchParams } = new URL(req.url);
   const contactId = searchParams.get("contactId");
@@ -20,7 +18,7 @@ export async function GET(req: NextRequest) {
 
   await connectDB();
 
-  const filter: any = { companyId: user.companyId };
+  const filter: any = buildCompanyFilter(user);
   if (contactId) filter.contactId = contactId;
   if (dealId) filter.dealId = dealId;
   if (type) filter.type = type;
@@ -35,13 +33,16 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const user = await getCurrentUser();
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const permCheck = await checkPermission("activities", "create");
+  if (!permCheck.authorized) {
+    return permCheck.response;
   }
+  const user = permCheck.user;
 
-  if (!user.companyId) {
-    return NextResponse.json({ error: "No company associated" }, { status: 400 });
+  try {
+    validateCompanyAccess(user);
+  } catch (error) {
+    return NextResponse.json({ error: (error as Error).message }, { status: 400 });
   }
 
   const body = await req.json();

@@ -42,6 +42,10 @@ interface Role {
   permissions: Permission[];
   isSystemRole: boolean;
   isActive: boolean;
+  companyId?: {
+    _id: string;
+    name: string;
+  };
   createdBy?: {
     firstName: string;
     lastName: string;
@@ -356,6 +360,7 @@ export default function RolesPage() {
               <TableRow>
                 <TableHead>Role Name</TableHead>
                 <TableHead>Description</TableHead>
+                <TableHead>Company</TableHead>
                 <TableHead>Permissions</TableHead>
                 <TableHead>Type</TableHead>
                 <TableHead>Created</TableHead>
@@ -365,7 +370,7 @@ export default function RolesPage() {
             <TableBody>
               {roles.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="py-12 text-center">
+                  <TableCell colSpan={7} className="py-12 text-center">
                     <div className="flex flex-col items-center gap-2">
                       <Shield className="h-12 w-12 text-muted-foreground" />
                       <p className="text-muted-foreground">
@@ -380,6 +385,15 @@ export default function RolesPage() {
                     <TableCell className="font-medium">{role.name}</TableCell>
                     <TableCell>
                       {role.description || (
+                        <span className="text-muted-foreground">-</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {role.isSystemRole ? (
+                        <span className="text-muted-foreground italic">All Companies</span>
+                      ) : role.companyId?.name ? (
+                        role.companyId.name
+                      ) : (
                         <span className="text-muted-foreground">-</span>
                       )}
                     </TableCell>

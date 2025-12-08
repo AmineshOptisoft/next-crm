@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
 import { Invoice } from "@/app/models/Invoice";
 import { getCurrentUser } from "@/lib/auth";
-import { checkPermission } from "@/lib/permissions";
+import { checkPermission, buildCompanyFilter } from "@/lib/permissions";
 type Context = { params: { id: string } } | { params: Promise<{ id: string }> };
 
 async function resolveParams(context: Context) {
@@ -19,17 +19,11 @@ export async function GET(req: NextRequest, context: Context) {
   }
   const user = permCheck.user;
 
-  if (!user.companyId) {
-    return NextResponse.json({ error: "No company associated" }, { status: 400 });
-  }
-
   const { id } = await resolveParams(context);
 
   await connectDB();
-  const invoice = await Invoice.findOne({
-    _id: id,
-    companyId: user.companyId,
-  })
+  const filter = { _id: id, ...buildCompanyFilter(user) };
+  const invoice = await Invoice.findOne(filter)
     .populate("contactId", "name email company")
     .populate("items.productId", "name sku")
     .lean();
@@ -47,10 +41,6 @@ export async function PUT(req: NextRequest, context: Context) {
     return permCheck.response;
   }
   const user = permCheck.user;
-
-  if (!user.companyId) {
-    return NextResponse.json({ error: "No company associated" }, { status: 400 });
-  }
 
   const { id } = await resolveParams(context);
   const body = await req.json();
@@ -95,8 +85,9 @@ export async function PUT(req: NextRequest, context: Context) {
     update.paidDate = new Date();
   }
 
+  const filter = { _id: id, ...buildCompanyFilter(user) };
   const invoice = await Invoice.findOneAndUpdate(
-    { _id: id, companyId: user.companyId },
+    filter,
     update,
     { new: true, runValidators: true }
   )
@@ -118,17 +109,11 @@ export async function DELETE(req: NextRequest, context: Context) {
   }
   const user = permCheck.user;
 
-  if (!user.companyId) {
-    return NextResponse.json({ error: "No company associated" }, { status: 400 });
-  }
-
   const { id } = await resolveParams(context);
 
   await connectDB();
-  const deleted = await Invoice.findOneAndDelete({
-    _id: id,
-    companyId: user.companyId,
-  }).lean();
+  const filter = { _id: id, ...buildCompanyFilter(user) };
+  const deleted = await Invoice.findOneAndDelete(filter).lean();
 
   if (!deleted) {
     return NextResponse.json({ error: "Invoice not found" }, { status: 404 });

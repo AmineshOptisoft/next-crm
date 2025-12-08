@@ -28,7 +28,7 @@ interface Company {
     firstName: string;
     lastName: string;
     email: string;
-  };
+  } | null;
   description?: string;
   industry?: string;
   website?: string;
@@ -213,14 +213,20 @@ export default function CompaniesPage() {
                       </div>
                     </TableCell>
                     <TableCell>
-                      <div>
-                        <div className="font-medium">
-                          {company.adminId.firstName} {company.adminId.lastName}
+                      {company.adminId ? (
+                        <div>
+                          <div className="font-medium">
+                            {company.adminId.firstName} {company.adminId.lastName}
+                          </div>
+                          <div className="text-sm text-muted-foreground">
+                            {company.adminId.email}
+                          </div>
                         </div>
+                      ) : (
                         <div className="text-sm text-muted-foreground">
-                          {company.adminId.email}
+                          N/A
                         </div>
-                      </div>
+                      )}
                     </TableCell>
                     <TableCell>{getPlanBadge(company.plan)}</TableCell>
                     <TableCell>
@@ -307,21 +313,27 @@ export default function CompaniesPage() {
 
                 <div>
                   <h3 className="font-semibold mb-2">Administrator</h3>
-                  <div className="space-y-2 text-sm">
-                    <div>
-                      <span className="text-muted-foreground">Name:</span>{" "}
-                      <span className="font-medium">
-                        {viewCompany.adminId.firstName}{" "}
-                        {viewCompany.adminId.lastName}
-                      </span>
+                  {viewCompany.adminId ? (
+                    <div className="space-y-2 text-sm">
+                      <div>
+                        <span className="text-muted-foreground">Name:</span>{" "}
+                        <span className="font-medium">
+                          {viewCompany.adminId.firstName}{" "}
+                          {viewCompany.adminId.lastName}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">Email:</span>{" "}
+                        <span className="font-medium">
+                          {viewCompany.adminId.email}
+                        </span>
+                      </div>
                     </div>
-                    <div>
-                      <span className="text-muted-foreground">Email:</span>{" "}
-                      <span className="font-medium">
-                        {viewCompany.adminId.email}
-                      </span>
+                  ) : (
+                    <div className="text-sm text-muted-foreground">
+                      No administrator information available
                     </div>
-                  </div>
+                  )}
                 </div>
               </div>
 

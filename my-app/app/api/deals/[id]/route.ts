@@ -3,7 +3,7 @@ import { connectDB } from "@/lib/db";
 import { Deal } from "@/app/models/Deal";
 import { Contact } from "@/app/models/Contact";
 import { getCurrentUser } from "@/lib/auth";
-import { checkPermission } from "@/lib/permissions";
+import { checkPermission, buildCompanyFilter } from "@/lib/permissions";
 
 type Context = { params: { id: string } } | { params: Promise<{ id: string }> };
 
@@ -21,14 +21,11 @@ export async function GET(req: NextRequest, context: Context) {
   }
   const user = permCheck.user;
 
-  if (!user.companyId) {
-    return NextResponse.json({ error: "No company associated" }, { status: 400 });
-  }
-
   const { id } = await resolveParams(context);
 
   await connectDB();
-  const deal = await Deal.findOne({ _id: id, companyId: user.companyId })
+  const filter = { _id: id, ...buildCompanyFilter(user) };
+  const deal = await Deal.findOne(filter)
     .populate("contactId")
     .lean();
 
@@ -46,10 +43,6 @@ export async function PUT(req: NextRequest, context: Context) {
   }
   const user = permCheck.user;
 
-  if (!user.companyId) {
-    return NextResponse.json({ error: "No company associated" }, { status: 400 });
-  }
-
   const { id } = await resolveParams(context);
   const body = await req.json();
   const { title, value, stage, contactId, closeDate } = body as {
@@ -64,13 +57,12 @@ export async function PUT(req: NextRequest, context: Context) {
 
   let contactObjectId = undefined;
   if (contactId) {
-    const contact = await Contact.findOne({
-      _id: contactId,
-      companyId: user.companyId,
-    }).lean();
+    // For super admins, skip company check on contact
+    const contactFilter = user.role === "super_admin" ? { _id: contactId } : { _id: contactId, ...buildCompanyFilter(user) };
+    const contact = await Contact.findOne(contactFilter).lean();
     if (!contact) {
       return NextResponse.json(
-        { error: "Invalid contact for this company" },
+        { error: "Invalid contact" },
         { status: 400 }
       );
     }
@@ -89,8 +81,9 @@ export async function PUT(req: NextRequest, context: Context) {
   if (closeDate !== undefined)
     update.closeDate = closeDate ? new Date(closeDate) : null;
 
+  const filter = { _id: id, ...buildCompanyFilter(user) };
   const deal = await Deal.findOneAndUpdate(
-    { _id: id, companyId: user.companyId },
+    filter,
     update,
     { new: true }
   )
@@ -111,17 +104,11 @@ export async function DELETE(req: NextRequest, context: Context) {
   }
   const user = permCheck.user;
 
-  if (!user.companyId) {
-    return NextResponse.json({ error: "No company associated" }, { status: 400 });
-  }
-
   const { id } = await resolveParams(context);
 
   await connectDB();
-  const deleted = await Deal.findOneAndDelete({
-    _id: id,
-    companyId: user.companyId,
-  }).lean();
+  const filter = { _id: id, ...buildCompanyFilter(user) };
+  const deleted = await Deal.findOneAndDelete(filter).lean();
 
   if (!deleted) {
     return NextResponse.json({ error: "Deal not found" }, { status: 404 });

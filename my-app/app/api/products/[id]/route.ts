@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
 import { Product } from "@/app/models/Product";
 import { getCurrentUser } from "@/lib/auth";
-import { checkPermission } from "@/lib/permissions";
+import { checkPermission, buildCompanyFilter } from "@/lib/permissions";
 type Context = { params: { id: string } } | { params: Promise<{ id: string }> };
 
 async function resolveParams(context: Context) {
@@ -19,17 +19,11 @@ export async function GET(req: NextRequest, context: Context) {
   }
   const user = permCheck.user;
 
-  if (!user.companyId) {
-    return NextResponse.json({ error: "No company associated" }, { status: 400 });
-  }
-
   const { id } = await resolveParams(context);
 
   await connectDB();
-  const product = await Product.findOne({
-    _id: id,
-    companyId: user.companyId,
-  }).lean();
+  const filter = { _id: id, ...buildCompanyFilter(user) };
+  const product = await Product.findOne(filter).lean();
 
   if (!product) {
     return NextResponse.json({ error: "Product not found" }, { status: 404 });
@@ -45,23 +39,16 @@ export async function PUT(req: NextRequest, context: Context) {
   }
   const user = permCheck.user;
 
-  if (!user.companyId) {
-    return NextResponse.json({ error: "No company associated" }, { status: 400 });
-  }
-
   const { id } = await resolveParams(context);
   const body = await req.json();
   const { sku } = body;
 
   await connectDB();
 
-  // Check if SKU already exists for another product in this company
+  // Check if SKU already exists for another product
   if (sku) {
-    const existing = await Product.findOne({
-      sku,
-      companyId: user.companyId,
-      _id: { $ne: id },
-    });
+    const skuFilter = user.role === "super_admin" ? { sku, _id: { $ne: id } } : { sku, ...buildCompanyFilter(user), _id: { $ne: id } };
+    const existing = await Product.findOne(skuFilter);
     if (existing) {
       return NextResponse.json(
         { error: "Product with this SKU already exists" },
@@ -70,8 +57,9 @@ export async function PUT(req: NextRequest, context: Context) {
     }
   }
 
+  const filter = { _id: id, ...buildCompanyFilter(user) };
   const product = await Product.findOneAndUpdate(
-    { _id: id, companyId: user.companyId },
+    filter,
     body,
     { new: true, runValidators: true }
   ).lean();
@@ -90,17 +78,11 @@ export async function DELETE(req: NextRequest, context: Context) {
   }
   const user = permCheck.user;
 
-  if (!user.companyId) {
-    return NextResponse.json({ error: "No company associated" }, { status: 400 });
-  }
-
   const { id } = await resolveParams(context);
 
   await connectDB();
-  const deleted = await Product.findOneAndDelete({
-    _id: id,
-    companyId: user.companyId,
-  }).lean();
+  const filter = { _id: id, ...buildCompanyFilter(user) };
+  const deleted = await Product.findOneAndDelete(filter).lean();
 
   if (!deleted) {
     return NextResponse.json({ error: "Product not found" }, { status: 404 });

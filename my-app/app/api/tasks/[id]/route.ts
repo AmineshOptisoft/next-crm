@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { connectDB } from "@/lib/db";
 import { Task } from "@/app/models/Task";
-import { checkPermission } from "@/lib/permissions";
+import { checkPermission, buildCompanyFilter } from "@/lib/permissions";
 
 type Context = { params: { id: string } } | { params: Promise<{ id: string }> };
 
@@ -21,17 +21,11 @@ export async function GET(req: NextRequest, context: Context) {
     }
     const user = permCheck.user;
 
-    if (!user.companyId) {
-      return NextResponse.json({ error: "No company associated" }, { status: 400 });
-    }
-
     const { id } = await resolveParams(context);
 
     await connectDB();
-    const task = await Task.findOne({
-      _id: id,
-      companyId: user.companyId,
-    }).populate("assignedTo");
+    const filter = { _id: id, ...buildCompanyFilter(user) };
+    const task = await Task.findOne(filter).populate("assignedTo");
 
     if (!task) {
       return NextResponse.json({ error: "Task not found" }, { status: 404 });
@@ -55,16 +49,13 @@ export async function PUT(req: NextRequest, context: Context) {
     }
     const user = permCheck.user;
 
-    if (!user.companyId) {
-      return NextResponse.json({ error: "No company associated" }, { status: 400 });
-    }
-
     const { id } = await resolveParams(context);
     const body = await req.json();
 
     await connectDB();
+    const filter = { _id: id, ...buildCompanyFilter(user) };
     const task = await Task.findOneAndUpdate(
-      { _id: id, companyId: user.companyId },
+      filter,
       body,
       { new: true, runValidators: true }
     ).populate("assignedTo");
@@ -91,17 +82,11 @@ export async function DELETE(req: NextRequest, context: Context) {
     }
     const user = permCheck.user;
 
-    if (!user.companyId) {
-      return NextResponse.json({ error: "No company associated" }, { status: 400 });
-    }
-
     const { id } = await resolveParams(context);
 
     await connectDB();
-    const task = await Task.findOneAndDelete({
-      _id: id,
-      companyId: user.companyId,
-    });
+    const filter = { _id: id, ...buildCompanyFilter(user) };
+    const task = await Task.findOneAndDelete(filter);
 
     if (!task) {
       return NextResponse.json({ error: "Task not found" }, { status: 404 });

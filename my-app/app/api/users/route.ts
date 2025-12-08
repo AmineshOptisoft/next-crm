@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
 import { User } from "@/app/models/User";
 import { getCurrentUser, requireCompanyAdmin } from "@/lib/auth";
+import { buildCompanyFilter, validateCompanyAccess } from "@/lib/permissions";
 import bcrypt from "bcryptjs";
 
 export async function GET(req: NextRequest) {
@@ -18,16 +19,11 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  if (!user.companyId) {
-    return NextResponse.json({ error: "No company associated" }, { status: 400 });
-  }
-
   await connectDB();
 
-  const users = await User.find({
-    companyId: user.companyId,
-    isActive: true,
-  })
+  // Build filter: super admins see all users, company admins see only their company's users
+  const filter = { ...buildCompanyFilter(user), isActive: true };
+  const users = await User.find(filter)
     .populate("customRoleId", "name permissions")
     .select("-passwordHash -verificationToken")
     .sort({ createdAt: -1 })
@@ -50,8 +46,11 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  if (!user.companyId) {
-    return NextResponse.json({ error: "No company associated" }, { status: 400 });
+  // Validate user has company access
+  try {
+    validateCompanyAccess(user);
+  } catch (error) {
+    return NextResponse.json({ error: (error as Error).message }, { status: 400 });
   }
 
   const body = await req.json();

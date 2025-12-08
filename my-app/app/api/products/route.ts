@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
 import { Product } from "@/app/models/Product";
 import { getCurrentUser } from "@/lib/auth";
-import { checkPermission } from "@/lib/permissions";
+import { checkPermission, buildCompanyFilter, validateCompanyAccess } from "@/lib/permissions";
 export async function GET(req: NextRequest) {
   const permCheck = await checkPermission("products", "view");
   if (!permCheck.authorized) {
@@ -10,17 +10,13 @@ export async function GET(req: NextRequest) {
   }
   const user = permCheck.user;
 
-  if (!user.companyId) {
-    return NextResponse.json({ error: "No company associated" }, { status: 400 });
-  }
-
   const { searchParams } = new URL(req.url);
   const isActive = searchParams.get("isActive");
   const category = searchParams.get("category");
 
   await connectDB();
 
-  const filter: any = { companyId: user.companyId };
+  const filter: any = buildCompanyFilter(user);
   if (isActive !== null) filter.isActive = isActive === "true";
   if (category) filter.category = category;
 
@@ -36,8 +32,10 @@ export async function POST(req: NextRequest) {
   }
   const user = permCheck.user;
 
-  if (!user.companyId) {
-    return NextResponse.json({ error: "No company associated" }, { status: 400 });
+  try {
+    validateCompanyAccess(user);
+  } catch (error) {
+    return NextResponse.json({ error: (error as Error).message }, { status: 400 });
   }
 
   const body = await req.json();

@@ -28,7 +28,10 @@ export async function GET(req: NextRequest) {
       lastName: user.lastName,
       email: user.email,
       role: user.role,
-      companyId: user.companyId?.toString() || null,
+      companyId: populatedUser?.companyId ? {
+        _id: populatedUser.companyId._id?.toString(),
+        name: populatedUser.companyId.name
+      } : null,
       companyName: populatedUser?.companyId?.name || user.companyName || "",
       countryId: user.countryId || "",
       stateId: user.stateId || "",

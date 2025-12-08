@@ -12,12 +12,13 @@ export async function GET(req: NextRequest) {
   }
   const user = permCheck.user;
 
-  if (!user.companyId) {
-    return NextResponse.json({ error: "No company associated" }, { status: 400 });
-  }
-
   await connectDB();
-  const deals = await Deal.find({ companyId: user.companyId })
+  
+  // Build filter: super admins see all deals, regular users see only their company's deals
+  const { buildCompanyFilter } = await import("@/lib/permissions");
+  const filter = buildCompanyFilter(user);
+  
+  const deals = await Deal.find(filter)
     .populate("contactId")
     .sort({ createdAt: -1 })
     .lean();
@@ -32,8 +33,12 @@ export async function POST(req: NextRequest) {
   }
   const user = permCheck.user;
 
-  if (!user.companyId) {
-    return NextResponse.json({ error: "No company associated" }, { status: 400 });
+  // Validate user has company access
+  const { validateCompanyAccess } = await import("@/lib/permissions");
+  try {
+    validateCompanyAccess(user);
+  } catch (error) {
+    return NextResponse.json({ error: (error as Error).message }, { status: 400 });
   }
 
   const body = await req.json();

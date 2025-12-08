@@ -38,11 +38,14 @@ interface ContactType {
   email?: string;
   phone?: string;
   company?: string;
+  companyId?: string; // CRM company ID
   status: string;
 }
 
 export default function ContactsPage() {
   const [contacts, setContacts] = useState<ContactType[]>([]);
+  const [companies, setCompanies] = useState<any[]>([]);
+  const [currentUser, setCurrentUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingContact, setEditingContact] = useState<ContactType | null>(
@@ -54,11 +57,44 @@ export default function ContactsPage() {
     phone: "",
     company: "",
     status: "lead",
+    companyId: "", // For super admin to select company
   });
 
   useEffect(() => {
     fetchContacts();
+    fetchCurrentUser();
   }, []);
+
+  useEffect(() => {
+    // Fetch companies if user is super admin
+    if (currentUser?.role === "super_admin") {
+      fetchCompanies();
+    }
+  }, [currentUser]);
+
+  async function fetchCurrentUser() {
+    try {
+      const res = await fetch("/api/auth/me");
+      if (res.ok) {
+        const data = await res.json();
+        setCurrentUser(data.user); // Extract user from response
+      }
+    } catch (e) {
+      console.error("Error fetching current user:", e);
+    }
+  }
+
+  async function fetchCompanies() {
+    try {
+      const res = await fetch("/api/companies");
+      if (res.ok) {
+        const data = await res.json();
+        setCompanies(data);
+      }
+    } catch (e) {
+      console.error("Error fetching companies:", e);
+    }
+  }
 
   async function fetchContacts() {
     try {
@@ -67,8 +103,15 @@ export default function ContactsPage() {
         const data = await res.json();
         setContacts(data);
       } else {
-        const error = await res.json();
-        toast.error(error.error || "Failed to fetch contacts");
+        // Safely parse error response
+        let errorMessage = "Failed to fetch contacts";
+        try {
+          const error = await res.json();
+          errorMessage = error.error || errorMessage;
+        } catch (parseError) {
+          errorMessage = res.statusText || errorMessage;
+        }
+        toast.error(errorMessage);
       }
     } catch (e) {
       console.error("Error fetching contacts:", e);
@@ -86,11 +129,21 @@ export default function ContactsPage() {
       : "/api/contacts";
     const method = editingContact ? "PUT" : "POST";
 
+    // Prepare data - add companyId for super admin
+    const submitData: any = { ...formData };
+    if (currentUser?.role === "super_admin" && formData.companyId) {
+      submitData.companyId = formData.companyId;
+    }
+    // Remove the companyId field from formData for regular users
+    if (currentUser?.role !== "super_admin") {
+      delete submitData.companyId;
+    }
+
     try {
       const res = await fetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(submitData),
       });
 
       if (res.ok) {
@@ -103,8 +156,16 @@ export default function ContactsPage() {
         setIsDialogOpen(false);
         resetForm();
       } else {
-        const error = await res.json();
-        toast.error(error.error || "Failed to save contact");
+        // Safely parse error response
+        let errorMessage = "Failed to save contact";
+        try {
+          const error = await res.json();
+          errorMessage = error.error || errorMessage;
+        } catch (parseError) {
+          // If JSON parsing fails, use status text
+          errorMessage = res.statusText || errorMessage;
+        }
+        toast.error(errorMessage);
       }
     } catch (e) {
       console.error("Error saving contact:", e);
@@ -138,6 +199,7 @@ export default function ContactsPage() {
       phone: contact.phone || "",
       company: contact.company || "",
       status: contact.status || "lead",
+      companyId: contact.companyId || "", // Populate companyId for editing
     });
     setIsDialogOpen(true);
   }
@@ -150,6 +212,7 @@ export default function ContactsPage() {
       phone: "",
       company: "",
       status: "lead",
+      companyId: "",
     });
   }
 
@@ -232,36 +295,117 @@ export default function ContactsPage() {
                     />
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="company">Company</Label>
-                    <Input
-                      id="company"
-                      value={formData.company}
-                      onChange={(e) =>
-                        setFormData({ ...formData, company: e.target.value })
-                      }
-                    />
+                
+                {/* When creating: Add CRM Company selector and Contact's Company field */}
+                {!editingContact && (
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      {/* CRM Company selector for super admin, display for regular users */}
+                      {currentUser?.role === "super_admin" ? (
+                        <>
+                          <Label htmlFor="companyId">CRM Company *</Label>
+                          <Select
+                            value={formData.companyId}
+                            onValueChange={(value) =>
+                              setFormData({ ...formData, companyId: value })
+                            }
+                            required
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select CRM company" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {companies.map((company) => (
+                                <SelectItem key={company._id} value={company._id}>
+                                  {company.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </>
+                      ) : currentUser?.companyId ? (
+                        <>
+                          <Label>CRM Company</Label>
+                          <Input
+                            value={currentUser.companyId.name || "Your Company"}
+                            disabled
+                            className="bg-muted"
+                          />
+                        </>
+                      ) : null}
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="company">Contact's Company</Label>
+                      <Input
+                        id="company"
+                        value={formData.company}
+                        onChange={(e) =>
+                          setFormData({ ...formData, company: e.target.value })
+                        }
+                        placeholder="e.g., Acme Corp"
+                      />
+                    </div>
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="status">Status</Label>
-                    <Select
-                      value={formData.status}
-                      onValueChange={(value) =>
-                        setFormData({ ...formData, status: value })
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="lead">Lead</SelectItem>
-                        <SelectItem value="prospect">Prospect</SelectItem>
-                        <SelectItem value="customer">Customer</SelectItem>
-                        <SelectItem value="inactive">Inactive</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+                )}
+                
+                {/* When editing: Show CRM company (if super admin) and contact's company */}
+                {editingContact && (
+                  <>
+                    {currentUser?.role === "super_admin" && (
+                      <div className="space-y-2">
+                        <Label htmlFor="companyId">CRM Company *</Label>
+                        <Select
+                          value={formData.companyId}
+                          onValueChange={(value) =>
+                            setFormData({ ...formData, companyId: value })
+                          }
+                          required
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select CRM company" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {companies.map((company) => (
+                              <SelectItem key={company._id} value={company._id}>
+                                {company.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
+                    <div className="space-y-2">
+                      <Label htmlFor="company">Contact's Company</Label>
+                      <Input
+                        id="company"
+                        value={formData.company}
+                        onChange={(e) =>
+                          setFormData({ ...formData, company: e.target.value })
+                        }
+                        placeholder="e.g., Acme Corp"
+                      />
+                    </div>
+                  </>
+                )}
+                
+                <div className="space-y-2">
+                  <Label htmlFor="status">Status</Label>
+                  <Select
+                    value={formData.status}
+                    onValueChange={(value) =>
+                      setFormData({ ...formData, status: value })
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="lead">Lead</SelectItem>
+                      <SelectItem value="prospect">Prospect</SelectItem>
+                      <SelectItem value="customer">Customer</SelectItem>
+                      <SelectItem value="inactive">Inactive</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
               <DialogFooter>

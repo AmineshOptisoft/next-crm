@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
 import { Company } from "@/app/models/Company";
 import { getCurrentUser, requireCompanyAdmin } from "@/lib/auth";
+import { validateCompanyAccess } from "@/lib/permissions";
 
 export async function GET(req: NextRequest) {
   const user = await getCurrentUser();
@@ -9,8 +10,11 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  if (!user.companyId) {
-    return NextResponse.json({ error: "No company associated" }, { status: 400 });
+  // Validate user has company access
+  try {
+    validateCompanyAccess(user);
+  } catch (error) {
+    return NextResponse.json({ error: (error as Error).message }, { status: 400 });
   }
 
   await connectDB();
@@ -38,8 +42,11 @@ export async function PUT(req: NextRequest) {
     );
   }
 
-  if (!user.companyId) {
-    return NextResponse.json({ error: "No company associated" }, { status: 400 });
+  // Validate user has company access
+  try {
+    validateCompanyAccess(user);
+  } catch (error) {
+    return NextResponse.json({ error: (error as Error).message }, { status: 400 });
   }
 
   const body = await req.json();

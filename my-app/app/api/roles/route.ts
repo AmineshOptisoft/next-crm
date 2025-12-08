@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
 import { Role } from "@/app/models/Role";
 import { getCurrentUser, requireCompanyAdmin } from "@/lib/auth";
+import { buildCompanyFilter, validateCompanyAccess } from "@/lib/permissions";
 
 export async function GET(req: NextRequest) {
   const user = await getCurrentUser();
@@ -17,19 +18,29 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  if (!user.companyId) {
-    return NextResponse.json({ error: "No company associated" }, { status: 400 });
-  }
-
   await connectDB();
 
-  const roles = await Role.find({
-    companyId: user.companyId,
-    isActive: true,
-  })
+  // Build filter: super admins see all roles, company admins see only their company's roles
+  const filter = { ...buildCompanyFilter(user), isActive: true };
+  let roles = await Role.find(filter)
     .populate("createdBy", "firstName lastName email")
+    .populate("companyId", "name")
     .sort({ createdAt: -1 })
     .lean();
+
+  // For super admins, deduplicate system roles (show only one instance of each system role)
+  if (user.role === "super_admin") {
+    const seenSystemRoles = new Set<string>();
+    roles = roles.filter((role: any) => {
+      if (role.isSystemRole) {
+        if (seenSystemRoles.has(role.name)) {
+          return false; // Skip duplicate system role
+        }
+        seenSystemRoles.add(role.name);
+      }
+      return true; // Keep custom roles and first instance of system roles
+    });
+  }
 
   return NextResponse.json(roles);
 }
@@ -48,8 +59,11 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  if (!user.companyId) {
-    return NextResponse.json({ error: "No company associated" }, { status: 400 });
+  // Validate user has company access
+  try {
+    validateCompanyAccess(user);
+  } catch (error) {
+    return NextResponse.json({ error: (error as Error).message }, { status: 400 });
   }
 
   const body = await req.json();
