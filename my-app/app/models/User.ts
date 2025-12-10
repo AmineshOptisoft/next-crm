@@ -73,8 +73,8 @@ const UserSchema = new Schema(
   { timestamps: true }
 );
 
-// Indexes for performance
-UserSchema.index({ email: 1 });
+
+// Indexes for performance (email index is already created via unique: true in schema)
 UserSchema.index({ companyId: 1, role: 1 });
 UserSchema.index({ customRoleId: 1 });
 

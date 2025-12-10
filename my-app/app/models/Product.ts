@@ -20,8 +20,8 @@ const ProductSchema = new Schema(
   { timestamps: true }
 );
 
+// Indexes for performance (sku index is already created via unique: true in schema)
 ProductSchema.index({ companyId: 1, isActive: 1 });
 ProductSchema.index({ ownerId: 1, isActive: 1 });
-ProductSchema.index({ sku: 1 });
 
 export const Product = models.Product || model("Product", ProductSchema);
