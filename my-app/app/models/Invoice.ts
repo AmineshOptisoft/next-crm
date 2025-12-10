@@ -37,9 +37,9 @@ const InvoiceSchema = new Schema(
   { timestamps: true }
 );
 
+// Indexes for performance (invoiceNumber index is already created via unique: true in schema)
 InvoiceSchema.index({ companyId: 1, status: 1 });
 InvoiceSchema.index({ ownerId: 1, status: 1 });
-InvoiceSchema.index({ invoiceNumber: 1 });
 InvoiceSchema.index({ contactId: 1 });
 
 export const Invoice = models.Invoice || model("Invoice", InvoiceSchema);

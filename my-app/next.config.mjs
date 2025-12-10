@@ -1,6 +1,25 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // config here
+  // Experimental features for Next.js 16
+  experimental: {
+    // Enable proxy instead of middleware
+    proxyTimeout: 30000,
+  },
+  
+  // Production optimizations
+  compress: true,
+  poweredByHeader: false,
+  
+  // Image optimization
+  images: {
+    remotePatterns: [],
+    formats: ['image/webp', 'image/avif'],
+  },
+  
+  // Environment variables that should be available on the client
+  env: {
+    NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
+  },
 };
 
 export default nextConfig;
