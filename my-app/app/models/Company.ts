@@ -22,6 +22,8 @@ const CompanySchema = new Schema(
       state: { type: String },
       country: { type: String },
       zipCode: { type: String },
+      latitude: { type: Number },
+      longitude: { type: Number },
     },
     
     // Subscription/Plan (for future use)
