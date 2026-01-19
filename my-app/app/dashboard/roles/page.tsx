@@ -25,6 +25,14 @@ import { Textarea } from "@/components/ui/textarea";
 import { Plus, Pencil, Trash2, Shield, Eye } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Switch } from "@/components/ui/switch";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface Permission {
   module: string;
@@ -42,6 +50,8 @@ interface Role {
   permissions: Permission[];
   isSystemRole: boolean;
   isActive: boolean;
+  isParent: number; // 1 = parent role, 0 = child role
+  parentRoleId?: string | null;
   companyId?: {
     _id: string;
     name: string;
@@ -76,6 +86,8 @@ export default function RolesPage() {
   const [formData, setFormData] = useState({
     name: "",
     description: "",
+    hasParent: false,
+    parentRoleId: "",
     permissions: MODULES.map((module) => ({
       module,
       canView: false,
@@ -95,6 +107,8 @@ export default function RolesPage() {
       const response = await fetch("/api/roles");
       if (response.ok) {
         const data = await response.json();
+        console.log("Fetched roles:", data);
+        console.log("Parent roles (isParent=1):", data.filter((r: Role) => r.isParent === 1));
         setRoles(data);
       }
     } catch (error) {
@@ -106,14 +120,34 @@ export default function RolesPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Validate parent role selection
+    if (formData.hasParent && !formData.parentRoleId) {
+      alert("Please select a parent role");
+      return;
+    }
+    
     try {
       const url = editingRole ? `/api/roles/${editingRole._id}` : "/api/roles";
       const method = editingRole ? "PUT" : "POST";
 
+      // Construct precise payload matching the Schema
+      const payload = {
+        name: formData.name,
+        description: formData.description,
+        permissions: formData.permissions,
+        // Explicitly converting to 0 (child) or 1 (parent)
+        isParent: formData.hasParent ? 0 : 1,
+        // Send actual ID or null
+        parentRoleId: formData.hasParent && formData.parentRoleId ? formData.parentRoleId : null,
+      };
+
+      console.log("Submitting payload:", payload);
+
       const response = await fetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(payload),
       });
 
       if (response.ok) {
@@ -122,6 +156,7 @@ export default function RolesPage() {
         resetForm();
       } else {
         const error = await response.json();
+        console.error("API Error:", error);
         alert(error.error || "Failed to save role");
       }
     } catch (error) {
@@ -154,6 +189,8 @@ export default function RolesPage() {
     setFormData({
       name: role.name,
       description: role.description || "",
+      hasParent: role.isParent === 0,
+      parentRoleId: role.parentRoleId || "",
       permissions: MODULES.map((module) => {
         const existing = role.permissions.find((p) => p.module === module);
         return (
@@ -189,6 +226,8 @@ export default function RolesPage() {
     setFormData({
       name: "",
       description: "",
+      hasParent: false,
+      parentRoleId: "",
       permissions: MODULES.map((module) => ({
         module,
         canView: false,
@@ -246,9 +285,10 @@ export default function RolesPage() {
                       id="name"
                       required
                       value={formData.name}
-                      onChange={(e) =>
-                        setFormData({ ...formData, name: e.target.value })
-                      }
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setFormData(prev => ({ ...prev, name: val }));
+                      }}
                       placeholder="e.g., Customer Support"
                     />
                   </div>
@@ -257,12 +297,69 @@ export default function RolesPage() {
                     <Input
                       id="description"
                       value={formData.description}
-                      onChange={(e) =>
-                        setFormData({ ...formData, description: e.target.value })
-                      }
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setFormData(prev => ({ ...prev, description: val }));
+                      }}
                       placeholder="Brief description of this role"
                     />
                   </div>
+                </div>
+
+                {/* Role Hierarchy Section */}
+                <div className="space-y-4 border-t pt-4">
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <Label htmlFor="hasParent">Has Parent Role</Label>
+                      <p className="text-sm text-muted-foreground">
+                        Enable to assign a parent role to this role
+                      </p>
+                    </div>
+                    <Switch
+                      id="hasParent"
+                      checked={formData.hasParent}
+                      onCheckedChange={(checked) =>
+                        setFormData(prev => ({ 
+                          ...prev, 
+                          hasParent: checked,
+                          parentRoleId: checked ? prev.parentRoleId : "" // Keep existing ID if toggling ON, clear if OFF 
+                        }))
+                      }
+                    />
+                  </div>
+
+                  {formData.hasParent && (
+                    <div className="space-y-2">
+                      <Label htmlFor="parentRole">Parent Role *</Label>
+                      <Select
+                        value={formData.parentRoleId}
+                        onValueChange={(value) =>
+                          setFormData(prev => ({ ...prev, parentRoleId: value }))
+                        }
+                      >
+                        <SelectTrigger id="parentRole">
+                          <SelectValue placeholder="Select a parent role" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {roles
+                            .filter((role) => 
+                              role.isParent == 1 && 
+                              role._id !== editingRole?._id
+                            )
+                            .map((role) => (
+                              <SelectItem key={role._id} value={role._id}>
+                                {role.name}
+                              </SelectItem>
+                            ))}
+                        </SelectContent>
+                      </Select>
+                      {roles.filter((r) => r.isParent === 1 && r._id !== editingRole?._id).length === 0 && (
+                        <p className="text-sm text-muted-foreground">
+                          No parent roles available. Create a role without a parent first.
+                        </p>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 <div className="space-y-2">

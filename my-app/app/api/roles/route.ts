@@ -42,6 +42,13 @@ export async function GET(req: NextRequest) {
     });
   }
 
+  // Ensure isParent and parentRoleId fields exist (for backward compatibility)
+  roles = roles.map((role: any) => ({
+    ...role,
+    isParent: role.isParent !== undefined ? role.isParent : 1,
+    parentRoleId: role.parentRoleId || null,
+  }));
+
   return NextResponse.json(roles);
 }
 
@@ -67,11 +74,31 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json();
-  const { name, description, permissions } = body;
+  const { name, description, permissions, hasParent, isParent, parentRoleId } = body;
+
+  console.log("POST /api/roles - Received data:", {
+    name,
+    hasParent,
+    isParent,
+    parentRoleId,
+  });
 
   if (!name || !permissions) {
     return NextResponse.json(
       { error: "Name and permissions are required" },
+      { status: 400 }
+    );
+  }
+
+  // Determine standard values (prioritize isParent if sent, otherwise fallback to hasParent logic)
+  // Logic: If isParent is 0, it means it's a child.
+  const finalIsParent = isParent !== undefined ? isParent : (hasParent ? 0 : 1);
+  const finalParentId = (finalIsParent === 0 && parentRoleId) ? parentRoleId : null;
+
+  // Validate parent role if it's a child role
+  if (finalIsParent === 0 && !finalParentId) {
+    return NextResponse.json(
+      { error: "Parent role is required for child roles" },
       { status: 400 }
     );
   }
@@ -91,14 +118,41 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const role = await Role.create({
+  // Validate parent role exists and is a parent role (isParent = 1)
+  if (finalIsParent === 0 && finalParentId) {
+    const parentRole = await Role.findById(finalParentId);
+    if (!parentRole) {
+      return NextResponse.json(
+        { error: "Selected parent role does not exist" },
+        { status: 400 }
+      );
+    }
+    
+    // Check if the parent role is a parent role (isParent = 1 or undefined for old roles)
+    const parentIsParent = parentRole.isParent !== undefined ? parentRole.isParent : 1;
+    
+    if (parentIsParent !== 1) {
+      return NextResponse.json(
+        { error: `Selected role is not a parent role (isParent=${parentRole.isParent})` },
+        { status: 400 }
+      );
+    }
+  }
+
+  const roleData = {
     companyId: user.companyId,
     name,
     description,
     permissions,
     createdBy: user.userId,
     isSystemRole: false,
-  });
+    isParent: finalIsParent,
+    parentRoleId: finalParentId,
+  };
+
+  console.log("Creating role with data:", roleData);
+
+  const role = await Role.create(roleData);
 
   return NextResponse.json(role, { status: 201 });
 }
