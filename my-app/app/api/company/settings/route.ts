@@ -53,9 +53,49 @@ export async function PUT(req: NextRequest) {
 
   await connectDB();
 
+  // Debug: Log all fields for checking
+  console.log("=== Profile Completion Check ===");
+  console.log("name:", body.name || "MISSING");
+  console.log("logo:", body.logo ? "EXISTS" : "MISSING");
+  console.log("industry:", body.industry || "MISSING");
+  console.log("email:", body.email || "MISSING");
+  console.log("phone:", body.phone || "MISSING");
+  console.log("address.street:", body.address?.street || "MISSING");
+  console.log("address.city:", body.address?.city || "MISSING");
+  console.log("address.state:", body.address?.state || "MISSING");
+  console.log("address.country:", body.address?.country || "MISSING");
+  console.log("address.zipCode:", body.address?.zipCode || "MISSING");
+  console.log("address.latitude:", body.address?.latitude || "MISSING");
+  console.log("address.longitude:", body.address?.longitude || "MISSING");
+
+  // Check if all required fields are present for profile completion
+  const isProfileComplete = !!(
+    body.name &&
+    body.logo &&
+    body.industry &&
+    body.email &&
+    body.phone &&
+    body.address?.street &&
+    body.address?.city &&
+    body.address?.state &&
+    body.address?.country &&
+    body.address?.zipCode &&
+    body.address?.latitude &&
+    body.address?.longitude
+  );
+
+  console.log("profileCompleted:", isProfileComplete);
+  console.log("=== End Check ===");
+
+  // Update company with profileCompleted status
+  const updateData = {
+    ...body,
+    profileCompleted: isProfileComplete,
+  };
+
   const company = await Company.findByIdAndUpdate(
     user.companyId,
-    { $set: body },
+    { $set: updateData },
     { new: true, runValidators: true }
   );
 
@@ -63,5 +103,10 @@ export async function PUT(req: NextRequest) {
     return NextResponse.json({ error: "Company not found" }, { status: 404 });
   }
 
-  return NextResponse.json(company);
+  // Convert to plain object to ensure all fields are returned
+  const companyObject = company.toObject();
+  
+  console.log("Returning company object with profileCompleted:", companyObject.profileCompleted);
+
+  return NextResponse.json(companyObject);
 }

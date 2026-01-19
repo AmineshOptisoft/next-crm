@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import Script from "next/script";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -47,9 +48,11 @@ interface Company {
     timezone: string;
     currency: string;
   };
+  profileCompleted?: boolean;
 }
 
 export default function CompanySettingsPage() {
+  const router = useRouter();
   const [company, setCompany] = useState<Company | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -119,24 +122,50 @@ export default function CompanySettingsPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
+    
     try {
+      console.log("=== FRONTEND: Submitting form ===");
+      console.log("Form data being sent:", formData);
+      
       const response = await fetch("/api/company/settings", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData),
       });
 
+      console.log("Response status:", response.status);
+
       if (response.ok) {
         const updated = await response.json();
+        console.log("=== FRONTEND: Response received ===");
+        console.log("Full response:", updated);
+        console.log("profileCompleted value:", updated.profileCompleted);
+        console.log("Type of profileCompleted:", typeof updated.profileCompleted);
+        
         setCompany(updated);
-        alert("Company settings updated successfully!");
+        
+        // Check if profile is complete
+        if (updated.profileCompleted === true) {
+          console.log("✅ PROFILE IS COMPLETE! Starting redirect...");
+          alert("🎉 Company profile completed successfully! Redirecting to dashboard...");
+          
+          // Immediate redirect with page reload
+          setSaving(false);
+          window.location.href = "/dashboard";
+          return; // Stop execution
+        } else {
+          console.log("❌ Profile still incomplete. profileCompleted =", updated.profileCompleted);
+          alert("Settings updated, but profile not complete yet. Please fill all required fields.");
+        }
       } else {
         const error = await response.json();
+        console.error("API Error:", error);
         alert(error.error || "Failed to update settings");
       }
     } catch (error) {
+      console.error("=== FRONTEND ERROR ===");
       console.error("Error updating settings:", error);
-      alert("Failed to update settings");
+      alert("Failed to update settings. Check console for details.");
     } finally {
       setSaving(false);
     }
@@ -330,7 +359,7 @@ export default function CompanySettingsPage() {
                       </div>
                     )}
                     <div className="flex-1">
-                      <Label htmlFor="logo">Upload Company Logo</Label>
+                      <Label htmlFor="logo">Upload Company Logo *</Label>
                       <p className="text-sm text-muted-foreground mb-2">
                         PNG, JPG up to 5MB
                       </p>
@@ -358,9 +387,10 @@ export default function CompanySettingsPage() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="industry">Industry</Label>
+                    <Label htmlFor="industry">Industry *</Label>
                     <Input
                       id="industry"
+                      required
                       value={formData.industry}
                       onChange={(e) =>
                         setFormData({ ...formData, industry: e.target.value })
@@ -397,10 +427,11 @@ export default function CompanySettingsPage() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="email">Email</Label>
+                    <Label htmlFor="email">Email *</Label>
                     <Input
                       id="email"
                       type="email"
+                      required
                       value={formData.email}
                       onChange={(e) =>
                         setFormData({ ...formData, email: e.target.value })
@@ -411,10 +442,11 @@ export default function CompanySettingsPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="phone">Phone</Label>
+                  <Label htmlFor="phone">Phone *</Label>
                   <Input
                     id="phone"
                     type="tel"
+                    required
                     value={formData.phone}
                     onChange={(e) =>
                       setFormData({ ...formData, phone: e.target.value })
@@ -426,9 +458,10 @@ export default function CompanySettingsPage() {
                 <div className="space-y-4">
                   <h3 className="font-semibold">Address</h3>
                   <div className="space-y-2">
-                    <Label htmlFor="street">Street</Label>
+                    <Label htmlFor="street">Street *</Label>
                     <Input
                       id="street"
+                      required
                       value={formData.address.street}
                       onChange={(e) =>
                         setFormData({
@@ -440,9 +473,10 @@ export default function CompanySettingsPage() {
                   </div>
                   <div className="grid gap-4 md:grid-cols-3">
                     <div className="space-y-2">
-                      <Label htmlFor="city">City</Label>
+                      <Label htmlFor="city">City *</Label>
                       <Input
                         id="city"
+                        required
                         value={formData.address.city}
                         onChange={(e) =>
                           setFormData({
@@ -453,9 +487,10 @@ export default function CompanySettingsPage() {
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="state">State</Label>
+                      <Label htmlFor="state">State *</Label>
                       <Input
                         id="state"
+                        required
                         value={formData.address.state}
                         onChange={(e) =>
                           setFormData({
@@ -466,9 +501,10 @@ export default function CompanySettingsPage() {
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="zipCode">Zip Code</Label>
+                      <Label htmlFor="zipCode">Zip Code *</Label>
                       <Input
                         id="zipCode"
+                        required
                         value={formData.address.zipCode}
                         onChange={(e) =>
                           setFormData({
@@ -480,9 +516,10 @@ export default function CompanySettingsPage() {
                     </div>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="country">Country</Label>
+                    <Label htmlFor="country">Country *</Label>
                     <Input
                       id="country"
+                      required
                       value={formData.address.country}
                       onChange={(e) =>
                         setFormData({

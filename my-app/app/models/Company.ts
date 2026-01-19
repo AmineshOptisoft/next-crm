@@ -44,15 +44,25 @@ const CompanySchema = new Schema(
     // Status
     isActive: { type: Boolean, default: true },
     
+    // Profile completion tracking
+    profileCompleted: { type: Boolean, default: false },
+    
     // Settings
     settings: {
       allowUserRegistration: { type: Boolean, default: false },
       requireEmailVerification: { type: Boolean, default: true },
       timezone: { type: String, default: "UTC" },
+      dateFormat: { type: String, default: "MM/DD/YYYY" },
       currency: { type: String, default: "USD" },
+      language: { type: String, default: "en" },
     },
   },
-  { timestamps: true }
+  {
+    timestamps: true,
+    // Ensure profileCompleted is included in JSON responses
+    toJSON: { virtuals: false },
+    toObject: { virtuals: false },
+  }
 );
 
 CompanySchema.index({ adminId: 1 });
