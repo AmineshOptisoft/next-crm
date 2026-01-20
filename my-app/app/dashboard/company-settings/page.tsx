@@ -56,6 +56,7 @@ export default function CompanySettingsPage() {
   const [company, setCompany] = useState<Company | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [industries, setIndustries] = useState<Array<{ _id: string; name: string }>>([]);
   const [formData, setFormData] = useState({
     name: "",
     description: "",
@@ -81,7 +82,20 @@ export default function CompanySettingsPage() {
 
   useEffect(() => {
     fetchCompanySettings();
+    fetchIndustries();
   }, []);
+
+  const fetchIndustries = async () => {
+    try {
+      const response = await fetch("/api/industries");
+      if (response.ok) {
+        const data = await response.json();
+        setIndustries(data);
+      }
+    } catch (error) {
+      console.error("Error fetching industries:", error);
+    }
+  };
 
   const fetchCompanySettings = async () => {
     try {
@@ -387,16 +401,33 @@ export default function CompanySettingsPage() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="industry">Industry *</Label>
-                    <Input
-                      id="industry"
-                      required
-                      value={formData.industry}
-                      onChange={(e) =>
-                        setFormData({ ...formData, industry: e.target.value })
+                    <Label htmlFor="industry">Industry</Label>
+                    <Select
+                      value={formData.industry || "none"}
+                      onValueChange={(value) =>
+                        setFormData({
+                          ...formData,
+                          industry: value === "none" ? "" : value,
+                        })
                       }
-                      placeholder="e.g., Technology, Healthcare"
-                    />
+                    >
+                      <SelectTrigger id="industry">
+                        <SelectValue placeholder="Select an industry" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">No Industry</SelectItem>
+                        {industries.map((industry) => (
+                          <SelectItem key={industry._id} value={industry.name}>
+                            {industry.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {industries.length === 0 && (
+                      <p className="text-xs text-muted-foreground">
+                        No industries found. Add some in Administration → Industries.
+                      </p>
+                    )}
                   </div>
                 </div>
 
