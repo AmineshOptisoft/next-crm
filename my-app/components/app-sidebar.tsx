@@ -171,6 +171,29 @@ const menuItems = {
       ),
     },
     {
+      title: "Appointments",
+      href: "/dashboard/appointments",
+      module: "appointments",
+      icon: (
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <rect width="18" height="18" x="3" y="4" rx="2" ry="2" />
+          <line x1="16" y1="2" x2="16" y2="6" />
+          <line x1="8" y1="2" x2="8" y2="6" />
+          <line x1="3" y1="10" x2="21" y2="10" />
+        </svg>
+      ),
+    },
+    {
       title: "Invoices",
       href: "/dashboard/invoices",
       module: "invoices",
@@ -397,6 +420,7 @@ export function AppSidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const [me, setMe] = useState<MeUser | null>(null);
+  const [profileCompleted, setProfileCompleted] = useState<boolean>(true); // Default true to avoid flicker
 
   useEffect(() => {
     (async () => {
@@ -407,6 +431,20 @@ export function AppSidebar() {
         setMe(data.user ?? null);
       } catch {
         // ignore
+      }
+    })();
+  }, []);
+
+  // Check profile completion status
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch("/api/company/settings", { credentials: "include" });
+        if (!res.ok) return;
+        const data = await res.json();
+        setProfileCompleted(data.profileCompleted ?? false);
+      } catch {
+        // ignore - default to complete to avoid blocking
       }
     })();
   }, []);
@@ -484,19 +522,25 @@ export function AppSidebar() {
           <SidebarGroupLabel>General</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {filteredGeneralItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton
-                    asChild
-                    isActive={pathname === item.href}
-                  >
-                    <Link href={item.href}>
-                      {item.icon}
-                      <span>{item.title}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
+              {filteredGeneralItems.map((item) => {
+                // Check if this item should be disabled
+                const isDisabled = !profileCompleted && item.module !== 'company-settings';
+                
+                return (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={pathname === item.href}
+                      className={isDisabled ? 'opacity-40 pointer-events-none' : ''}
+                    >
+                      <Link href={item.href}>
+                        {item.icon}
+                        <span>{item.title}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                );
+              })}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
@@ -507,19 +551,25 @@ export function AppSidebar() {
             <SidebarGroupLabel>Administration</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
-                {menuItems.admin.map((item) => (
-                  <SidebarMenuItem key={item.title}>
-                    <SidebarMenuButton
-                      asChild
-                      isActive={pathname === item.href}
-                    >
-                      <Link href={item.href}>
-                        {item.icon}
-                        <span>{item.title}</span>
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                ))}
+                {menuItems.admin.map((item) => {
+                  // Disable all admin items except Company Settings if profile incomplete
+                  const isDisabled = !profileCompleted && item.href !== '/dashboard/company-settings';
+                  
+                  return (
+                    <SidebarMenuItem key={item.title}>
+                      <SidebarMenuButton
+                        asChild
+                        isActive={pathname === item.href}
+                        className={isDisabled ? 'opacity-40 pointer-events-none' : ''}
+                      >
+                        <Link href={item.href}>
+                          {item.icon}
+                          <span>{item.title}</span>
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  );
+                })}
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>
@@ -529,35 +579,41 @@ export function AppSidebar() {
           <SidebarGroupLabel>Other</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {menuItems.other.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton
-                    asChild
-                    isActive={pathname.startsWith("/dashboard/settings")}
-                  >
-                    <Link href={item.href}>
-                      {item.icon}
-                      <span>{item.title}</span>
-                      {item.hasChevron && (
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          width="16"
-                          height="16"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          className="ml-auto"
-                        >
-                          <path d="m9 18 6-6-6-6" />
-                        </svg>
-                      )}
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
+              {menuItems.other.map((item) => {
+                // Disable Other items if profile incomplete
+                const isDisabled = !profileCompleted;
+                
+                return (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={pathname.startsWith("/dashboard/settings")}
+                      className={isDisabled ? 'opacity-40 pointer-events-none' : ''}
+                    >
+                      <Link href={item.href}>
+                        {item.icon}
+                        <span>{item.title}</span>
+                        {item.hasChevron && (
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="16"
+                            height="16"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            className="ml-auto"
+                          >
+                            <path d="m 9 18 6-6-6-6" />
+                          </svg>
+                        )}
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                );
+              })}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
