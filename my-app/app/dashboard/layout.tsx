@@ -19,7 +19,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <header className="sticky top-0 z-40 border-b bg-background/80 backdrop-blur">
           <Topbar />
         </header>
-        <main className="flex-1 overflow-auto p-6">{children}</main>
+        <main className="flex-1 overflow-auto p-4">{children}</main>
       </div>
     </SidebarProvider>
   );

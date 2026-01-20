@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
   Table,
@@ -153,16 +154,10 @@ export default function UsersPage() {
     }
   };
 
+  const router = useRouter();
+
   const handleEdit = (user: User) => {
-    setEditingUser(user);
-    setFormData({
-      firstName: user.firstName,
-      lastName: user.lastName,
-      email: user.email,
-      password: "",
-      customRoleId: user.customRoleId?._id || "",
-    });
-    setIsDialogOpen(true);
+    router.push(`/dashboard/users/${user._id}`);
   };
 
   const resetForm = () => {

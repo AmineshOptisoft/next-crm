@@ -59,10 +59,48 @@ const UserSchema = new Schema(
     stateId: { type: String },
     cityId: { type: String },
     
+    // Extended Profile Fields
+    phoneNumber: { type: String },
+    // keapId removed
+    address: { type: String },
+    zipCode: { type: String },
+    gender: { 
+      type: String, 
+      enum: ["Male", "Female", "Other", "Prefer not to say"],
+      default: "Prefer not to say" 
+    },
+    tags: [{ type: String }],
+    
+    // Working Area & Technician Settings
+    zone: { type: String },
+    workingZipCodes: [{ type: String }], // Comma separated list in UI, stored as array or string.
+    
+    // Toggles
+    timesheetEnabled: { type: Boolean, default: false },
+    bookingEnabled: { type: Boolean, default: false },
+    availabilityEnabled: { type: Boolean, default: false },
+    isTechnicianActive: { type: Boolean, default: true }, // "Technician Status"
+    
+    // Role & Image
+    staffRole: { type: String, enum: ["Staff", "Trainee"], default: "Staff" },
+    avatarUrl: { type: String },
+    
+    workingArea: [{ type: String }], // Keeping for backward compat if needed or just remove?
+    description: { type: String },
+    
     // Verification
     isVerified: { type: Boolean, default: false },
     verificationToken: { type: String, default: null },
     verificationTokenExpires: { type: Date, default: null },
+
+    // Reviews
+    reviews: [{
+      title: String,
+      rating: Number,
+      text: String,
+      reviewer: String,
+      createdAt: { type: Date, default: Date.now }
+    }],
     
     // Status
     isActive: { type: Boolean, default: true },
