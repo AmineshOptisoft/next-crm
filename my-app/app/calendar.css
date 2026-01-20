@@ -1,0 +1,130 @@
+:root {
+  --fc-border-color: lightgray;
+  --fc-page-bg-color: none;
+}
+.dark {
+  --fc-border-color: gray;
+}
+
+/* Removing borders */
+
+.fc-scrollgrid {
+  border-style: none !important;
+  border-width: 0 !important;
+}
+
+.fc tbody tr:last-child td:first-child {
+  border-left-width: 0 !important;
+}
+
+.fc tbody tr:last-child td:last-child {
+  border-right-width: 0 !important;
+  border-bottom-width: 0 !important;
+}
+
+.fc-theme-standard th {
+  border-right-width: 0 !important;
+}
+
+/* Setting header size */
+
+.fc-col-header-cell-cushion {
+  display: flex !important;
+  height: 3.5rem !important; /* h-14 */
+  align-items: center !important;
+}
+
+/* Setting left time size */
+
+.fc-timegrid-slot {
+  height: 1.5rem !important; /* h-6 */
+}
+
+.fc-timegrid-slot-label-cushion {
+  font-size: 0.75rem !important; /* text-xs */
+  line-height: 1rem !important;
+  font-weight: 300 !important; /* font-light */
+}
+
+/* Setting cell colors */
+
+td.fc-daygrid-day.fc-day:hover {
+  background-color: var(--secondary) !important;
+}
+
+td.fc-daygrid-day.fc-day.fc-day-today {
+  background-color: var(--secondary-foreground) !important;
+}
+
+.fc-day-today {
+  background-color: inherit !important;
+}
+
+.fc-day-other {
+  background-color: #e5e7eb !important; /* bg-gray-200 */
+}
+
+.dark .fc-day-other {
+  background-color: var(--secondary) !important;
+}
+
+.fc-daygrid-day-top {
+  display: flex !important;
+  flex-direction: row !important;
+  height: 2rem !important; /* h-8 */
+  width: 100% !important;
+  align-items: center !important;
+  pointer-events: none !important;
+}
+
+.fc-daygrid-dot-event:hover {
+  background-color: #eff6ff !important; /* bg-blue-50 */
+}
+
+.fc-daygrid-event-harness {
+  padding-right: 0.5rem !important; /* pr-2 */
+  transition-property: all !important;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1) !important;
+  transition-duration: 150ms !important;
+  pointer-events: all !important;
+}
+
+.fc-daygrid-event-harness:hover {
+  background: none !important;
+  transform: scale(1.02) !important;
+  cursor: pointer !important;
+}
+
+.fc-timegrid-event-harness:hover {
+  background: none !important;
+  cursor: pointer !important;
+}
+
+.fc-event-main {
+  display: flex !important;
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.fc-event {
+  display: flex !important;
+  border-style: none !important;
+  min-width: 100% !important;
+  pointer-events: all !important;
+  cursor: pointer !important;
+  z-index: 10 !important;
+}
+
+.fc-daygrid-event {
+  margin-left: 0.25rem !important; /* mx-1 */
+  margin-right: 0.25rem !important;
+}
+
+.fc-timegrid-event {
+  padding-left: 0.25rem !important; /* px-1 */
+  padding-right: 0.25rem !important;
+}
+
+td.fc-daygrid-day.fc-day {
+  pointer-events: none !important;
+}
