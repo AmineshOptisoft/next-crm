@@ -304,6 +304,29 @@ const menuItems = {
       ),
     },
     {
+      title: "Industries",
+      href: "/dashboard/industries",
+      superAdminOnly: true,
+      icon: (
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <path d="M20 12V8H4v4" />
+          <path d="M4 16v-4h16v4" />
+          <path d="M4 8l4-4h8l4 4" />
+          <path d="M8 20h8" />
+        </svg>
+      ),
+    },
+    {
       title: "Companies",
       href: "/dashboard/companies",
       icon: (
@@ -459,6 +482,11 @@ export function AppSidebar() {
     hasModulePermission(item.module)
   );
 
+  const filteredAdminItems = menuItems.admin.filter((item: any) => {
+    if (item.superAdminOnly && me?.role !== "super_admin") return false;
+    return true;
+  });
+
   return (
     <Sidebar>
       {/* Fixed app card */}
@@ -507,7 +535,7 @@ export function AppSidebar() {
             <SidebarGroupLabel>Administration</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
-                {menuItems.admin.map((item) => (
+                {filteredAdminItems.map((item) => (
                   <SidebarMenuItem key={item.title}>
                     <SidebarMenuButton
                       asChild
