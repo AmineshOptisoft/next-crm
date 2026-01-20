@@ -33,7 +33,7 @@ const PermissionSchema = new Schema(
 
 const RoleSchema = new Schema(
   {
-    companyId: { type: Types.ObjectId, ref: "Company", required: true },
+    companyId: { type: Schema.Types.ObjectId, ref: "Company", required: true },
     name: { type: String, required: true },
     description: { type: String },
     
@@ -46,8 +46,14 @@ const RoleSchema = new Schema(
     // Status
     isActive: { type: Boolean, default: true },
     
+    // Role hierarchy
+    // isParent: 1 means this role can be a parent (no parent assigned)
+    // isParent: 0 means this role has a parent (child role)
+    isParent: { type: Number, default: 1, enum: [0, 1] },
+    parentRoleId: { type: Schema.Types.ObjectId, ref: "Role", default: null },
+    
     // Created by
-    createdBy: { type: Types.ObjectId, ref: "User" },
+    createdBy: { type: Schema.Types.ObjectId, ref: "User" },
   },
   { timestamps: true }
 );
@@ -56,7 +62,13 @@ const RoleSchema = new Schema(
 RoleSchema.index({ companyId: 1, name: 1 }, { unique: true });
 RoleSchema.index({ companyId: 1, isActive: 1 });
 
-export const Role = models.Role || model("Role", RoleSchema);
+// Prevent Mongoose OverwriteModelError
+// Delete the model if it exists to allow recompilation with new schema changes in dev
+if (models.Role) {
+  delete models.Role;
+}
+
+export const Role = model("Role", RoleSchema);
 
 // Helper function to create default roles for a company
 export async function createDefaultRoles(companyId: string, adminId: string) {

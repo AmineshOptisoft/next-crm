@@ -48,6 +48,7 @@ export async function PUT(
 
   const { id } = await params;
   const body = await req.json();
+  const { hasParent, isParent, parentRoleId } = body;
 
   await connectDB();
 
@@ -68,9 +69,57 @@ export async function PUT(
     );
   }
 
+  // Determine standard values (prioritize isParent if sent, otherwise fallback to hasParent logic)
+  const finalIsParent = isParent !== undefined ? isParent : (hasParent ? 0 : 1);
+  const finalParentId = (finalIsParent === 0 && parentRoleId) ? parentRoleId : null;
+
+  // Validate parent role if it's a child role
+  if (finalIsParent === 0 && !finalParentId) {
+    return NextResponse.json(
+      { error: "Parent role is required for child roles" },
+      { status: 400 }
+    );
+  }
+
+  // Validate parent role exists and is a parent role (isParent = 1)
+  if (finalIsParent === 0 && finalParentId) {
+    // Prevent circular reference
+    if (finalParentId === id) {
+      return NextResponse.json(
+        { error: "A role cannot be its own parent" },
+        { status: 400 }
+      );
+    }
+
+    const parentRole = await Role.findById(finalParentId);
+    if (!parentRole) {
+      return NextResponse.json(
+        { error: "Selected parent role does not exist" },
+        { status: 400 }
+      );
+    }
+    
+    // Check if the parent role is a parent role (isParent = 1 or undefined for old roles)
+    const parentIsParent = parentRole.isParent !== undefined ? parentRole.isParent : 1;
+    
+    if (parentIsParent !== 1) {
+      return NextResponse.json(
+        { error: "Selected role is not a parent role" },
+        { status: 400 }
+      );
+    }
+  }
+
+  // Prepare update data
+  const updateData = {
+    ...body,
+    isParent: finalIsParent,
+    parentRoleId: finalParentId,
+  };
+
   const updatedRole = await Role.findByIdAndUpdate(
     id,
-    { $set: body },
+    { $set: updateData },
     { new: true, runValidators: true }
   );
 
