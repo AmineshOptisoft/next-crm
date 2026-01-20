@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { X, Upload } from "lucide-react";
 
 import { UserBookings } from "./user-bookings";
@@ -120,309 +121,361 @@ export function UserForm({ user, onSave, loading }: UserFormProps) {
   };
 
   return (
-    <div className="flex flex-col h-auto bg-background rounded-lg border shadow-sm">
-      <div className="p-4 border-b flex justify-between items-center">
-        <div className="flex items-center gap-4">
-            <h2 className="text-xl font-semibold">Technician Details</h2>
-             
-        </div>
-        
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-3xl font-bold tracking-tight">Edit User</h1>
+        <p className="text-muted-foreground">
+          Manage user details, booking, and permissions
+        </p>
       </div>
 
-      <div className="flex-1 p-6">
-        <Tabs defaultValue="details" className="w-full">
-          <TabsList className="w-full justify-start rounded-none h-auto p-0 bg-transparent">
-            <TabsTrigger value="details" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:bg-transparent px-4 py-2">Technician Details</TabsTrigger>
-            <TabsTrigger value="bookings" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:bg-transparent px-4 py-2">Technician bookings</TabsTrigger>
-            <TabsTrigger value="availability" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:bg-transparent px-4 py-2">Technician Availability</TabsTrigger>
-            <TabsTrigger value="security" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:bg-transparent px-4 py-2">Security</TabsTrigger>
-            <TabsTrigger value="review" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:bg-transparent px-4 py-2">Review</TabsTrigger>
-          </TabsList>
+      <Tabs defaultValue="details" className="space-y-6">
+        <TabsList>
+            <TabsTrigger value="details">Technician Details</TabsTrigger>
+            <TabsTrigger value="bookings">Technician Bookings</TabsTrigger>
+            <TabsTrigger value="availability">Technician Availability</TabsTrigger>
+            <TabsTrigger value="security">Security</TabsTrigger>
+            <TabsTrigger value="review">Review</TabsTrigger>
+        </TabsList>
 
-          <TabsContent value="details" className="mt-6 space-y-6">
-            <form onSubmit={handleSubmit}>
-                {/* Name & Email */}
-                <div className="grid grid-cols-2 gap-6">
-                    <div className="space-y-2">
-                        <Label htmlFor="name">Name</Label>
-                        <Input 
-                            id="name" 
-                            defaultValue={`${formData.firstName} ${formData.lastName}`} 
-                            disabled 
-                            className="bg-muted"
-                        />
+        <TabsContent value="details">
+          <Card>
+            <CardHeader>
+                <div className="flex justify-between items-center">
+                    <div>
+                        <CardTitle>Technician Details</CardTitle>
+                        <CardDescription>
+                            General information and configuration
+                        </CardDescription>
                     </div>
-                    <div className="space-y-2">
-                         <Label htmlFor="email">Email</Label>
-                         <Input 
-                            id="email" 
-                            value={formData.email} 
-                            onChange={(e) => handleChange("email", e.target.value)}
-                         />
+                     <div className="flex gap-2">
+                        <Button variant={formData.isTechnicianActive ? "default" : "secondary"} size="sm" onClick={() => handleChange("isTechnicianActive", !formData.isTechnicianActive)}>
+                            {formData.isTechnicianActive ? "Active" : "Inactive"}
+                        </Button>
                     </div>
                 </div>
-
-                {/* Contact & Keap ID (Removed Keap ID as requested) */}
-                <div className="grid grid-cols-1 gap-6 mt-4">
-                     <div className="space-y-2">
-                        <Label htmlFor="contact">Contact</Label>
-                        <Input 
-                            id="contact" 
-                            value={formData.phoneNumber || ""} 
-                            onChange={(e) => handleChange("phoneNumber", e.target.value)}
-                            placeholder="(555) 555-5555"
-                        />
-                    </div>
-
-                </div>
-
-                {/* Description */}
-                <div className="space-y-2 mt-4">
-                    <Label htmlFor="description">Description</Label>
-                    <Textarea 
-                        id="description" 
-                        value={formData.description || ""}
-                        onChange={(e) => handleChange("description", e.target.value)}
-                        className="min-h-[60px]"
-                    />
-                </div>
-
-                {/* Address */}
-                <div className="space-y-2 mt-4">
-                    <Label htmlFor="address">Address</Label>
-                     <Input 
-                            id="address" 
-                            value={formData.address || ""} 
-                            onChange={(e) => handleChange("address", e.target.value)}
-                        />
-                </div>
-
-                {/* State, City, Zip, Country */}
-                <div className="grid grid-cols-2 gap-6 mt-4">
-                     <div className="space-y-2">
-                        <Label htmlFor="state">State</Label>
-                        <Input 
-                            id="state" 
-                            value={formData.state || ""}
-                             onChange={(e) => handleChange("state", e.target.value)}
-                        />
-                    </div>
-                    <div className="space-y-2">
-                         <Label htmlFor="city">City</Label>
-                         <Input 
-                            id="city" 
-                            value={formData.city || ""}
-                             onChange={(e) => handleChange("city", e.target.value)}
-                        />
-                    </div>
-                </div>
-                 <div className="grid grid-cols-2 gap-6 mt-4">
-                     <div className="space-y-2">
-                        <Label htmlFor="zipCode">Zip code</Label>
-                        <Input 
-                            id="zipCode" 
-                            value={formData.zipCode || ""}
-                             onChange={(e) => handleChange("zipCode", e.target.value)}
-                        />
-                    </div>
-                    <div className="space-y-2">
-                         <Label htmlFor="country">Country</Label>
-                         <Input 
-                            id="country" 
-                            value={formData.country || "USA"}
-                             onChange={(e) => handleChange("country", e.target.value)}
-                        />
-                    </div>
-                </div>
-
-                {/* Services & Gender */}
-                <div className="grid grid-cols-2 gap-6 mt-4">
-                    <div className="space-y-2">
-                         <Label>Services</Label>
-                         <div className="border rounded-md p-2 bg-muted/50 min-h-[40px] flex items-center text-sm text-muted-foreground">
-                            Deluxe First Time Cleaning, General First Time Cleaning...
-                         </div>
-                    </div>
-                     <div className="space-y-2">
-                        <Label htmlFor="gender">Gender</Label>
-                        <Select 
-                            value={formData.gender || "Prefer not to say"} 
-                            onValueChange={(val) => handleChange("gender", val)}
-                        >
-                            <SelectTrigger className="w-full">
-                                <SelectValue placeholder="Select gender" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="Male">Male</SelectItem>
-                                <SelectItem value="Female">Female</SelectItem>
-                                <SelectItem value="Other">Other</SelectItem>
-                                <SelectItem value="Prefer not to say">Prefer not to say</SelectItem>
-                            </SelectContent>
-                        </Select>
-                    </div>
-                </div>
-
-                {/* Tags */}
-                <div className="space-y-2 mt-4">
-                    <Label htmlFor="tags">Tags</Label>
-                    <div className="border rounded-md p-2 min-h-[42px] flex flex-wrap gap-2">
-                        {formData.tags?.map((tag, index) => (
-                            <Badge key={index} variant="secondary" className="gap-1">
-                                {tag}
-                                <X 
-                                    className="h-3 w-3 cursor-pointer hover:text-destructive" 
-                                    onClick={() => removeTag(tag)}
-                                />
-                            </Badge>
-                        ))}
-                        <input 
-                            className="bg-transparent outline-none flex-1 text-sm min-w-[120px]"
-                            placeholder="Choose a tags..."
-                            value={newTag}
-                            onChange={(e) => setNewTag(e.target.value)}
-                            onKeyDown={handleAddTag}
-                        />
-                    </div>
-                </div>
-
-                {/* Working Area Section */}
-                <div className="mt-8 border-t pt-6">
-                    <h3 className="text-lg font-medium mb-4">Working Area</h3>
-                    
+            </CardHeader>
+            <CardContent>
+                <form onSubmit={handleSubmit}>
+                    {/* Name & Email */}
                     <div className="grid grid-cols-2 gap-6">
-                         <div className="space-y-2">
-                            <Label>Zone</Label>
+                        <div className="space-y-2">
+                            <Label htmlFor="name">Name</Label>
+                            <Input 
+                                id="name" 
+                                defaultValue={`${formData.firstName} ${formData.lastName}`} 
+                                disabled 
+                                className="bg-muted"
+                            />
+                        </div>
+                        <div className="space-y-2">
+                                <Label htmlFor="email">Email</Label>
+                                <Input 
+                                id="email" 
+                                value={formData.email} 
+                                onChange={(e) => handleChange("email", e.target.value)}
+                                />
+                        </div>
+                    </div>
+
+                    {/* Contact & Keap ID (Removed Keap ID as requested) */}
+                    <div className="grid grid-cols-1 gap-6 mt-4">
+                            <div className="space-y-2">
+                            <Label htmlFor="contact">Contact</Label>
+                            <Input 
+                                id="contact" 
+                                value={formData.phoneNumber || ""} 
+                                onChange={(e) => handleChange("phoneNumber", e.target.value)}
+                                placeholder="(555) 555-5555"
+                            />
+                        </div>
+
+                    </div>
+
+                    {/* Description */}
+                    <div className="space-y-2 mt-4">
+                        <Label htmlFor="description">Description</Label>
+                        <Textarea 
+                            id="description" 
+                            value={formData.description || ""}
+                            onChange={(e) => handleChange("description", e.target.value)}
+                            className="min-h-[60px]"
+                        />
+                    </div>
+
+                    {/* Address */}
+                    <div className="space-y-2 mt-4">
+                        <Label htmlFor="address">Address</Label>
+                            <Input 
+                                id="address" 
+                                value={formData.address || ""} 
+                                onChange={(e) => handleChange("address", e.target.value)}
+                            />
+                    </div>
+
+                    {/* State, City, Zip, Country */}
+                    <div className="grid grid-cols-2 gap-6 mt-4">
+                            <div className="space-y-2">
+                            <Label htmlFor="state">State</Label>
+                            <Input 
+                                id="state" 
+                                value={formData.state || ""}
+                                    onChange={(e) => handleChange("state", e.target.value)}
+                            />
+                        </div>
+                        <div className="space-y-2">
+                                <Label htmlFor="city">City</Label>
+                                <Input 
+                                id="city" 
+                                value={formData.city || ""}
+                                    onChange={(e) => handleChange("city", e.target.value)}
+                            />
+                        </div>
+                    </div>
+                        <div className="grid grid-cols-2 gap-6 mt-4">
+                            <div className="space-y-2">
+                            <Label htmlFor="zipCode">Zip code</Label>
+                            <Input 
+                                id="zipCode" 
+                                value={formData.zipCode || ""}
+                                    onChange={(e) => handleChange("zipCode", e.target.value)}
+                            />
+                        </div>
+                        <div className="space-y-2">
+                                <Label htmlFor="country">Country</Label>
+                                <Input 
+                                id="country" 
+                                value={formData.country || "USA"}
+                                    onChange={(e) => handleChange("country", e.target.value)}
+                            />
+                        </div>
+                    </div>
+
+                    {/* Services & Gender */}
+                    <div className="grid grid-cols-2 gap-6 mt-4">
+                        <div className="space-y-2">
+                                <Label>Services</Label>
+                                <div className="border rounded-md p-2 bg-muted/50 min-h-[40px] flex items-center text-sm text-muted-foreground">
+                                Deluxe First Time Cleaning, General First Time Cleaning...
+                                </div>
+                        </div>
+                            <div className="space-y-2">
+                            <Label htmlFor="gender">Gender</Label>
                             <Select 
-                                value={formData.zone || "San Diego"} 
-                                onValueChange={(val) => handleChange("zone", val)}
+                                value={formData.gender || "Prefer not to say"} 
+                                onValueChange={(val) => handleChange("gender", val)}
                             >
                                 <SelectTrigger className="w-full">
-                                    <SelectValue placeholder="Select Zone" />
+                                    <SelectValue placeholder="Select gender" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="San Diego">San Diego</SelectItem>
-                                    <SelectItem value="Los Angeles">Los Angeles</SelectItem>
-                                    <SelectItem value="San Francisco">San Francisco</SelectItem>
+                                    <SelectItem value="Male">Male</SelectItem>
+                                    <SelectItem value="Female">Female</SelectItem>
+                                    <SelectItem value="Other">Other</SelectItem>
+                                    <SelectItem value="Prefer not to say">Prefer not to say</SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>
-                        <div className="space-y-2">
-                            <Label>Zip Code</Label>
-                            <Textarea 
-                                value={zipCodesText}
-                                onChange={handleZipCodeChange}
-                                className="h-24 font-mono text-xs"
-                                placeholder="Enter zip codes separated by commas..."
+                    </div>
+
+                    {/* Tags */}
+                    <div className="space-y-2 mt-4">
+                        <Label htmlFor="tags">Tags</Label>
+                        <div className="border rounded-md p-2 min-h-[42px] flex flex-wrap gap-2">
+                            {formData.tags?.map((tag, index) => (
+                                <Badge key={index} variant="secondary" className="gap-1">
+                                    {tag}
+                                    <X 
+                                        className="h-3 w-3 cursor-pointer hover:text-destructive" 
+                                        onClick={() => removeTag(tag)}
+                                    />
+                                </Badge>
+                            ))}
+                            <input 
+                                className="bg-transparent outline-none flex-1 text-sm min-w-[120px]"
+                                placeholder="Choose a tags..."
+                                value={newTag}
+                                onChange={(e) => setNewTag(e.target.value)}
+                                onKeyDown={handleAddTag}
                             />
                         </div>
                     </div>
 
-                    {/* Toggles */}
-                    <div className="space-y-4 mt-6 max-w-md">
-                        <div className="flex items-center space-x-2">
-                            <Switch 
-                                id="timesheet" 
-                                checked={formData.timesheetEnabled}
-                                onCheckedChange={(c) => handleChange("timesheetEnabled", c)}
-                            />
-                            <Label htmlFor="timesheet" className="font-normal">Timesheet Option For Teach.</Label>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                            <Switch 
-                                id="booking" 
-                                checked={formData.bookingEnabled}
-                                onCheckedChange={(c) => handleChange("bookingEnabled", c)}
-                            />
-                            <Label htmlFor="booking" className="font-normal">Enable Booking</Label>
-                        </div>
-                         <div className="flex items-center space-x-2">
-                            <Switch 
-                                id="availability" 
-                                checked={formData.availabilityEnabled}
-                                onCheckedChange={(c) => handleChange("availabilityEnabled", c)}
-                            />
-                            <Label htmlFor="availability" className="font-normal">Enable Availability</Label>
-                        </div>
-                         <div className="flex items-center space-x-2">
-                            <Switch 
-                                id="technicianStatus" 
-                                checked={formData.isTechnicianActive}
-                                onCheckedChange={(c) => handleChange("isTechnicianActive", c)}
-                            />
-                            <Label htmlFor="technicianStatus" className="font-normal">Technician Status</Label>
-                        </div>
-                    </div>
-
-                    {/* Role Radio */}
-                    <div className="space-y-2 mt-6">
-                        <Label>Role</Label>
-                        <div className="flex gap-6 items-center">
-                            <div className="flex items-center space-x-2">
-                                <input 
-                                    type="radio" 
-                                    id="role-staff" 
-                                    name="staffRole" 
-                                    value="Staff"
-                                    checked={formData.staffRole === "Staff"}
-                                    onChange={() => handleChange("staffRole", "Staff")}
-                                    className="accent-primary h-4 w-4"
+                    {/* Working Area Section */}
+                    <div className="mt-8 border-t pt-6">
+                        <h3 className="text-lg font-medium mb-4">Working Area</h3>
+                        
+                        <div className="grid grid-cols-2 gap-6">
+                                <div className="space-y-2">
+                                <Label>Zone</Label>
+                                <Select 
+                                    value={formData.zone || "San Diego"} 
+                                    onValueChange={(val) => handleChange("zone", val)}
+                                >
+                                    <SelectTrigger className="w-full">
+                                        <SelectValue placeholder="Select Zone" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="San Diego">San Diego</SelectItem>
+                                        <SelectItem value="Los Angeles">Los Angeles</SelectItem>
+                                        <SelectItem value="San Francisco">San Francisco</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div className="space-y-2">
+                                <Label>Zip Code</Label>
+                                <Textarea 
+                                    value={zipCodesText}
+                                    onChange={handleZipCodeChange}
+                                    className="h-24 font-mono text-xs"
+                                    placeholder="Enter zip codes separated by commas..."
                                 />
-                                <Label htmlFor="role-staff" className="font-normal cursor-pointer">Staff</Label>
+                            </div>
+                        </div>
+
+                        {/* Toggles */}
+                        <div className="space-y-4 mt-6 max-w-md">
+                            <div className="flex items-center space-x-2">
+                                <Switch 
+                                    id="timesheet" 
+                                    checked={formData.timesheetEnabled}
+                                    onCheckedChange={(c) => handleChange("timesheetEnabled", c)}
+                                />
+                                <Label htmlFor="timesheet" className="font-normal">Timesheet Option For Teach.</Label>
                             </div>
                             <div className="flex items-center space-x-2">
-                                <input 
-                                    type="radio" 
-                                    id="role-trainee" 
-                                    name="staffRole" 
-                                    value="Trainee"
-                                    checked={formData.staffRole === "Trainee"}
-                                    onChange={() => handleChange("staffRole", "Trainee")}
-                                    className="accent-primary h-4 w-4"
+                                <Switch 
+                                    id="booking" 
+                                    checked={formData.bookingEnabled}
+                                    onCheckedChange={(c) => handleChange("bookingEnabled", c)}
                                 />
-                                <Label htmlFor="role-trainee" className="font-normal cursor-pointer">Trainee</Label>
+                                <Label htmlFor="booking" className="font-normal">Enable Booking</Label>
+                            </div>
+                                <div className="flex items-center space-x-2">
+                                <Switch 
+                                    id="availability" 
+                                    checked={formData.availabilityEnabled}
+                                    onCheckedChange={(c) => handleChange("availabilityEnabled", c)}
+                                />
+                                <Label htmlFor="availability" className="font-normal">Enable Availability</Label>
+                            </div>
+                                <div className="flex items-center space-x-2">
+                                <Switch 
+                                    id="technicianStatus" 
+                                    checked={formData.isTechnicianActive}
+                                    onCheckedChange={(c) => handleChange("isTechnicianActive", c)}
+                                />
+                                <Label htmlFor="technicianStatus" className="font-normal">Technician Status</Label>
                             </div>
                         </div>
-                    </div>
 
-                    {/* Upload Image */}
-                    <div className="space-y-2 mt-6">
-                        <Label>Upload Image</Label>
-                        <div className="flex gap-2">
-                            <Button type="button" variant="outline" className="w-auto">
-                                Choose File
-                            </Button>
-                            <div className="border rounded-md px-3 py-2 flex-1 bg-muted/20 text-sm text-muted-foreground flex items-center">
-                                {formData.avatarUrl ? "Image selected" : "No file chosen"}
+                        {/* Role Radio */}
+                        <div className="space-y-2 mt-6">
+                            <Label>Role</Label>
+                            <div className="flex gap-6 items-center">
+                                <div className="flex items-center space-x-2">
+                                    <input 
+                                        type="radio" 
+                                        id="role-staff" 
+                                        name="staffRole" 
+                                        value="Staff"
+                                        checked={formData.staffRole === "Staff"}
+                                        onChange={() => handleChange("staffRole", "Staff")}
+                                        className="accent-primary h-4 w-4"
+                                    />
+                                    <Label htmlFor="role-staff" className="font-normal cursor-pointer">Staff</Label>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                    <input 
+                                        type="radio" 
+                                        id="role-trainee" 
+                                        name="staffRole" 
+                                        value="Trainee"
+                                        checked={formData.staffRole === "Trainee"}
+                                        onChange={() => handleChange("staffRole", "Trainee")}
+                                        className="accent-primary h-4 w-4"
+                                    />
+                                    <Label htmlFor="role-trainee" className="font-normal cursor-pointer">Trainee</Label>
+                                </div>
                             </div>
                         </div>
+
+                        {/* Upload Image */}
+                        <div className="space-y-2 mt-6">
+                            <Label>Upload Image</Label>
+                            <div className="flex gap-2">
+                                <Button type="button" variant="outline" className="w-auto">
+                                    Choose File
+                                </Button>
+                                <div className="border rounded-md px-3 py-2 flex-1 bg-muted/20 text-sm text-muted-foreground flex items-center">
+                                    {formData.avatarUrl ? "Image selected" : "No file chosen"}
+                                </div>
+                            </div>
+                        </div>
+
                     </div>
 
-                </div>
+                        <div className="mt-8 flex justify-end">
+                        <Button type="submit" disabled={loading} className="w-32">
+                            {loading ? "Saving..." : "Save"}
+                        </Button>
+                        </div>
+                </form>
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-                 <div className="mt-8 flex justify-end">
-                    <Button type="submit" disabled={loading} className="w-32">
-                        {loading ? "Saving..." : "Save"}
-                    </Button>
-                 </div>
-            </form>
-          </TabsContent>
-          <TabsContent value="bookings" className="mt-6">
-            <UserBookings />
-          </TabsContent>
-          <TabsContent value="availability" className="mt-6">
-            <UserAvailability />
-          </TabsContent>
-          <TabsContent value="security" className="mt-6">
-            <UserSecurity onSave={(pass) => onSave({ password: pass })} />
-          </TabsContent>
-          <TabsContent value="review" className="mt-6">
-            <UserReviews 
-                reviews={formData.reviews || []} 
-                onSave={(newReview) => handleChange("reviews", [...(formData.reviews || []), newReview])}
-            />
-          </TabsContent>
-        </Tabs>
-      </div>
+        <TabsContent value="bookings">
+          <Card>
+            <CardHeader>
+                <CardTitle>Bookings</CardTitle>
+                <CardDescription>View and manage technician bookings</CardDescription>
+            </CardHeader>
+            <CardContent>
+                <UserBookings />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="availability">
+          <Card>
+            <CardHeader>
+                <CardTitle>Availability</CardTitle>
+                <CardDescription>Manage weekly working hours</CardDescription>
+            </CardHeader>
+            <CardContent>
+                <UserAvailability />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="security">
+          <Card>
+             <CardHeader>
+                <CardTitle>Security</CardTitle>
+                <CardDescription>Update password and security settings</CardDescription>
+            </CardHeader>
+            <CardContent>
+                <UserSecurity onSave={(pass) => onSave({ password: pass })} />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="review">
+          <Card>
+             <CardHeader>
+                <CardTitle>Reviews</CardTitle>
+                <CardDescription>Customer reviews and ratings</CardDescription>
+            </CardHeader>
+            <CardContent>
+                <UserReviews 
+                    reviews={formData.reviews || []} 
+                    onSave={(newReview) => handleChange("reviews", [...(formData.reviews || []), newReview])}
+                />
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
