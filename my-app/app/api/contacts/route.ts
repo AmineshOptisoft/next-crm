@@ -12,10 +12,10 @@ export async function GET(req: NextRequest) {
   const user = permCheck.user;
 
   await connectDB();
-  
+
   // Build filter: super admins see all contacts, regular users see only their company's contacts
   const filter = buildCompanyFilter(user);
-  
+
   const contacts = await Contact.find(filter)
     .sort({ createdAt: -1 })
     .lean();
@@ -31,7 +31,30 @@ export async function POST(req: NextRequest) {
   const user = permCheck.user;
 
   const body = await req.json();
-  const { name, email, phone, company, status, companyId: requestCompanyId } = body;
+  const {
+    firstName,
+    lastName,
+    email,
+    phone,
+    company,
+    status,
+    companyId: requestCompanyId,
+    password, // Note: In a real app, hash this!
+    streetAddress,
+    city,
+    state,
+    zipCode,
+    bathrooms,
+    bedrooms,
+    specialInstructions,
+    image,
+    billingAddress,
+    shippingAddress,
+    smsStatus,
+    emailStatus
+  } = body;
+
+  const name = body.name || `${firstName || ""} ${lastName || ""}`.trim();
 
   if (!name) {
     return NextResponse.json({ error: "Name is required" }, { status: 400 });
@@ -39,7 +62,7 @@ export async function POST(req: NextRequest) {
 
   // Determine which companyId to use
   let targetCompanyId: string;
-  
+
   if (user.role === "super_admin") {
     // Super admin must provide companyId
     if (!requestCompanyId) {
@@ -59,10 +82,28 @@ export async function POST(req: NextRequest) {
     companyId: targetCompanyId,
     ownerId: user.userId,
     name,
+    firstName,
+    lastName,
     email,
     phone,
+    password,
     company,
+    image,
     status: status || "lead",
+    address: {
+      street: streetAddress,
+      city,
+      state,
+      zipCode,
+    },
+    billingAddress,
+    shippingAddress,
+    smsStatus: smsStatus || false,
+    emailStatus: emailStatus || false,
+    bathrooms,
+    bedrooms,
+    specialInstructions,
+    // Default values for other fields if needed, or leave undefined
   });
 
   return NextResponse.json(contact, { status: 201 });

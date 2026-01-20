@@ -25,7 +25,7 @@ export async function GET(req: NextRequest, context: Context) {
   const { id } = await resolveParams(context);
 
   await connectDB();
-  
+
   // Build filter: super admins can access any contact, regular users only their company's
   const filter = { _id: id, ...buildCompanyFilter(user) };
   const contact = await Contact.findOne(filter).lean();
@@ -46,21 +46,111 @@ export async function PUT(req: NextRequest, context: Context) {
 
   const { id } = await resolveParams(context);
   const body = await req.json();
-  const { name, email, phone, company, status, companyId: newCompanyId } = body;
+  const {
+    firstName,
+    lastName,
+    email,
+    phone,
+    company,
+    status,
+    companyId: newCompanyId,
+    streetAddress,
+    city,
+    state,
+    zipCode,
+    billingAddress,
+    shippingAddress,
+    shippingAddresses,
+    smsStatus,
+    emailStatus,
+    bathrooms,
+    bedrooms,
+    specialInstructions,
+    image,
+    password,
+    defaultPaymentMethod,
+    billedAmount,
+    billedHours,
+    keyNumber,
+    preferences,
+    familyInfo,
+    parkingAccess,
+    preferredTechnician,
+    clientNotesFromTech,
+    specialInstructionsClient,
+    specialInstructionsAdmin,
+    notes,
+    billingNotes,
+    discount,
+    tags,
+    fsrAssigned,
+    serviceDefaults
+  } = body;
+
+  const name = body.name || `${firstName || ""} ${lastName || ""}`.trim();
 
   await connectDB();
-  
+
   // Build filter: super admins can edit any contact, regular users only their company's
   const filter = { _id: id, ...buildCompanyFilter(user) };
-  
+
   // Prepare update data
-  const updateData: any = { name, email, phone, company, status };
-  
+  const updateData: any = {
+    name,
+    firstName,
+    lastName,
+    email,
+    phone,
+    company,
+    status,
+    image,
+    billingAddress,
+    shippingAddress,
+    shippingAddresses,
+    smsStatus,
+    emailStatus,
+    bathrooms,
+    bedrooms,
+    specialInstructions,
+    defaultPaymentMethod,
+    billedAmount,
+    billedHours,
+    keyNumber,
+    preferences,
+    familyInfo,
+    parkingAccess,
+    preferredTechnician,
+    clientNotesFromTech,
+    specialInstructionsClient,
+    specialInstructionsAdmin,
+    notes,
+    billingNotes,
+    discount,
+    tags,
+    fsrAssigned,
+    serviceDefaults
+  };
+
+  // Handle nested address update if basic address fields are provided
+  if (streetAddress || city || state || zipCode) {
+    updateData.address = {
+      street: streetAddress,
+      city,
+      state,
+      zipCode
+    };
+  }
+
+  // Update password only if provided
+  if (password) {
+    updateData.password = password;
+  }
+
   // Super admins can change the companyId (reassign contact to different company)
   if (user.role === "super_admin" && newCompanyId) {
     updateData.companyId = newCompanyId;
   }
-  
+
   const contact = await Contact.findOneAndUpdate(
     filter,
     updateData,
@@ -84,7 +174,7 @@ export async function DELETE(req: NextRequest, context: Context) {
   const { id } = await resolveParams(context);
 
   await connectDB();
-  
+
   // Build filter: super admins can delete any contact, regular users only their company's
   const filter = { _id: id, ...buildCompanyFilter(user) };
   const deleted = await Contact.findOneAndDelete(filter).lean();
