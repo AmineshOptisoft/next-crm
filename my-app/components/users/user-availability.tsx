@@ -10,6 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 const DAYS = [
   "Monday",
@@ -37,7 +38,7 @@ export function UserAvailability() {
   const [schedule, setSchedule] = useState<DaySchedule[]>(
     DAYS.map(day => ({
       day,
-      isOpen: day !== "Tuesday" && day !== "Sunday", // Matching screenshot defaults (roughly)
+      isOpen: day !== "Tuesday" && day !== "Sunday",
       startTime: "09:00 AM",
       endTime: "06:00 PM"
     }))
@@ -51,15 +52,8 @@ export function UserAvailability() {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center mb-6">
-          <h3 className="font-medium text-lg">Schedule</h3>
-      </div>
-
-      <div className="border-b pb-2 mb-4 flex">
-           <div className="flex-1 font-medium text-primary pl-4">Availability</div>
-           <div className="w-1/3 font-medium text-right pr-12">Off Time</div>
-      </div>
-
+      
+          
       <div className="space-y-4">
         {schedule.map((slot, index) => (
           <div key={slot.day} className="flex items-center justify-between border rounded-md p-4 bg-background">
@@ -84,7 +78,7 @@ export function UserAvailability() {
                     </SelectContent>
                 </Select>
                 <span className="text-sm text-muted-foreground">to</span>
-                 <Select
+                  <Select
                     value={slot.endTime}
                     onValueChange={(val) => updateSchedule(index, "endTime", val)}
                     disabled={!slot.isOpen}
