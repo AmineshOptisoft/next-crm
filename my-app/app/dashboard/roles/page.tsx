@@ -107,8 +107,6 @@ export default function RolesPage() {
       const response = await fetch("/api/roles");
       if (response.ok) {
         const data = await response.json();
-        console.log("Fetched roles:", data);
-        console.log("Parent roles (isParent=1):", data.filter((r: Role) => r.isParent === 1));
         setRoles(data);
       }
     } catch (error) {
@@ -120,13 +118,13 @@ export default function RolesPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     // Validate parent role selection
     if (formData.hasParent && !formData.parentRoleId) {
       alert("Please select a parent role");
       return;
     }
-    
+
     try {
       const url = editingRole ? `/api/roles/${editingRole._id}` : "/api/roles";
       const method = editingRole ? "PUT" : "POST";
@@ -141,8 +139,6 @@ export default function RolesPage() {
         // Send actual ID or null
         parentRoleId: formData.hasParent && formData.parentRoleId ? formData.parentRoleId : null,
       };
-
-      console.log("Submitting payload:", payload);
 
       const response = await fetch(url, {
         method,
@@ -319,8 +315,8 @@ export default function RolesPage() {
                       id="hasParent"
                       checked={formData.hasParent}
                       onCheckedChange={(checked) =>
-                        setFormData(prev => ({ 
-                          ...prev, 
+                        setFormData(prev => ({
+                          ...prev,
                           hasParent: checked,
                           parentRoleId: checked ? prev.parentRoleId : "" // Keep existing ID if toggling ON, clear if OFF 
                         }))
@@ -342,8 +338,8 @@ export default function RolesPage() {
                         </SelectTrigger>
                         <SelectContent>
                           {roles
-                            .filter((role) => 
-                              role.isParent == 1 && 
+                            .filter((role) =>
+                              role.isParent == 1 &&
                               role._id !== editingRole?._id
                             )
                             .map((role) => (
@@ -385,7 +381,7 @@ export default function RolesPage() {
                             <TableCell className="text-center">
                               <Checkbox
                                 checked={permission.canView}
-                                onCheckedChange={(checked : any   ) =>
+                                onCheckedChange={(checked: any) =>
                                   updatePermission(index, "canView", !!checked)
                                 }
                               />
@@ -393,7 +389,7 @@ export default function RolesPage() {
                             <TableCell className="text-center">
                               <Checkbox
                                 checked={permission.canCreate}
-                                onCheckedChange={(checked:any) =>
+                                onCheckedChange={(checked: any) =>
                                   updatePermission(index, "canCreate", !!checked)
                                 }
                               />
@@ -401,7 +397,7 @@ export default function RolesPage() {
                             <TableCell className="text-center">
                               <Checkbox
                                 checked={permission.canEdit}
-                                onCheckedChange={(checked:any) =>
+                                onCheckedChange={(checked: any) =>
                                   updatePermission(index, "canEdit", !!checked)
                                 }
                               />
@@ -409,7 +405,7 @@ export default function RolesPage() {
                             <TableCell className="text-center">
                               <Checkbox
                                 checked={permission.canDelete}
-                                onCheckedChange={(checked:any) =>
+                                onCheckedChange={(checked: any) =>
                                   updatePermission(index, "canDelete", !!checked)
                                 }
                               />
@@ -417,7 +413,7 @@ export default function RolesPage() {
                             <TableCell className="text-center">
                               <Checkbox
                                 checked={permission.canExport}
-                                onCheckedChange={(checked:any) =>
+                                onCheckedChange={(checked: any) =>
                                   updatePermission(index, "canExport", !!checked)
                                 }
                               />

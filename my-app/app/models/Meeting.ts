@@ -1,8 +1,8 @@
 import { Schema, model, models, Types } from "mongoose";
 
 const AttendeeSchema = new Schema({
-  contactId: { type: Types.ObjectId, ref: "Contact" },
-  employeeId: { type: Types.ObjectId, ref: "Employee" },
+  contactId: { type: Types.ObjectId, ref: "User" },
+  employeeId: { type: Types.ObjectId, ref: "User" },
   email: { type: String },
   name: { type: String },
   status: {
@@ -43,4 +43,8 @@ MeetingSchema.index({ companyId: 1, startTime: 1 });
 MeetingSchema.index({ ownerId: 1, startTime: 1 });
 MeetingSchema.index({ "attendees.employeeId": 1, startTime: 1 });
 
-export const Meeting = models.Meeting || model("Meeting", MeetingSchema);
+if (models && models.Meeting) {
+  delete (models as any).Meeting;
+}
+
+export const Meeting = model("Meeting", MeetingSchema);

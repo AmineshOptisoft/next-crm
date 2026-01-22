@@ -38,7 +38,6 @@ export class ServiceAssetManager {
             await fs.mkdir(path.join(servicePath, 'images'), { recursive: true });
             await fs.mkdir(path.join(servicePath, 'documents'), { recursive: true });
 
-            console.log(`✅ Created service folder: ${servicePath}`);
             return servicePath;
         } catch (error) {
             console.error(`❌ Error creating service folder:`, error);
@@ -55,7 +54,6 @@ export class ServiceAssetManager {
 
         try {
             await fs.rm(servicePath, { recursive: true, force: true });
-            console.log(`✅ Deleted service folder: ${servicePath}`);
         } catch (error) {
             console.error(`❌ Error deleting service folder:`, error);
             // Don't throw - deletion should not fail the service deletion
@@ -71,7 +69,6 @@ export class ServiceAssetManager {
 
         try {
             await fs.rm(companyPath, { recursive: true, force: true });
-            console.log(`✅ Deleted company folder: ${companyPath}`);
         } catch (error) {
             console.error(`❌ Error deleting company folder:`, error);
             // Don't throw - deletion should not fail the company deletion

@@ -1,10 +1,9 @@
 import { getCurrentUser } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { connectDB } from "@/lib/db";
-import { Employee } from "../models/Employee";
 import { Task } from "../models/Task";
-import { Contact } from "../models/Contact";
 import { Deal } from "../models/Deal";
+import { User } from "../models/User";
 import { Types } from "mongoose";
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -22,14 +21,16 @@ async function getStats(companyId: string) {
   const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
   const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0);
 
-  const totalEmployees = await Employee.countDocuments({
+  const totalEmployees = await User.countDocuments({
     companyId: new Types.ObjectId(companyId),
-    status: "active",
+    role: "employee",
+    employeeStatus: "active",
   });
 
-  const employeesLastMonth = await Employee.countDocuments({
+  const employeesLastMonth = await User.countDocuments({
     companyId: new Types.ObjectId(companyId),
-    status: "active",
+    role: "employee",
+    employeeStatus: "active",
     createdAt: { $lt: currentMonthStart },
   });
 
@@ -38,14 +39,16 @@ async function getStats(companyId: string) {
       ? ((totalEmployees - employeesLastMonth) / employeesLastMonth) * 100
       : 0;
 
-  const leavesCount = await Employee.countDocuments({
+  const leavesCount = await User.countDocuments({
     companyId: new Types.ObjectId(companyId),
-    status: "on-leave",
+    role: "employee",
+    employeeStatus: "on-leave",
   });
 
-  const leavesLastMonth = await Employee.countDocuments({
+  const leavesLastMonth = await User.countDocuments({
     companyId: new Types.ObjectId(companyId),
-    status: "on-leave",
+    role: "employee",
+    employeeStatus: "on-leave",
     updatedAt: { $gte: lastMonthStart, $lte: lastMonthEnd },
   });
 
@@ -91,9 +94,10 @@ async function getStats(companyId: string) {
     };
   });
 
-  const recentEmployees = await Employee.find({
+  const recentEmployees = await User.find({
     companyId: new Types.ObjectId(companyId),
-    status: "active",
+    role: "employee",
+    employeeStatus: "active",
   })
     .sort({ createdAt: -1 })
     .limit(5)

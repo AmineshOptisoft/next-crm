@@ -29,10 +29,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           const company = await response.json();
           const incomplete = !company.profileCompleted;
           setIsProfileIncomplete(incomplete);
-          
+
           // If profile not completed and NOT on settings page, redirect
           if (incomplete && pathname !== "/dashboard/company-settings") {
-            console.log("Profile incomplete, redirecting to company settings");
             router.replace("/dashboard/company-settings");
             return;
           }

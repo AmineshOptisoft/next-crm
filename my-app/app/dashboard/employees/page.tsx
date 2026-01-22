@@ -39,11 +39,18 @@ interface Employee {
   firstName: string;
   lastName: string;
   email: string;
+  role: string;
+  customRoleId?: any;
   position?: string;
   department?: string;
   salary?: number;
-  status: string;
+  employeeStatus: string;
   hireDate?: string;
+}
+
+interface RoleType {
+  _id: string;
+  name: string;
 }
 
 export default function EmployeesPage() {
@@ -51,14 +58,18 @@ export default function EmployeesPage() {
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
+  const [roles, setRoles] = useState<RoleType[]>([]);
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
     email: "",
+    password: "",
+    role: "employee",
+    customRoleId: "",
     position: "",
     department: "",
     salary: "",
-    status: "active",
+    employeeStatus: "active",
     hireDate: "",
   });
 
@@ -66,7 +77,20 @@ export default function EmployeesPage() {
 
   useEffect(() => {
     fetchEmployees();
+    fetchRoles();
   }, []);
+
+  const fetchRoles = async () => {
+    try {
+      const response = await fetch("/api/roles");
+      if (response.ok) {
+        const data = await response.json();
+        setRoles(data);
+      }
+    } catch (error) {
+      console.error("Error fetching roles:", error);
+    }
+  };
 
   const fetchEmployees = async () => {
     try {
@@ -146,10 +170,13 @@ export default function EmployeesPage() {
       firstName: employee.firstName,
       lastName: employee.lastName,
       email: employee.email,
+      password: "",
+      role: employee.role || "employee",
+      customRoleId: typeof employee.customRoleId === 'string' ? employee.customRoleId : employee.customRoleId?._id || "",
       position: employee.position || "",
       department: employee.department || "",
       salary: employee.salary?.toString() || "",
-      status: employee.status,
+      employeeStatus: employee.employeeStatus,
       hireDate: employee.hireDate
         ? new Date(employee.hireDate).toISOString().split("T")[0]
         : "",
@@ -163,10 +190,13 @@ export default function EmployeesPage() {
       firstName: "",
       lastName: "",
       email: "",
+      password: "",
+      role: "employee",
+      customRoleId: "",
       position: "",
       department: "",
       salary: "",
-      status: "active",
+      employeeStatus: "active",
       hireDate: "",
     });
   };
@@ -187,223 +217,280 @@ export default function EmployeesPage() {
   return (
     <ProtectedPage module="employees" requiredPermission="view">
       <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Employees</h1>
-          <p className="text-muted-foreground">
-            Manage your team members and their information
-          </p>
-        </div>
-        {hasPermission("employees", "create") && (
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-            <DialogTrigger asChild>
-              <Button onClick={resetForm}>
-                <Plus className="mr-2 h-4 w-4" />
-                Add Employee
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-2xl">
-            <DialogHeader>
-              <DialogTitle>
-                {editingEmployee ? "Edit Employee" : "Add New Employee"}
-              </DialogTitle>
-              <DialogDescription>
-                Fill in the employee information below
-              </DialogDescription>
-            </DialogHeader>
-            <form onSubmit={handleSubmit}>
-              <div className="grid gap-4 py-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="firstName">First Name *</Label>
-                    <Input
-                      id="firstName"
-                      required
-                      value={formData.firstName}
-                      onChange={(e) =>
-                        setFormData({ ...formData, firstName: e.target.value })
-                      }
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="lastName">Last Name *</Label>
-                    <Input
-                      id="lastName"
-                      required
-                      value={formData.lastName}
-                      onChange={(e) =>
-                        setFormData({ ...formData, lastName: e.target.value })
-                      }
-                    />
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="email">Email *</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    required
-                    value={formData.email}
-                    onChange={(e) =>
-                      setFormData({ ...formData, email: e.target.value })
-                    }
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="position">Position</Label>
-                    <Input
-                      id="position"
-                      value={formData.position}
-                      onChange={(e) =>
-                        setFormData({ ...formData, position: e.target.value })
-                      }
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="department">Department</Label>
-                    <Input
-                      id="department"
-                      value={formData.department}
-                      onChange={(e) =>
-                        setFormData({ ...formData, department: e.target.value })
-                      }
-                    />
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="salary">Salary</Label>
-                    <Input
-                      id="salary"
-                      type="number"
-                      value={formData.salary}
-                      onChange={(e) =>
-                        setFormData({ ...formData, salary: e.target.value })
-                      }
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="status">Status</Label>
-                    <Select
-                      value={formData.status}
-                      onValueChange={(value) =>
-                        setFormData({ ...formData, status: value })
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="active">Active</SelectItem>
-                        <SelectItem value="on-leave">On Leave</SelectItem>
-                        <SelectItem value="terminated">Terminated</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="hireDate">Hire Date</Label>
-                  <Input
-                    id="hireDate"
-                    type="date"
-                    value={formData.hireDate}
-                    onChange={(e) =>
-                      setFormData({ ...formData, hireDate: e.target.value })
-                    }
-                  />
-                </div>
-              </div>
-              <DialogFooter>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setIsDialogOpen(false)}
-                >
-                  Cancel
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Employees</h1>
+            <p className="text-muted-foreground">
+              Manage your team members and their information
+            </p>
+          </div>
+          {hasPermission("employees", "create") && (
+            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+              <DialogTrigger asChild>
+                <Button onClick={resetForm}>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Add Employee
                 </Button>
-                <Button type="submit">
-                  {editingEmployee ? "Update" : "Create"}
-                </Button>
-              </DialogFooter>
-            </form>
-          </DialogContent>
-        </Dialog>
-        )}
-      </div>
-
-      {loading ? (
-        <div className="text-center py-12">
-          <p className="text-muted-foreground">Loading employees...</p>
-        </div>
-      ) : (
-        <div className="border rounded-lg">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead>Position</TableHead>
-                <TableHead>Department</TableHead>
-                <TableHead>Salary</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {employees.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={7} className="text-center py-12">
-                    <p className="text-muted-foreground">
-                      No employees found. Add your first employee to get started.
-                    </p>
-                  </TableCell>
-                </TableRow>
-              ) : (
-                employees.map((employee) => (
-                  <TableRow key={employee._id}>
-                    <TableCell className="font-medium">
-                      {employee.firstName} {employee.lastName}
-                    </TableCell>
-                    <TableCell>{employee.email}</TableCell>
-                    <TableCell>{employee.position || "-"}</TableCell>
-                    <TableCell>{employee.department || "-"}</TableCell>
-                    <TableCell>
-                      {employee.salary
-                        ? `$${employee.salary.toLocaleString()}`
-                        : "-"}
-                    </TableCell>
-                    <TableCell>{getStatusBadge(employee.status)}</TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
-                        {hasPermission("employees", "edit") && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleEdit(employee)}
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                        )}
-                        {hasPermission("employees", "delete") && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleDelete(employee._id)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        )}
+              </DialogTrigger>
+              <DialogContent className="max-w-2xl">
+                <DialogHeader>
+                  <DialogTitle>
+                    {editingEmployee ? "Edit Employee" : "Add New Employee"}
+                  </DialogTitle>
+                  <DialogDescription>
+                    Fill in the employee information below
+                  </DialogDescription>
+                </DialogHeader>
+                <form onSubmit={handleSubmit}>
+                  <div className="grid gap-4 py-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="firstName">First Name *</Label>
+                        <Input
+                          id="firstName"
+                          required
+                          value={formData.firstName}
+                          onChange={(e) =>
+                            setFormData({ ...formData, firstName: e.target.value })
+                          }
+                        />
                       </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="lastName">Last Name *</Label>
+                        <Input
+                          id="lastName"
+                          required
+                          value={formData.lastName}
+                          onChange={(e) =>
+                            setFormData({ ...formData, lastName: e.target.value })
+                          }
+                        />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="email">Email *</Label>
+                        <Input
+                          id="email"
+                          type="email"
+                          required
+                          value={formData.email}
+                          onChange={(e) =>
+                            setFormData({ ...formData, email: e.target.value })
+                          }
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="password">{editingEmployee ? "Password (leave blank to keep)" : "Password *"}</Label>
+                        <Input
+                          id="password"
+                          type="password"
+                          required={!editingEmployee}
+                          value={formData.password}
+                          onChange={(e) =>
+                            setFormData({ ...formData, password: e.target.value })
+                          }
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="role">Security Role</Label>
+                        <Select
+                          value={formData.role}
+                          onValueChange={(value) =>
+                            setFormData({ ...formData, role: value })
+                          }
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="company_admin">Company Admin</SelectItem>
+                            <SelectItem value="company_user">Company User</SelectItem>
+                            <SelectItem value="employee">Employee (No Login)</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="customRoleId">Custom Permissions Role</Label>
+                        <Select
+                          value={formData.customRoleId || "none"}
+                          onValueChange={(value) =>
+                            setFormData({ ...formData, customRoleId: value === "none" ? "" : value })
+                          }
+                          disabled={formData.role !== "company_user"}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select custom role" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">None</SelectItem>
+                            {roles.map((role) => (
+                              <SelectItem key={role._id} value={role._id}>
+                                {role.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="position">Position</Label>
+                        <Input
+                          id="position"
+                          value={formData.position}
+                          onChange={(e) =>
+                            setFormData({ ...formData, position: e.target.value })
+                          }
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="department">Department</Label>
+                        <Input
+                          id="department"
+                          value={formData.department}
+                          onChange={(e) =>
+                            setFormData({ ...formData, department: e.target.value })
+                          }
+                        />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="salary">Salary</Label>
+                        <Input
+                          id="salary"
+                          type="number"
+                          value={formData.salary}
+                          onChange={(e) =>
+                            setFormData({ ...formData, salary: e.target.value })
+                          }
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="status">Status</Label>
+                        <Select
+                          value={formData.employeeStatus}
+                          onValueChange={(value) =>
+                            setFormData({ ...formData, employeeStatus: value })
+                          }
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="active">Active</SelectItem>
+                            <SelectItem value="on-leave">On Leave</SelectItem>
+                            <SelectItem value="terminated">Terminated</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="hireDate">Hire Date</Label>
+                      <Input
+                        id="hireDate"
+                        type="date"
+                        value={formData.hireDate}
+                        onChange={(e) =>
+                          setFormData({ ...formData, hireDate: e.target.value })
+                        }
+                      />
+                    </div>
+                  </div>
+                  <DialogFooter>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setIsDialogOpen(false)}
+                    >
+                      Cancel
+                    </Button>
+                    <Button type="submit">
+                      {editingEmployee ? "Update" : "Create"}
+                    </Button>
+                  </DialogFooter>
+                </form>
+              </DialogContent>
+            </Dialog>
+          )}
+        </div>
+
+        {loading ? (
+          <div className="text-center py-12">
+            <p className="text-muted-foreground">Loading employees...</p>
+          </div>
+        ) : (
+          <div className="border rounded-lg">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Email</TableHead>
+                  <TableHead>Position</TableHead>
+                  <TableHead>Department</TableHead>
+                  <TableHead>Salary</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {employees.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={7} className="text-center py-12">
+                      <p className="text-muted-foreground">
+                        No employees found. Add your first employee to get started.
+                      </p>
                     </TableCell>
                   </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </div>
-      )}
-    </div>
+                ) : (
+                  employees.map((employee) => (
+                    <TableRow key={employee._id}>
+                      <TableCell className="font-medium">
+                        {employee.firstName} {employee.lastName}
+                      </TableCell>
+                      <TableCell>{employee.email}</TableCell>
+                      <TableCell>{employee.position || "-"}</TableCell>
+                      <TableCell>{employee.department || "-"}</TableCell>
+                      <TableCell>
+                        {employee.salary
+                          ? `$${employee.salary.toLocaleString()}`
+                          : "-"}
+                      </TableCell>
+                      <TableCell>{getStatusBadge(employee.employeeStatus)}</TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-2">
+                          {hasPermission("employees", "edit") && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleEdit(employee)}
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                          )}
+                          {hasPermission("employees", "delete") && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleDelete(employee._id)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+      </div>
     </ProtectedPage>
   );
 }

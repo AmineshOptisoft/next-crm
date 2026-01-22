@@ -6,7 +6,7 @@ const TaskSchema = new Schema(
     ownerId: { type: Types.ObjectId, ref: "User", required: true },
     title: { type: String, required: true },
     description: { type: String },
-    assignedTo: { type: Types.ObjectId, ref: "Employee" },
+    assignedTo: { type: Types.ObjectId, ref: "User" },
     status: {
       type: String,
       enum: ["todo", "in-progress", "completed", "cancelled"],
@@ -25,4 +25,8 @@ const TaskSchema = new Schema(
 TaskSchema.index({ companyId: 1, status: 1 });
 TaskSchema.index({ ownerId: 1 });
 
-export const Task = models.Task || model("Task", TaskSchema);
+if (models && models.Task) {
+  delete (models as any).Task;
+}
+
+export const Task = model("Task", TaskSchema);

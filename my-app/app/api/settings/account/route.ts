@@ -18,6 +18,7 @@ export async function POST(req: NextRequest) {
     countryId,
     stateId,
     cityId,
+    avatarUrl,
     currentPassword,
     newPassword,
   } = await req.json();
@@ -64,6 +65,7 @@ export async function POST(req: NextRequest) {
   if (countryId !== undefined) user.countryId = countryId;
   if (stateId !== undefined) user.stateId = stateId;
   if (cityId !== undefined) user.cityId = cityId;
+  if (avatarUrl !== undefined) user.avatarUrl = avatarUrl;
 
   await user.save();
 

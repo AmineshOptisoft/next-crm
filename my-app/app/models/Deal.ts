@@ -20,8 +20,8 @@ const DealSchema = new Schema(
       default: "new",
     },
     probability: { type: Number, min: 0, max: 100, default: 50 }, // Win probability %
-    contactId: { type: Types.ObjectId, ref: "Contact" },
-    assignedTo: { type: Types.ObjectId, ref: "Employee" },
+    contactId: { type: Types.ObjectId, ref: "User" },
+    assignedTo: { type: Types.ObjectId, ref: "User" },
     closeDate: { type: Date },
     expectedCloseDate: { type: Date },
     products: [DealProductSchema],
@@ -39,4 +39,8 @@ DealSchema.index({ companyId: 1, stage: 1 });
 DealSchema.index({ ownerId: 1, stage: 1 });
 DealSchema.index({ assignedTo: 1 });
 
-export const Deal = models.Deal || model("Deal", DealSchema);
+if (models && models.Deal) {
+  delete (models as any).Deal;
+}
+
+export const Deal = model("Deal", DealSchema);

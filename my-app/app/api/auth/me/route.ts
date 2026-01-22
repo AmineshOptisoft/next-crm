@@ -36,6 +36,7 @@ export async function GET(req: NextRequest) {
       countryId: user.countryId || "",
       stateId: user.stateId || "",
       cityId: user.cityId || "",
+      avatarUrl: user.avatarUrl || "",
       customRoleId: populatedUser?.customRoleId?._id?.toString() || null,
       permissions: populatedUser?.customRoleId?.permissions || [],
     },

@@ -63,13 +63,9 @@ async function seedEmployees() {
         body: JSON.stringify(employee)
       });
       const data = await response.json();
-      console.log('Created:', data);
     } catch (error) {
       console.error('Error creating employee:', error);
     }
   }
-  console.log('Done! Refresh the page to see the employees.');
 }
 
-// Uncomment the line below to run the seed
-// seedEmployees();

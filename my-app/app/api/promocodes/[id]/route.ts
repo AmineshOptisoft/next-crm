@@ -5,7 +5,7 @@ import { getCurrentUser } from "@/lib/auth";
 
 export async function DELETE(
     req: NextRequest,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
     try {
         const user = await getCurrentUser();
@@ -15,8 +15,9 @@ export async function DELETE(
 
         await connectDB();
 
+        const resolvedParams = await params;
         const deletedToken = await Promocode.findOneAndDelete({
-            _id: params.id,
+            _id: resolvedParams.id,
             companyId: user.companyId, // Ensure ownership
         });
 

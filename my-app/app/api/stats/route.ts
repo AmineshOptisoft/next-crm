@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { connectDB } from "@/lib/db";
-import { Employee } from "@/app/models/Employee";
 import { Task } from "@/app/models/Task";
-import { Contact } from "@/app/models/Contact";
+import { User } from "@/app/models/User";
 import { Deal } from "@/app/models/Deal";
 import { Invoice } from "@/app/models/Invoice";
 import { Meeting } from "@/app/models/Meeting";
@@ -28,14 +27,16 @@ export async function GET(req: NextRequest) {
     const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0);
 
     // Get employee stats
-    const totalEmployees = await Employee.countDocuments({
+    const totalEmployees = await User.countDocuments({
       ownerId: user.userId,
-      status: "active",
+      role: "employee",
+      employeeStatus: "active",
     });
 
-    const employeesLastMonth = await Employee.countDocuments({
+    const employeesLastMonth = await User.countDocuments({
       ownerId: user.userId,
-      status: "active",
+      role: "employee",
+      employeeStatus: "active",
       createdAt: { $lt: currentMonthStart },
     });
 
@@ -45,14 +46,16 @@ export async function GET(req: NextRequest) {
         : 0;
 
     // Get leaves count
-    const leavesCount = await Employee.countDocuments({
+    const leavesCount = await User.countDocuments({
       ownerId: user.userId,
-      status: "on-leave",
+      role: "employee",
+      employeeStatus: "on-leave",
     });
 
-    const leavesLastMonth = await Employee.countDocuments({
+    const leavesLastMonth = await User.countDocuments({
       ownerId: user.userId,
-      status: "on-leave",
+      role: "employee",
+      employeeStatus: "on-leave",
       updatedAt: { $gte: lastMonthStart, $lte: lastMonthEnd },
     });
 
@@ -102,16 +105,18 @@ export async function GET(req: NextRequest) {
     });
 
     // Get recent employees
-    const recentEmployees = await Employee.find({
+    const recentEmployees = await User.find({
       ownerId: user.userId,
-      status: "active",
+      role: "employee",
+      employeeStatus: "active",
     })
       .sort({ createdAt: -1 })
       .limit(5);
 
     // Get other stats
-    const totalContacts = await Contact.countDocuments({
+    const totalContacts = await User.countDocuments({
       ownerId: user.userId,
+      role: "contact",
     });
     const totalDeals = await Deal.countDocuments({ ownerId: user.userId });
     const totalTasks = await Task.countDocuments({ ownerId: user.userId });

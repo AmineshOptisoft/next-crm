@@ -1,25 +1,22 @@
 import { getCurrentUser } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { connectDB } from "@/lib/db";
-import { Contact } from "./models/Contact";
 import { Deal } from "./models/Deal";
+import { User } from "./models/User";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 
 export default async function DashboardPage() {
   // This is SERVER COMPONENT - getCurrentUser() works here
   const user = await getCurrentUser();
 
-  console.log("Dashboard server user:", user); // Debug
-
   if (!user) {
-    console.log("No user, redirecting to login");
     redirect("/login");
   }
 
   await connectDB();
 
   const [contactsCount, dealsCount] = await Promise.all([
-    Contact.countDocuments({ ownerId: user.userId }),
+    User.countDocuments({ ownerId: user.userId, role: "contact" }),
     Deal.countDocuments({ ownerId: user.userId }),
   ]);
 

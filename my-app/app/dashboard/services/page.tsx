@@ -57,6 +57,7 @@ interface Service {
     subServices: SubService[];
     companyId: string;
     parentId?: string;
+    category: "main" | "sub" | "addon";
 }
 
 export default function ServicesPage() {
@@ -77,7 +78,8 @@ export default function ServicesPage() {
         hourlyRate: 0,
         status: "active",
         parentId: "",
-        hasParent: false
+        hasParent: false,
+        category: "main" as "main" | "sub" | "addon"
     });
 
     const [subServices, setSubServices] = useState<SubService[]>([]);
@@ -98,7 +100,7 @@ export default function ServicesPage() {
         data.append("file", file);
 
         try {
-            const res = await fetch("/api/upload", {
+            const res = await fetch("/api/upload?subfolder=services", {
                 method: "POST",
                 body: data,
             });
@@ -171,7 +173,8 @@ export default function ServicesPage() {
             hourlyRate: 0,
             status: "active",
             parentId: "",
-            hasParent: false
+            hasParent: false,
+            category: "main"
         });
         setSubServices([]);
         setNewSubService({ name: "", price: 0 });
@@ -190,7 +193,8 @@ export default function ServicesPage() {
             hourlyRate: service.hourlyRate || 0,
             status: service.status || "active",
             parentId: service.parentId || "",
-            hasParent: !!service.parentId
+            hasParent: !!service.parentId,
+            category: service.category || "main"
         });
         setSubServices(service.subServices || []);
         setIsSheetOpen(true);
@@ -218,9 +222,15 @@ export default function ServicesPage() {
             return;
         }
 
+        // Parent ID validation for Sub and Addon
+        if ((formData.category === "sub" || formData.category === "addon") && !formData.parentId) {
+            toast.error(`Please select a parent service for this ${formData.category} service`);
+            return;
+        }
+
         const payload = {
             ...formData,
-            parentId: formData.hasParent ? formData.parentId : null,
+            parentId: formData.category !== "main" ? formData.parentId : null,
             subServices,
         };
 
@@ -407,50 +417,69 @@ export default function ServicesPage() {
                                     />
                                 </div>
 
-                                {/* Parent Service Section */}
                                 <div className="space-y-3">
-                                    <div className="flex items-center justify-between rounded-lg border p-4 shadow-sm bg-muted/20">
-                                        <div className="space-y-0.5">
-                                            <Label className="text-base font-semibold">Have Parent Service?</Label>
-                                            <div className="text-sm text-muted-foreground">
-                                                Enable to link this service to a parent
-                                            </div>
+                                    <Label className="text-base font-semibold">Service Category</Label>
+                                    <RadioGroup
+                                        value={formData.category}
+                                        onValueChange={(val: any) => {
+                                            setFormData({
+                                                ...formData,
+                                                category: val,
+                                                hasParent: val !== "main",
+                                                parentId: val === "main" ? "" : formData.parentId
+                                            });
+                                        }}
+                                        className="flex gap-4 p-4 rounded-lg border bg-muted/20"
+                                    >
+                                        <div className="flex items-center space-x-2">
+                                            <RadioGroupItem value="main" id="category-main" />
+                                            <Label htmlFor="category-main" className="cursor-pointer font-medium">Main</Label>
                                         </div>
-                                        <Switch
-                                            checked={formData.hasParent}
-                                            onCheckedChange={(checked) => setFormData({ ...formData, hasParent: checked, parentId: checked ? formData.parentId : "" })}
-                                        />
-                                    </div>
-
-                                    {formData.hasParent && (
-                                        <div className="space-y-3 animate-in fade-in slide-in-from-top-2">
-                                            <Label className="text-base font-semibold">Select Parent Service</Label>
-                                            <Select
-                                                value={formData.parentId}
-                                                onValueChange={(val: any) => setFormData({ ...formData, parentId: val })}
-                                            >
-                                                <SelectTrigger className="h-11 w-full text-left">
-                                                    <SelectValue placeholder="Select a parent service..." />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    {services
-                                                        .filter(s =>
-                                                            // Filter out current service if editing
-                                                            (editingService ? s._id !== editingService._id : true) &&
-                                                            // Filter out services that are already children (keep only root services)
-                                                            !s.parentId
-                                                        )
-                                                        .map(service => (
-                                                            <SelectItem key={service._id} value={service._id}>
-                                                                {service.name}
-                                                            </SelectItem>
-                                                        ))
-                                                    }
-                                                </SelectContent>
-                                            </Select>
+                                        <div className="flex items-center space-x-2">
+                                            <RadioGroupItem value="sub" id="category-sub" />
+                                            <Label htmlFor="category-sub" className="cursor-pointer font-medium">Sub</Label>
                                         </div>
-                                    )}
+                                        <div className="flex items-center space-x-2">
+                                            <RadioGroupItem value="addon" id="category-addon" />
+                                            <Label htmlFor="category-addon" className="cursor-pointer font-medium">Addon</Label>
+                                        </div>
+                                    </RadioGroup>
                                 </div>
+
+                                {/* Parent Service Selection - Conditional */}
+                                {formData.category !== "main" && (
+                                    <div className="space-y-3 animate-in fade-in slide-in-from-top-2">
+                                        <Label className="text-base font-semibold">
+                                            Select Parent Service <span className="text-destructive">*</span>
+                                        </Label>
+                                        <Select
+                                            value={formData.parentId}
+                                            onValueChange={(val: any) => setFormData({ ...formData, parentId: val })}
+                                        >
+                                            <SelectTrigger className="h-11 w-full text-left">
+                                                <SelectValue placeholder="Select a parent service..." />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {services
+                                                    .filter(s =>
+                                                        // Filter out current service if editing
+                                                        (editingService ? s._id !== editingService._id : true) &&
+                                                        // Filter out services that are already children (keep only root/main services as parents)
+                                                        (s.category === "main" || !s.parentId)
+                                                    )
+                                                    .map(service => (
+                                                        <SelectItem key={service._id} value={service._id}>
+                                                            {service.name}
+                                                        </SelectItem>
+                                                    ))
+                                                }
+                                            </SelectContent>
+                                        </Select>
+                                        <p className="text-xs text-muted-foreground">
+                                            {formData.category === "sub" ? "Choose which main service this sub-service belongs to." : "Choose which service this addon belongs to."}
+                                        </p>
+                                    </div>
+                                )}
 
                                 <div className="space-y-3">
                                     <div className="flex items-center justify-between rounded-lg border p-4 shadow-sm bg-muted/20">
@@ -579,9 +608,16 @@ export default function ServicesPage() {
                                                 </div>
                                             </TableCell>
                                             <TableCell>
-                                                {service.availability === 'new_client' ? 'New Client' :
-                                                    service.availability === 'existing_client' ? 'Existing Client' :
-                                                        service.availability === 'admin_service' ? 'Admin Service' : 'Both'}
+                                                <div className="flex flex-col gap-1">
+                                                    <span className="text-xs text-muted-foreground uppercase font-bold tracking-wider">
+                                                        {service.category || "main"}
+                                                    </span>
+                                                    <span>
+                                                        {service.availability === 'new_client' ? 'New Client' :
+                                                            service.availability === 'existing_client' ? 'Existing Client' :
+                                                                service.availability === 'admin_service' ? 'Admin Service' : 'Both'}
+                                                    </span>
+                                                </div>
                                             </TableCell>
                                             <TableCell>
                                                 {service.percentage || 0}%
