@@ -1,7 +1,7 @@
 "use client";
 
 import { useEvents } from "@/context/events-context";
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter, SheetDescription } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetHeader, SheetFooter, SheetDescription } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -52,12 +52,12 @@ export function AddBookingForm({ open, onOpenChange, initialData }: { open: bool
         <Sheet open={open} onOpenChange={onOpenChange}>
             <SheetContent side="right" className="sm:max-w-2xl w-full p-0 flex flex-col">
                 {/* Standard Header from dashboard/contacts/page.tsx */}
-                <SheetHeader className="p-4 border-b">
-                    <SheetTitle>Add Manual Booking</SheetTitle>
+                <SheetHeader className="p-4 border-b gap-0">
+                    <div className="text-xl font-semibold">Add Manual Booking</div>
                     <SheetDescription>Enter appointment and customer details below.</SheetDescription>
                 </SheetHeader>
 
-                <div className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar">
+                <div className="flex-1 overflow-y-auto p-4 space-y-6 custom-scrollbar">
                     {/* 1. Your Personal Details (merged with Appointment Details) */}
                     <AccordionItem
                         title="Your Personal Details"
@@ -89,7 +89,7 @@ export function AddBookingForm({ open, onOpenChange, initialData }: { open: bool
                                 <div className="space-y-1"><Label>City</Label><Input placeholder="City" /></div>
                                 <div className="space-y-1"><Label>State</Label>
                                     <Select>
-                                        <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+                                        <SelectTrigger className="w-full"><SelectValue placeholder="Select" /></SelectTrigger>
                                         <SelectContent>
                                             <SelectItem value="California">California</SelectItem>
                                         </SelectContent>
@@ -105,7 +105,7 @@ export function AddBookingForm({ open, onOpenChange, initialData }: { open: bool
                                     <div className="space-y-1">
                                         <Label>Select Default Shipping Address</Label>
                                         <Select>
-                                            <SelectTrigger><SelectValue placeholder="Select Default Shipping Address" /></SelectTrigger>
+                                            <SelectTrigger className="w-full"><SelectValue placeholder="Select Default Shipping Address" /></SelectTrigger>
                                             <SelectContent><SelectItem value="default">Default Address</SelectItem></SelectContent>
                                         </Select>
                                     </div>
@@ -114,7 +114,7 @@ export function AddBookingForm({ open, onOpenChange, initialData }: { open: bool
                                         <div className="space-y-1"><Label>City</Label><Input placeholder="City" /></div>
                                         <div className="space-y-1"><Label>State</Label>
                                             <Select>
-                                                <SelectTrigger><SelectValue placeholder="State" /></SelectTrigger>
+                                                <SelectTrigger className="w-full"><SelectValue placeholder="State" /></SelectTrigger>
                                                 <SelectContent><SelectItem value="California">California</SelectItem></SelectContent>
                                             </Select>
                                         </div>
@@ -131,9 +131,9 @@ export function AddBookingForm({ open, onOpenChange, initialData }: { open: bool
                         isOpen={sections.service}
                         onToggle={() => toggleSection('service')}
                     >
-                        <div className="space-y-6">
+                        <div className="space-y-4">
                             <div className="space-y-3">
-                                <Label className="text-primary font-bold">Choose Service</Label>
+                                <Label className="text-primary ">Choose Service</Label>
                                 <RadioGroup defaultValue="cleaning" className="flex flex-wrap gap-6">
                                     <div className="flex items-center space-x-2">
                                         <RadioGroupItem value="cleaning" id="service-cleaning" />
@@ -152,12 +152,12 @@ export function AddBookingForm({ open, onOpenChange, initialData }: { open: bool
                             </div>
 
                             <div className="space-y-2">
-                                <Label className="text-primary font-bold">Sub Services</Label>
+                                <Label className="text-primary text-md mb-1">Sub Services</Label>
                                 {/* Sub services placeholder */}
                             </div>
 
                             <div className="space-y-2">
-                                <Label className="text-primary font-bold">Addons</Label>
+                                <Label className="text-primary">• Addons</Label>
                                 {/* Addons placeholder */}
                             </div>
 
@@ -176,53 +176,53 @@ export function AddBookingForm({ open, onOpenChange, initialData }: { open: bool
 
                     {/* 3. Appointment Notes (Plain section below accordions) */}
                     <div className="space-y-2 mt-3">
-                        <Label className="ml-2">Appointment Notes</Label>
+                        <Label className="text-md ">Appointment Notes</Label>
                         <Textarea placeholder="Add any special notes here..." className="min-h-[100px] resize-none shadow-none" />
                     </div>
 
                     {/* Estimated Price Section (Standard styling) */}
-                    <div className="p-6 border rounded-md bg-card space-y-6 shadow-sm">
-                        <h3 className="text-center font-bold text-lg uppercase tracking-widest text-muted-foreground underline decoration-primary underline-offset-8 decoration-2">Estimated Price</h3>
+                    <div className="p-4 border rounded-md bg-card space-y-6 shadow-sm">
+                        <h3 className="font-semibold text-md decoration-2">Estimated Price</h3>
 
                         <div className="space-y-8">
-                            <div className="grid grid-cols-2 gap-6 pb-6 border-b border-dashed">
+                            <div className="grid grid-cols-2 gap-6 pb-6 border-b border-dashed mb-4">
                                 <div className="space-y-2">
-                                    <p className="text-[10px] font-black text-muted-foreground uppercase flex items-center gap-1.5">
-                                        <CalendarIcon className="h-3.5 w-3.5 text-primary" />
-                                        START DATE/TIME
-                                    </p>
+                                    <Label>
+                                        <CalendarIcon className="h-3.5 w-3.5" />
+                                        Start Date/Time
+                                    </Label>
                                     <div className="relative">
-                                        <Input value={startDate} readOnly className="pr-10 bg-muted/30 font-bold" />
+                                        <Input value={startDate} readOnly className="pr-10" />
                                         <CalendarIcon className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                                     </div>
                                 </div>
                                 <div className="space-y-2">
-                                    <p className="text-[10px] font-black text-muted-foreground uppercase flex items-center gap-1.5">
-                                        <Clock className="h-3.5 w-3.5 text-primary" />
-                                        END DATE/TIME
-                                    </p>
+                                    <Label>
+                                        <Clock className="h-3.5 w-3.5" />
+                                        End Date/Time
+                                    </Label>
                                     <div className="relative">
-                                        <Input value={endDate} readOnly className="pr-10 bg-muted/30 font-bold" />
+                                        <Input value={endDate} readOnly className="pr-10" />
                                         <Clock className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                                     </div>
                                 </div>
                             </div>
 
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div className="space-y-1"><Label className="text-xs text-muted-foreground">Change Billed Amount-</Label><div className="relative"><span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span><Input defaultValue="0" className="pl-7" /></div></div>
-                                <div className="space-y-1"><Label className="text-xs text-muted-foreground">Total Discount</Label><div className="relative"><span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span><Input defaultValue="0" className="pl-7" /></div></div>
-                                <div className="space-y-1"><Label className="text-xs text-muted-foreground">Total Discount Billed Amount</Label><div className="relative"><span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span><Input defaultValue="0" className="pl-7 bg-muted" readOnly /></div></div>
-                                <div className="space-y-1"><Label className="text-xs text-muted-foreground">Change Billed Hours</Label><Input defaultValue="00:00" /></div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pb-4 mb-2">
+                                <div className="space-y-1"><Label >Change Billed Amount</Label><div className="relative"><span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span><Input defaultValue="0" className="pl-7" /></div></div>
+                                <div className="space-y-1"><Label>Total Discount</Label><div className="relative"><span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span><Input defaultValue="0" className="pl-7" /></div></div>
+                                <div className="space-y-1"><Label>Total Discount Billed Amount</Label><div className="relative"><span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span><Input defaultValue="0" className="pl-7 bg-muted" readOnly /></div></div>
+                                <div className="space-y-1"><Label>Change Billed Hours</Label><Input defaultValue="00:00" /></div>
                             </div>
 
                             <div className="pt-4 border-t border-dashed space-y-4">
-                                <div className="flex justify-between items-center text-destructive">
-                                    <span className="text-[10px] font-bold uppercase italic tracking-widest">Estimated Billed Amount:</span>
-                                    <span className="text-xl font-black">$0 to $0</span>
+                                <div className="flex justify-between items-center">
+                                    <span className="text-md font-semibold">Estimated Billed Amount:</span>
+                                    <span className="text-md font-bold">$0 to $0</span>
                                 </div>
-                                <div className="flex justify-between items-center text-destructive">
-                                    <span className="text-[10px] font-bold uppercase italic tracking-widest">Estimated Billed Hours:</span>
-                                    <span className="text-xl font-black">00:00 to 00:00</span>
+                                <div className="flex justify-between items-center">
+                                    <span className="text-md font-semibold">Estimated Billed Hours:</span>
+                                    <span className="text-md font-bold">00:00 to 00:00</span>
                                 </div>
                             </div>
                         </div>
@@ -230,10 +230,10 @@ export function AddBookingForm({ open, onOpenChange, initialData }: { open: bool
                 </div>
 
                 {/* Standard Footer from dashboard/contacts/page.tsx */}
-                <SheetFooter className="p-4 border-t bg-muted/30 flex-col sm:flex-row gap-4 sm:items-center shrink-0">
+                <SheetFooter className="p-4 border-t bg-muted/30 flex-col sm:flex-row gap-2 sm:items-center shrink-0">
                     <div className="flex-1 flex items-center gap-2">
                         <DollarSign className="h-5 w-5 text-primary" />
-                        <span className="font-bold text-lg">Price Per hour : $0.00</span>
+                        <span className="font-semibold text-lg">Price Per hour : $0.00</span>
                     </div>
                     <div className="flex gap-2 w-full sm:w-auto">
                         <Button variant="default">Booking</Button>
