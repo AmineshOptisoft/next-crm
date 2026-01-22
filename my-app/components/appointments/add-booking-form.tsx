@@ -50,7 +50,7 @@ export function AddBookingForm({ open, onOpenChange, initialData }: { open: bool
 
     return (
         <Sheet open={open} onOpenChange={onOpenChange}>
-            <SheetContent side="right" className="sm:max-w-2xl w-full p-0 flex flex-col">
+            <SheetContent side="right" className="sm:max-w-2xl w-full p-0 flex flex-col z-[100]">
                 {/* Standard Header from dashboard/contacts/page.tsx */}
                 <SheetHeader className="p-4 border-b gap-0">
                     <div className="text-xl font-semibold">Add Manual Booking</div>

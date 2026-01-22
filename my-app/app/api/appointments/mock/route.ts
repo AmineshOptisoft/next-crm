@@ -15,30 +15,71 @@ export async function GET() {
     ];
 
     // Helper to generate a date relative to today
-    const getRelativeDate = (daysOffset: number, hours: number) => {
+    const getRelativeDate = (daysOffset: number, hours: number, minutes: number = 0) => {
         const date = new Date();
         date.setDate(date.getDate() + daysOffset);
-        date.setHours(hours, 0, 0, 0);
+        date.setHours(hours, minutes, 0, 0);
         return date.toISOString();
     }
 
     const events = [
         // Not Available Blocks (Red)
-        { id: "e1", resourceId: "t1", title: "Not Available33", start: getRelativeDate(0, 8), end: getRelativeDate(0, 18), backgroundColor: "#dc2626", borderColor: "#dc2626" },
-        { id: "e2", resourceId: "t2", title: "Not Available11", start: getRelativeDate(0, 6), end: getRelativeDate(0, 9), backgroundColor: "#dc2626", borderColor: "#dc2626" },
-        { id: "e3", resourceId: "t2", title: "Not Available22", start: getRelativeDate(0, 19), end: getRelativeDate(0, 22), backgroundColor: "#dc2626", borderColor: "#dc2626" },
-        { id: "e4", resourceId: "t3", title: "Not Available22", start: getRelativeDate(0, 12), end: getRelativeDate(0, 20), backgroundColor: "#dc2626", borderColor: "#dc2626" },
+        { id: "e1", resourceId: "t1", title: "Not Available33", start: getRelativeDate(0, 8), end: getRelativeDate(0, 18), backgroundColor: "#dc2626", borderColor: "#dc2626", type: "block" },
+        { id: "e2", resourceId: "t2", title: "Not Available11", start: getRelativeDate(0, 6), end: getRelativeDate(0, 9), backgroundColor: "#dc2626", borderColor: "#dc2626", type: "block" },
+        { id: "e3", resourceId: "t2", title: "Not Available22", start: getRelativeDate(0, 19), end: getRelativeDate(0, 22), backgroundColor: "#dc2626", borderColor: "#dc2626", type: "block" },
+        { id: "e4", resourceId: "t3", title: "Not Available22", start: getRelativeDate(0, 12), end: getRelativeDate(0, 20), backgroundColor: "#dc2626", borderColor: "#dc2626", type: "block" },
 
         // Jobs (Blue/Yellow)
-        { id: "j1", resourceId: "t6", title: "[PT:] - Aisling Williams", start: getRelativeDate(0, 10), end: getRelativeDate(0, 13), backgroundColor: "#facc15", borderColor: "#facc15", textColor: "black" },
-        { id: "j2", resourceId: "t6", title: "[PT:] - gfnl", start: getRelativeDate(0, 12), end: getRelativeDate(0, 14), backgroundColor: "#0ea5e9", borderColor: "#0ea5e9" },
+        {
+            id: "j1",
+            resourceId: "t8",
+            title: "Booking - aminesh verma",
+            start: getRelativeDate(0, 9, 0),
+            end: getRelativeDate(0, 13, 40),
+            backgroundColor: "#0ea5e9",
+            borderColor: "#0ea5e9",
+            type: "booking",
+            bookingStatus: "Confirm(Client Booked)",
+            service: "Deluxe First Time Cleaning",
+            units: "Bedrooms-1,Bathrooms-1",
+            addons: "No Addons",
+            notes: "herllo",
+            preferences: "-",
+            billingNotes: "-",
+            billedAmount: "-",
+            billedHours: "4 hours 40 minutes",
+            bookingPrice: "$357.00",
+            bookingDiscountPrice: "$0.00",
+            bookingDiscount: "$0",
+            estimatedBilledAmount: "$249 to $357",
+            estimatedBilledHours: "03:16 to 04:40",
+            scheduledDuration: "4 hours 40 minutes",
+            teamCleaningTime: "0 hours 0 min",
+            technicianTime: "-",
+            timesheetNotes: "-",
+            gpsArrivalTime: "-",
+            gpsDepartureTime: "-",
+            customerName: "aminesh verma",
+            customerEmail: "aminesh.optisoft.jaipur@gmail.com",
+            customerPhone: "8239929306",
+            customerAddress: "aminesh.optisoft@gmail.com, jaipur, 1, CA",
+            familyInfo: "-",
+            parkingAccess: "-",
+            clientNotesFromTech: "-",
+            specialInstructionsFromClient: "-",
+            specialInstructionsFromAdmin: "-",
+            specialRequestFromClient: "-",
+            assignedStaff: "Faith Velasco",
+            preferredTechnician: "-",
+        },
+        { id: "j2", resourceId: "t6", title: "[PT:] - Aisling Williams", start: getRelativeDate(0, 10), end: getRelativeDate(0, 13), backgroundColor: "#facc15", borderColor: "#facc15", textColor: "black", type: "booking", bookingStatus: "Unconfirmed" },
 
         // More Examples
-        { id: "e5", resourceId: "t4", title: "Not Available11", start: getRelativeDate(0, 6), end: getRelativeDate(0, 10), backgroundColor: "#dc2626", borderColor: "#dc2626" },
-        { id: "e6", resourceId: "t4", title: "Not Available22", start: getRelativeDate(0, 16), end: getRelativeDate(0, 22), backgroundColor: "#dc2626", borderColor: "#dc2626" },
+        { id: "e5", resourceId: "t4", title: "Not Available11", start: getRelativeDate(0, 6), end: getRelativeDate(0, 10), backgroundColor: "#dc2626", borderColor: "#dc2626", type: "block" },
+        { id: "e6", resourceId: "t4", title: "Not Available22", start: getRelativeDate(0, 16), end: getRelativeDate(0, 22), backgroundColor: "#dc2626", borderColor: "#dc2626", type: "block" },
 
         // Next Day events
-        { id: "e7", resourceId: "t1", title: "Not Available", start: getRelativeDate(1, 9), end: getRelativeDate(1, 17), backgroundColor: "#dc2626", borderColor: "#dc2626" },
+        { id: "e7", resourceId: "t1", title: "Not Available", start: getRelativeDate(1, 9), end: getRelativeDate(1, 17), backgroundColor: "#dc2626", borderColor: "#dc2626", type: "block" },
     ];
 
     // Resources need to be formatted for FullCalendar

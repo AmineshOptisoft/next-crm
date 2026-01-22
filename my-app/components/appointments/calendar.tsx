@@ -4,13 +4,9 @@ import { useEvents } from "@/context/events-context";
 import "@/app/calendar.css";
 import {
   DateSelectArg,
-  DayCellContentArg,
-  DayHeaderContentArg,
   EventChangeArg,
   EventClickArg,
-  EventContentArg,
 } from "@fullcalendar/core/index.js";
-import dayGridPlugin from "@fullcalendar/daygrid";
 import interactionPlugin from "@fullcalendar/interaction";
 import FullCalendar from "@fullcalendar/react";
 import resourceTimelinePlugin from '@fullcalendar/resource-timeline';
@@ -18,18 +14,24 @@ import { useRef, useState, useEffect } from "react";
 import { CalendarEvent } from "@/utils/calendar-data";
 import { Card } from "@/components/ui/card";
 import { EventEditForm } from "./event-edit-form";
-import { EventView } from "./event-view";
+import { AppointmentDetailsSheet, type AppointmentDetails } from "./appointment-details-sheet";
 import { AddBookingForm } from "./add-booking-form";
 
 
 export default function Calendar() {
-  const { eventAddOpen, setEventAddOpen, setEventEditOpen, setEventViewOpen } = useEvents();
+  const { 
+    eventAddOpen, 
+    setEventAddOpen, 
+    appointmentDetailsOpen,
+    setAppointmentDetailsOpen
+  } = useEvents();
 
   const calendarRef = useRef<FullCalendar | null>(null);
   const [selectedStart, setSelectedStart] = useState(new Date());
   const [selectedEnd, setSelectedEnd] = useState(new Date());
   const [selectedOldEvent, setSelectedOldEvent] = useState<CalendarEvent | undefined>();
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | undefined>();
+  const [selectedAppointment, setSelectedAppointment] = useState<AppointmentDetails | undefined>();
   const [isDrag, setIsDrag] = useState(false);
 
   // State for resources and events from mock API
@@ -52,10 +54,61 @@ export default function Calendar() {
   }, []);
 
   const handleEventClick = (info: EventClickArg) => {
+    const props = info.event.extendedProps as Record<string, any>;
+
+    if (props?.type === "booking") {
+      const appointment: AppointmentDetails = {
+        id: info.event.id,
+        title: info.event.title,
+        start: info.event.start!,
+        end: info.event.end!,
+        status: props.status,
+        bookingStatus: props.bookingStatus,
+
+        service: props.service,
+        units: props.units,
+        addons: props.addons,
+        notes: props.notes,
+        preferences: props.preferences,
+        billingNotes: props.billingNotes,
+        billedAmount: props.billedAmount,
+        billedHours: props.billedHours,
+        bookingPrice: props.bookingPrice,
+        bookingDiscountPrice: props.bookingDiscountPrice,
+        bookingDiscount: props.bookingDiscount,
+        estimatedBilledAmount: props.estimatedBilledAmount,
+        estimatedBilledHours: props.estimatedBilledHours,
+        scheduledDuration: props.scheduledDuration,
+        teamCleaningTime: props.teamCleaningTime,
+        technicianTime: props.technicianTime,
+        timesheetNotes: props.timesheetNotes,
+        gpsArrivalTime: props.gpsArrivalTime,
+        gpsDepartureTime: props.gpsDepartureTime,
+
+        customerName: props.customerName,
+        customerEmail: props.customerEmail,
+        customerPhone: props.customerPhone,
+        customerAddress: props.customerAddress,
+        familyInfo: props.familyInfo,
+        parkingAccess: props.parkingAccess,
+        clientNotesFromTech: props.clientNotesFromTech,
+        specialInstructionsFromClient: props.specialInstructionsFromClient,
+        specialInstructionsFromAdmin: props.specialInstructionsFromAdmin,
+        specialRequestFromClient: props.specialRequestFromClient,
+
+        assignedStaff: props.assignedStaff,
+        preferredTechnician: props.preferredTechnician,
+      };
+
+      setSelectedAppointment(appointment);
+      setAppointmentDetailsOpen(true);
+      return;
+    }
+
     const event: CalendarEvent = {
       id: info.event.id,
       title: info.event.title,
-      description: info.event.extendedProps.description,
+      description: String(props?.description ?? ""),
       backgroundColor: info.event.backgroundColor,
       start: info.event.start!,
       end: info.event.end!,
@@ -64,7 +117,6 @@ export default function Calendar() {
     setIsDrag(false);
     setSelectedOldEvent(event);
     setSelectedEvent(event);
-    setEventViewOpen(true);
   };
 
   const handleEventChange = (info: EventChangeArg) => {
@@ -143,7 +195,13 @@ export default function Calendar() {
         isDrag={isDrag}
         displayButton={false}
       />
-      <EventView event={selectedEvent} />
+
+      {/* Appointment Details Sheet */}
+      <AppointmentDetailsSheet
+        appointment={selectedAppointment}
+        open={appointmentDetailsOpen}
+        onOpenChange={setAppointmentDetailsOpen}
+      />
 
       {/* New Booking Form */}
       <AddBookingForm

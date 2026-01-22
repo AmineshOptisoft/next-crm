@@ -23,6 +23,8 @@ interface EventsContextType {
   setEventEditOpen: (value: boolean) => void;
   eventDeleteOpen: boolean;
   setEventDeleteOpen: (value: boolean) => void;
+  appointmentDetailsOpen: boolean;
+  setAppointmentDetailsOpen: (value: boolean) => void;
 }
 
 const EventsContext = createContext<EventsContextType | undefined>(undefined);
@@ -49,6 +51,7 @@ export const EventsProvider: React.FC<{ children: ReactNode }> = ({
   const [eventAddOpen, setEventAddOpen] = useState(false);
   const [eventEditOpen, setEventEditOpen] = useState(false);
   const [eventDeleteOpen, setEventDeleteOpen] = useState(false);
+  const [appointmentDetailsOpen, setAppointmentDetailsOpen] = useState(false);
 
   const addEvent = (event: CalendarEvent) => {
     setEvents((prevEvents) => [...prevEvents, event]);
@@ -74,6 +77,8 @@ export const EventsProvider: React.FC<{ children: ReactNode }> = ({
         setEventEditOpen,
         eventDeleteOpen,
         setEventDeleteOpen,
+        appointmentDetailsOpen,
+        setAppointmentDetailsOpen,
       }}
     >
       {children}
