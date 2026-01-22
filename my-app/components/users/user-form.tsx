@@ -182,37 +182,53 @@ export function UserForm({ user, onSave, loading }: UserFormProps) {
                 <form onSubmit={handleSubmit} className="">
                     {/* Upload Image - Redesigned & Moved to Top */}
                     {/* Upload Image - Redesigned & Moved to Top */}
-                    <div className="flex w-full justify-center items-center mb-6">
-                        <div className="w-1/2">
-                        {/* <Label className="mb-2 block text-center">Upload Image</Label> */}
-                        <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-6 flex flex-col items-center justify-center text-center hover:bg-muted/50 transition-colors cursor-pointer group">
-                             <input 
-                                type="file" 
-                                className="hidden" 
-                                id="avatar-upload"
-                                accept="image/png, image/jpeg"
-                                onChange={(e) => {
-                                    // Handle file upload logic here (currently just a UI mock)
-                                    if(e.target.files?.[0]) {
-                                       handleChange("avatarUrl", URL.createObjectURL(e.target.files[0]));
-                                    }
-                                }}
-                            />
-                            <Label htmlFor="avatar-upload" className="cursor-pointer flex flex-col items-center">
-                                <div className="bg-muted p-4 rounded-full mb-3 group-hover:scale-110 transition-transform">
-                                    <Upload className="h-6 w-6 text-muted-foreground" />
+                                        {/* Upload Image - Company Logo */}
+                    <div className="space-y-2 mb-6 flex flex-col gap-2">
+                        <h3 className="font-semibold">Image</h3>
+                        <div className="flex items-center gap-6">
+                            {formData.avatarUrl ? (
+                                <div className="relative">
+                                    <img
+                                        src={formData.avatarUrl}
+                                        alt="User Image"
+                                        className="h-24 w-24 rounded-lg object-cover border-2 border-gray-200"
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => handleChange("avatarUrl", "")}
+                                        className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
+                                    >
+                                        <X className="h-4 w-4" />
+                                    </button>
                                 </div>
-                                <span className="text-sm font-medium mb-1">Click to upload or drag & drop</span>
-                                <span className="text-xs text-muted-foreground">Best: Square JPG/PNG</span>
-                            </Label>
-                        </div>
-                         {formData.avatarUrl && (
-                            <div className="mt-2 text-sm text-green-600 flex justify-center items-center gap-2">
-                                <span className="h-2 w-2 rounded-full bg-green-600"></span>
-                                Image selected
+                            ) : (
+                                <div className="h-24 w-24 rounded-lg border-2 border-dashed border-gray-300 flex items-center justify-center bg-gray-50">
+                                    <Upload className="h-8 w-8 text-gray-400" />
+                                </div>
+                            )}
+                            <div className="flex-1">
+                                <Label htmlFor="avatar-upload" className="font-semibold">Upload Image</Label>
+                                <p className="text-sm text-muted-foreground mb-2">
+                                    PNG, JPG up to 5MB
+                                </p>
+                                <Input
+                                    id="avatar-upload"
+                                    type="file"
+                                    accept="image/png,image/jpeg,image/jpg"
+                                    onChange={(e) => {
+                                        if(e.target.files?.[0]) {
+                                            const file = e.target.files[0];
+                                            if (file.size <= 5 * 1024 * 1024) {
+                                                handleChange("avatarUrl", URL.createObjectURL(file));
+                                            } else {
+                                                alert("File size must be less than 5MB");
+                                            }
+                                        }
+                                    }}
+                                />
                             </div>
-                         )}
-                    </div></div>
+                        </div>
+                    </div>
                     {/* Name & Email */}
                     <div className="grid grid-cols-2 gap-6">
                         <div className="space-y-2">
@@ -284,7 +300,7 @@ export function UserForm({ user, onSave, loading }: UserFormProps) {
                                 <Label htmlFor="country">Country</Label>
                                 <Input 
                                 id="country" 
-                                value={formData.country}
+                                value={formData.country || ""}
                                     onChange={(e) => handleChange("country", e.target.value)}
                             />
                         </div>
