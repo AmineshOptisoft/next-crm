@@ -21,7 +21,13 @@ export async function GET(req: NextRequest) {
   await connectDB();
 
   // Build filter: super admins see all roles, company admins see only their company's roles
-  const filter = { ...buildCompanyFilter(user), isActive: true };
+  const url = new URL(req.url);
+  const creatorFilter = url.searchParams.get("creator");
+  
+  const filter: any = { ...buildCompanyFilter(user), isActive: true };
+  if (creatorFilter === "me") {
+    filter.createdBy = user.userId;
+  }
   let roles = await Role.find(filter)
     .populate("createdBy", "firstName lastName email")
     .populate("companyId", "name")

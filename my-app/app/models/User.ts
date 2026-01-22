@@ -55,6 +55,9 @@ const UserSchema = new Schema(
     customRoleId: { type: Types.ObjectId, ref: "Role" },
     
     // Location fields
+    country: { type: String },
+    state: { type: String },
+    city: { type: String },
     countryId: { type: String },
     stateId: { type: String },
     cityId: { type: String },
