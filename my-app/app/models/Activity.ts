@@ -4,7 +4,7 @@ const ActivitySchema = new Schema(
   {
     companyId: { type: Types.ObjectId, ref: "Company", required: true },
     ownerId: { type: Types.ObjectId, ref: "User", required: true },
-    contactId: { type: Types.ObjectId, ref: "Contact", required: true },
+    contactId: { type: Types.ObjectId, ref: "User", required: true },
     dealId: { type: Types.ObjectId, ref: "Deal" },
     type: {
       type: String,
@@ -25,7 +25,7 @@ const ActivitySchema = new Schema(
       enum: ["scheduled", "completed", "cancelled"],
       default: "scheduled",
     },
-    assignedTo: { type: Types.ObjectId, ref: "Employee" },
+    assignedTo: { type: Types.ObjectId, ref: "User" },
     attachments: [{ type: String }], // URLs to files
   },
   { timestamps: true }
@@ -37,4 +37,8 @@ ActivitySchema.index({ ownerId: 1, contactId: 1 });
 ActivitySchema.index({ ownerId: 1, dealId: 1 });
 ActivitySchema.index({ scheduledAt: 1 });
 
-export const Activity = models.Activity || model("Activity", ActivitySchema);
+if (models && models.Activity) {
+  delete (models as any).Activity;
+}
+
+export const Activity = model("Activity", ActivitySchema);

@@ -53,23 +53,28 @@ import {
   UserX,
   Download,
   Upload,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Building2,
+  X
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import Image from "next/image";
+import { ServiceDefaults } from "./[id]/ServiceDefaults";
+import { Separator } from "@/components/ui/separator";
+import { DataTable } from "@/components/data-table";
+import { ColumnDef } from "@tanstack/react-table";
 
 interface ContactType {
   _id: string;
-  name: string;
-  firstName?: string;
-  lastName?: string;
+  firstName: string;
+  lastName: string;
   email?: string;
-  phone?: string;
-  company?: string;
+  phoneNumber?: string;
+  companyName?: string;
   companyId?: string;
-  status: string;
+  contactStatus: string;
   bathrooms?: string;
   bedrooms?: string;
   specialInstructions?: string;
@@ -79,13 +84,8 @@ interface ContactType {
   lastAppointment?: string;
   nextAppointment?: string;
   createdAt: string;
-  image?: string;
-  address?: {
-    street?: string;
-    city?: string;
-    state?: string;
-    zipCode?: string;
-  };
+  avatarUrl?: string;
+  address?: string;
 }
 
 export default function ContactsPage() {
@@ -121,6 +121,10 @@ export default function ContactsPage() {
     specialInstructions: "",
     company: "",
     companyId: "",
+    serviceDefaults: {},
+    zoneName: "",
+    fsrAssigned: "",
+    role: "contact"
   });
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -132,6 +136,11 @@ export default function ContactsPage() {
     status: "all",
     zone: "all",
     staxData: "all",
+    lastAppointmentFrom: "",
+    lastAppointmentTo: "",
+    nextAppointmentFrom: "",
+    nextAppointmentTo: "",
+    notHaveBookingFrom: "none",
   });
 
   // Column Selection
@@ -151,11 +160,54 @@ export default function ContactsPage() {
 
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10);
+  const [statesList, setStatesList] = useState<any[]>([]);
+  const [zonesList, setZonesList] = useState<string[]>([]);
+  const [usersList, setUsersList] = useState<any[]>([]);
 
   useEffect(() => {
     fetchContacts();
     fetchCurrentUser();
+    fetchStates();
+    fetchZones();
+    fetchUsers();
   }, []);
+
+  async function fetchUsers() {
+    try {
+      const res = await fetch("/api/users");
+      if (res.ok) {
+        const data = await res.json();
+        setUsersList(data);
+      }
+    } catch (e) {
+      console.error("Failed to fetch users", e);
+    }
+  }
+
+  async function fetchZones() {
+    try {
+      const res = await fetch("/api/zip-codes");
+      if (res.ok) {
+        const data = await res.json();
+        const uniqueZones = Array.from(new Set(data.map((z: any) => z.zone))) as string[];
+        setZonesList(uniqueZones);
+      }
+    } catch (e) {
+      console.error("Failed to fetch zones", e);
+    }
+  }
+
+  async function fetchStates() {
+    try {
+      const res = await fetch("/api/geo/states?countryId=US");
+      if (res.ok) {
+        const data = await res.json();
+        setStatesList(data);
+      }
+    } catch (e) {
+      console.error("Failed to fetch states", e);
+    }
+  }
 
   async function fetchCurrentUser() {
     try {
@@ -196,7 +248,7 @@ export default function ContactsPage() {
     formData.append("file", file);
 
     try {
-      const res = await fetch("/api/upload", {
+      const res = await fetch("/api/upload?subfolder=contacts", {
         method: "POST",
         body: formData,
       });
@@ -216,31 +268,30 @@ export default function ContactsPage() {
     setEditingContact(contact);
     let fName = contact.firstName || "";
     let lName = contact.lastName || "";
-    if (!fName && !lName && contact.name) {
-      const parts = contact.name.split(" ");
-      fName = parts[0];
-      lName = parts.slice(1).join(" ");
-    }
 
     setFormData({
       firstName: fName,
       lastName: lName,
-      phone: contact.phone || "",
+      phone: contact.phoneNumber || "",
       email: contact.email || "",
       password: "",
       confirmPassword: "",
-      status: contact.status || "new lead",
+      status: contact.contactStatus || "new lead",
       bathrooms: contact.bathrooms || "",
       bedrooms: contact.bedrooms || "",
-      streetAddress: contact.address?.street || "",
-      state: contact.address?.state || "",
-      city: contact.address?.city || "",
-      zipCode: contact.address?.zipCode || "",
+      streetAddress: contact.address || "",
+      state: "", // User model has string address, individual components might be missing or combined
+      city: "",
+      zipCode: "",
       specialInstructions: contact.specialInstructions || "",
-      company: contact.company || "",
+      company: contact.companyName || "",
       companyId: contact.companyId || "",
+      serviceDefaults: (contact as any).serviceDefaults || {},
+      zoneName: contact.zoneName || "",
+      fsrAssigned: contact.fsrAssigned || "",
+      role: contact?.role || "contact"
     });
-    setPreviewUrl(contact.image || null);
+    setPreviewUrl(contact.avatarUrl || null);
     setFileToUpload(null);
     setIsSheetOpen(true);
   }
@@ -252,7 +303,7 @@ export default function ContactsPage() {
       return;
     }
 
-    let imageUrl = editingContact?.image || "";
+    let imageUrl = editingContact?.avatarUrl || "";
     if (fileToUpload) {
       const uploaded = await uploadImage(fileToUpload);
       if (uploaded) imageUrl = uploaded;
@@ -322,22 +373,56 @@ export default function ContactsPage() {
       specialInstructions: "",
       company: "",
       companyId: "",
+      serviceDefaults: {},
+      zoneName: "",
+      fsrAssigned: "",
+      role: "contact"
     });
     setFileToUpload(null);
     setPreviewUrl(null);
   }
-
+  const handleRemoveLogo = () => {
+    fileToUpload && setFileToUpload(null);
+    previewUrl && setPreviewUrl(null);
+  };
   // --- Export CSV ---
 
+  const filteredContacts = contacts.filter(contact => {
+    // Search by Name or Email (Keywords input)
+    if (filterData.name) {
+      const search = filterData.name.toLowerCase();
+      const nameMatch = `${contact.firstName} ${contact.lastName}`.toLowerCase().includes(search);
+      const emailMatch = contact.email?.toLowerCase()?.includes(search);
+      if (!nameMatch && !emailMatch) return false;
+    }
+
+    // Email Filter (if specifically entered in filter modal)
+    if (filterData.email && !contact.email?.toLowerCase()?.includes(filterData.email.toLowerCase())) return false;
+
+    // Status Filter
+    if (filterData.status !== "all" && contact.contactStatus !== filterData.status) return false;
+
+    // Zone Filter
+    if (filterData.zone !== "all" && contact.zoneName !== filterData.zone) return false;
+
+    // Stax Filter
+    if (filterData.staxData === "stax" && !contact.staxId) return false;
+    if (filterData.staxData === "non-stax" && contact.staxId) return false;
+
+    return true;
+  });
+
+  // Refreshing CSV export to use updated field names
   function exportCSV() {
-    const headers = ["ID", "Name", "Email", "Phone", "Status", "Company", "Zone", "FSR", "Join Date"];
+    const headers = ["ID", "First Name", "Last Name", "Email", "Phone", "Status", "Company", "Zone", "FSR", "Join Date"];
     const rows = filteredContacts.map((c, i) => [
       i + 1,
-      c.name,
+      c.firstName,
+      c.lastName,
       c.email || "",
-      c.phone || "",
-      c.status,
-      c.company || "",
+      c.phoneNumber || "",
+      c.contactStatus,
+      c.companyName || "",
       c.zoneName || "",
       c.fsrAssigned || "",
       c.createdAt ? format(new Date(c.createdAt), "yyyy-MM-dd") : ""
@@ -354,17 +439,6 @@ export default function ContactsPage() {
     link.click();
     document.body.removeChild(link);
   }
-
-  // --- Filtering ---
-
-  const filteredContacts = contacts.filter(contact => {
-    if (filterData.name && !contact.name.toLowerCase().includes(filterData.name.toLowerCase())) return false;
-    if (filterData.email && !contact.email?.toLowerCase().includes(filterData.email.toLowerCase())) return false;
-    if (filterData.status !== "all" && contact.status !== filterData.status) return false;
-    if (filterData.staxData === "stax" && !contact.staxId) return false;
-    if (filterData.staxData === "non-stax" && contact.staxId) return false;
-    return true;
-  });
 
   const stats = {
     withStax: contacts.filter(c => c.staxId).length,
@@ -388,8 +462,14 @@ export default function ContactsPage() {
 
   return (
     <div className="space-y-6">
+      <div>
+        <h1 className="text-3xl font-bold tracking-tight">Contacts</h1>
+        <p className="text-muted-foreground">
+          Manage your contacts and leads.
+        </p>
+      </div>
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full md:w-[40%]">
         <Card>
           <CardContent className="flex items-center justify-between p-6">
             <div><p className="text-sm font-medium text-muted-foreground">users_with_stax</p><h2 className="text-2xl font-bold">{stats.withStax}</h2></div>
@@ -429,90 +509,294 @@ export default function ContactsPage() {
           <Button variant="outline" onClick={() => setIsFilterModalOpen(true)}>
             <Filter className="mr-2 h-4 w-4" /> Filter
           </Button>
-          <div className="relative w-full md:w-64">
-            <Input placeholder="Keywords..." value={filterData.name} onChange={e => setFilterData({ ...filterData, name: e.target.value })} />
-          </div>
         </div>
       </div>
 
-      {/* Table */}
-      <div className="rounded-md border">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              {visibleColumns.id && <TableHead>Id</TableHead>}
-              {visibleColumns.name && <TableHead>NAME</TableHead>}
-              {visibleColumns.email && <TableHead>EMAIL</TableHead>}
-              {visibleColumns.zoneName && <TableHead>Zone Name</TableHead>}
-              {visibleColumns.currentStage && <TableHead>CURRENT STAGE</TableHead>}
-              {visibleColumns.fsrAssigned && <TableHead>FSR Assigned</TableHead>}
-              {visibleColumns.lastAppointment && <TableHead>Last Appointment</TableHead>}
-              {visibleColumns.nextAppointment && <TableHead>Next Appointment</TableHead>}
-              {visibleColumns.joinOn && <TableHead>JOIN ON</TableHead>}
-              {visibleColumns.staxId && <TableHead>STAX ID</TableHead>}
-              {visibleColumns.action && <TableHead>ACTION</TableHead>}
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {loading ? <TableRow><TableCell colSpan={10} className="text-center py-4">Loading...</TableCell></TableRow> :
-              currentItems.length === 0 ? <TableRow><TableCell colSpan={10} className="text-center py-4">No records found</TableCell></TableRow> :
-                currentItems.map((contact, idx) => (
-                  <TableRow key={contact._id}>
-                    {visibleColumns.id && <TableCell>{idx + 1 + (currentPage - 1) * 10}</TableCell>}
-                    {/* Show Image if available with Name */}
-                    {visibleColumns.name && <TableCell className="font-medium flex items-center gap-2">
-                      {contact.image && <img src={contact.image} alt="" className="w-8 h-8 rounded-full object-cover" />}
-                      {contact.name}
-                    </TableCell>}
-                    {visibleColumns.email && <TableCell>{contact.email}</TableCell>}
-                    {visibleColumns.zoneName && <TableCell>{contact.zoneName || "-"}</TableCell>}
-                    {visibleColumns.currentStage && <TableCell>{getStatusBadge(contact.status)}</TableCell>}
-                    {visibleColumns.fsrAssigned && <TableCell>{contact.fsrAssigned || "-"}</TableCell>}
-                    {visibleColumns.lastAppointment && <TableCell>{contact.lastAppointment ? format(new Date(contact.lastAppointment), 'MM-dd-yyyy') : "-"}</TableCell>}
-                    {visibleColumns.nextAppointment && <TableCell>{contact.nextAppointment ? format(new Date(contact.nextAppointment), 'MM-dd-yyyy') : "-"}</TableCell>}
-                    {visibleColumns.joinOn && <TableCell>{contact.createdAt ? format(new Date(contact.createdAt), 'yyyy-MM-dd HH:mm:ss') : "-"}</TableCell>}
-                    {visibleColumns.staxId && <TableCell>{contact.staxId ? <a href="#" className="text-primary flex items-center hover:underline">Go to stax <ExternalLink className="w-3 h-3 ml-1" /></a> : "-"}</TableCell>}
-                    {visibleColumns.action && <TableCell>
-                      <div className="flex items-center gap-2">
-                        <Button size="icon" variant="ghost" onClick={() => router.push(`/dashboard/contacts/${contact._id}`)}><Pencil className="h-4 w-4" /></Button>
-                        <Button size="icon" variant="ghost" className="text-destructive hover:text-destructive" onClick={() => handleDelete(contact._id)}><Trash2 className="h-4 w-4" /></Button>
-                      </div>
-                    </TableCell>}
-                  </TableRow>
-                ))}
-          </TableBody>
-        </Table>
-      </div>
-
-      {/* Pagination (Simplified) */}
-      <div className="flex items-center justify-between">
-        <Badge variant="outline">{itemsPerPage} per page</Badge>
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm" disabled={currentPage === 1} onClick={() => setCurrentPage(c => Math.max(1, c - 1))}>Previous</Button>
-          <Button variant="outline" size="sm" disabled={currentPage >= totalPages} onClick={() => setCurrentPage(c => Math.min(totalPages, c + 1))}>Next</Button>
-        </div>
-      </div>
+      <DataTable
+        columns={[
+          {
+            accessorKey: "idx",
+            header: "Id",
+            cell: ({ row }: { row: any }) => (visibleColumns.id ? row.index + 1 : null),
+          },
+          {
+            accessorKey: "firstName", // Using firstName for search
+            header: "NAME",
+            cell: ({ row }: { row: any }) => {
+              if (!visibleColumns.name) return null;
+              const contact = row.original;
+              return (
+                <div className="font-medium flex items-center gap-2">
+                  {contact.avatarUrl && <img src={contact.avatarUrl} alt="" className="w-8 h-8 rounded-full object-cover" />}
+                  {contact.firstName} {contact.lastName}
+                </div>
+              );
+            },
+          },
+          {
+            accessorKey: "email",
+            header: "EMAIL",
+            cell: ({ row }: { row: any }) => (visibleColumns.email ? row.getValue("email") : null),
+          },
+          {
+            accessorKey: "zoneName",
+            header: "Zone Name",
+            cell: ({ row }: { row: any }) => (visibleColumns.zoneName ? (row.getValue("zoneName") || "-") : null),
+          },
+          {
+            accessorKey: "contactStatus",
+            header: "CURRENT STAGE",
+            cell: ({ row }: { row: any }) => (visibleColumns.currentStage ? getStatusBadge(row.getValue("contactStatus")) : null),
+          },
+          {
+            accessorKey: "fsrAssigned",
+            header: "FSR Assigned",
+            cell: ({ row }: { row: any }) => (visibleColumns.fsrAssigned ? (row.getValue("fsrAssigned") || "-") : null),
+          },
+          {
+            accessorKey: "lastAppointment",
+            header: "Last Appointment",
+            cell: ({ row }: { row: any }) => {
+              if (!visibleColumns.lastAppointment) return null;
+              const val = row.getValue("lastAppointment");
+              return val ? format(new Date(val as string), "MM-dd-yyyy") : "-";
+            },
+          },
+          {
+            accessorKey: "nextAppointment",
+            header: "Next Appointment",
+            cell: ({ row }: { row: any }) => {
+              if (!visibleColumns.nextAppointment) return null;
+              const val = row.getValue("nextAppointment");
+              return val ? format(new Date(val as string), "MM-dd-yyyy") : "-";
+            },
+          },
+          {
+            accessorKey: "createdAt",
+            header: "JOIN ON",
+            cell: ({ row }: { row: any }) => {
+              if (!visibleColumns.joinOn) return null;
+              const val = row.getValue("createdAt");
+              return val ? format(new Date(val as string), "yyyy-MM-dd HH:mm:ss") : "-";
+            },
+          },
+          {
+            accessorKey: "staxId",
+            header: "STAX ID",
+            cell: ({ row }: { row: any }) => {
+              if (!visibleColumns.staxId) return null;
+              const val = row.getValue("staxId");
+              return val ? (
+                <a href="#" className="text-primary flex items-center hover:underline">
+                  Go to stax <ExternalLink className="w-3 h-3 ml-1" />
+                </a>
+              ) : "-";
+            },
+          },
+          {
+            id: "actions",
+            header: "ACTION",
+            cell: ({ row }: { row: any }) => {
+              if (!visibleColumns.action) return null;
+              const contact = row.original;
+              return (
+                <div className="flex items-center gap-2">
+                  <Button size="icon" variant="ghost" onClick={() => router.push(`/dashboard/contacts/${contact._id}`)}>
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+                  <Button size="icon" variant="ghost" className="text-destructive hover:text-destructive" onClick={() => handleDelete(contact._id)}>
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              );
+            },
+          },
+        ].filter(col => {
+          if (col.accessorKey) return (visibleColumns as any)[col.accessorKey];
+          if (col.id === 'actions') return visibleColumns.action;
+          return true;
+        }) as ColumnDef<ContactType>[]}
+        data={filteredContacts}
+        searchPlaceholder="Keywords..."
+        onFilterChange={(val) => setFilterData({ ...filterData, name: val })}
+      />
 
       {/* Filter Modal */}
       <Dialog open={isFilterModalOpen} onOpenChange={setIsFilterModalOpen}>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader><DialogTitle>Filter Contacts</DialogTitle></DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="space-y-2"><Label>Name</Label><Input value={filterData.name} onChange={e => setFilterData({ ...filterData, name: e.target.value })} placeholder="Name" /></div>
-            <div className="space-y-2"><Label>Email</Label><Input value={filterData.email} onChange={e => setFilterData({ ...filterData, email: e.target.value })} placeholder="Email" /></div>
-            <div className="space-y-2"><Label>Customer Stage</Label>
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader className=" ">
+            <DialogTitle className="text-white text-lg font-bold">Filter model</DialogTitle>
+          </DialogHeader>
+
+          <div className="grid gap-6 py-4 px-2">
+            {/* Name Filter */}
+            <div className="space-y-2">
+              <Label>Name</Label>
+              <Input
+                value={filterData.name}
+                onChange={e => setFilterData({ ...filterData, name: e.target.value })}
+                placeholder="First Name"
+              />
+            </div>
+
+            {/* Email Filter */}
+            <div className="space-y-2">
+              <Label>Email Address</Label>
+              <Input
+                value={filterData.email}
+                onChange={e => setFilterData({ ...filterData, email: e.target.value })}
+                placeholder="Email Address"
+              />
+            </div>
+
+            {/* Customer Stage Filter */}
+            <div className="space-y-2">
+              <Label>Customer Stage</Label>
               <Select value={filterData.status} onValueChange={v => setFilterData({ ...filterData, status: v })}>
                 <SelectTrigger><SelectValue placeholder="All" /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All</SelectItem><SelectItem value="new lead">New Lead</SelectItem>
-                  <SelectItem value="lead">Lead</SelectItem><SelectItem value="maturing">Maturing</SelectItem>
+                  <SelectItem value="all">All</SelectItem>
+                  <SelectItem value="new lead">New Lead</SelectItem>
+                  <SelectItem value="lead">Lead</SelectItem>
+                  <SelectItem value="prospect">Prospect</SelectItem>
+                  <SelectItem value="maturing">Maturing</SelectItem>
+                  <SelectItem value="customer">Customer</SelectItem>
+                  <SelectItem value="inactive">Inactive</SelectItem>
                 </SelectContent>
               </Select>
             </div>
+
+            {/* Zone Filter */}
+            <div className="space-y-2">
+              <Label>Zone</Label>
+              <Select value={filterData.zone} onValueChange={v => setFilterData({ ...filterData, zone: v })}>
+                <SelectTrigger><SelectValue placeholder="All Zones" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Zones</SelectItem>
+                  {zonesList.map(zone => (
+                    <SelectItem key={zone} value={zone}>{zone}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Last Appointment Date Range */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Last appointment</Label>
+                <Input
+                  type="date"
+                  value={filterData.lastAppointmentFrom}
+                  onChange={e => setFilterData({ ...filterData, lastAppointmentFrom: e.target.value })}
+                  placeholder="mm/dd/yyyy"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Last appointment</Label>
+                <Input
+                  type="date"
+                  value={filterData.lastAppointmentTo}
+                  onChange={e => setFilterData({ ...filterData, lastAppointmentTo: e.target.value })}
+                  placeholder="mm/dd/yyyy"
+                />
+              </div>
+            </div>
+
+            {/* Next Appointment Date Range */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Next appointment</Label>
+                <Input
+                  type="date"
+                  value={filterData.nextAppointmentFrom}
+                  onChange={e => setFilterData({ ...filterData, nextAppointmentFrom: e.target.value })}
+                  placeholder="mm/dd/yyyy"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Next appointment</Label>
+                <Input
+                  type="date"
+                  value={filterData.nextAppointmentTo}
+                  onChange={e => setFilterData({ ...filterData, nextAppointmentTo: e.target.value })}
+                  placeholder="mm/dd/yyyy"
+                />
+              </div>
+            </div>
+
+            {/* Not Have Booking From */}
+            <div className="space-y-2">
+              <Label>Not have booking from</Label>
+              <Input
+                value={filterData.notHaveBookingFrom}
+                onChange={e => setFilterData({ ...filterData, notHaveBookingFrom: e.target.value })}
+                placeholder="None"
+              />
+            </div>
+
+            {/* Stax Data Radio Buttons */}
+            <div className="space-y-3">
+              <Label>Stax data</Label>
+              <div className="flex items-center gap-6">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="radio"
+                    id="stax-all"
+                    name="staxData"
+                    value="all"
+                    checked={filterData.staxData === "all"}
+                    onChange={e => setFilterData({ ...filterData, staxData: e.target.value })}
+                    className="w-4 h-4"
+                  />
+                  <Label htmlFor="stax-all" className="cursor-pointer mb-0">All</Label>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="radio"
+                    id="stax-users"
+                    name="staxData"
+                    value="stax"
+                    checked={filterData.staxData === "stax"}
+                    onChange={e => setFilterData({ ...filterData, staxData: e.target.value })}
+                    className="w-4 h-4"
+                  />
+                  <Label htmlFor="stax-users" className="cursor-pointer mb-0">Stax Users</Label>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="radio"
+                    id="non-stax"
+                    name="staxData"
+                    value="non-stax"
+                    checked={filterData.staxData === "non-stax"}
+                    onChange={e => setFilterData({ ...filterData, staxData: e.target.value })}
+                    className="w-4 h-4"
+                  />
+                  <Label htmlFor="non-stax" className="cursor-pointer mb-0">Non Stax Users</Label>
+                </div>
+              </div>
+            </div>
           </div>
-          <DialogFooter>
-            <Button onClick={() => setIsFilterModalOpen(false)}>Apply Filter</Button>
-            <Button variant="outline" onClick={() => setIsFilterModalOpen(false)}>Cancel</Button>
+
+          <DialogFooter className="flex gap-2 mt-6 pt-4 border-t border-muted items-end justify-end w-full">
+            <Button
+              onClick={() => {
+                setIsFilterModalOpen(false);
+                toast.success("Filters applied");
+              }}
+              className="flex-1"
+            >
+              Filter
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setIsFilterModalOpen(false);
+              }}
+              className="flex-1"
+            >
+              Cancel
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -530,30 +814,60 @@ export default function ContactsPage() {
           <div className="flex-1 overflow-y-auto p-6">
             <form id="contact-form" onSubmit={handleSubmit} className="space-y-6">
               {/* Image Upload Section */}
-              <div className="flex flex-col items-center justify-center gap-4">
-                <div className="w-32 h-32 bg-muted rounded-full overflow-hidden flex items-center justify-center border">
+
+              <div className="flex flex-row gap-4">
+                {/* Drag & Drop Image Upload Area */}
+                <div
+                  className="w-32 h-32 rounded-lg border-2 border-dashed border-muted-foreground/25 flex items-center justify-center bg-muted/50 hover:bg-muted transition cursor-pointer"
+                  onClick={() => fileInputRef.current?.click()}
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+                      const file = e.dataTransfer.files[0];
+                      setFileToUpload(file);
+                      setPreviewUrl(URL.createObjectURL(file));
+                    }
+                  }}
+                >
                   {previewUrl ? (
-                    <img src={previewUrl} alt="Preview" className="w-full h-full object-cover" />
+                    <div className="relative">
+                      <img
+                        src={previewUrl}
+                        alt="Preview"
+                        className="h-24 w-24 rounded-lg object-cover border-2 border-gray-200"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleRemoveLogo}
+                        className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
                   ) : (
-                    <ImageIcon className="h-10 w-10 text-muted-foreground" />
+                    <div className="flex flex-col items-center gap-2 text-center">
+                      <Building2 className="h-12 w-18 text-gray-400" />
+                      <p className="text-xs text-gray-500">Click or Drag & Drop</p>
+
+                    </div>
                   )}
                 </div>
-                <Input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={handleFileChange}
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => fileInputRef.current?.click()}
-                >
-                  <Upload className="mr-2 h-4 w-4" /> Choose Image
-                </Button>
-              </div>
 
+                {/* Upload Instructions */}
+                <div className="flex-1 mt-3 p-2">
+                  <Label htmlFor="logo">Upload *</Label>
+                  <p className="text-sm text-muted-foreground mb-2">PNG, JPG up to 5MB</p>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="block w-75 border border-muted-foreground/50 rounded-md p-2 "
+                    onChange={handleFileChange}
+                  />
+
+                </div>
+              </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>First Name</Label>
@@ -596,6 +910,31 @@ export default function ContactsPage() {
               </div>
 
               <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Zone</Label>
+                  <Select value={formData.zoneName} onValueChange={v => setFormData({ ...formData, zoneName: v })}>
+                    <SelectTrigger><SelectValue placeholder="Select Zone" /></SelectTrigger>
+                    <SelectContent>
+                      {zonesList.map(z => <SelectItem key={z} value={z}>{z}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>FSR Assigned</Label>
+                  <Select value={formData.fsrAssigned} onValueChange={v => setFormData({ ...formData, fsrAssigned: v })}>
+                    <SelectTrigger><SelectValue placeholder="Select FSR" /></SelectTrigger>
+                    <SelectContent>
+                      {usersList.map(u => (
+                        <SelectItem key={u._id} value={`${u.firstName} ${u.lastName}`}>
+                          {u.firstName} {u.lastName}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2"><Label>Bathrooms</Label><Input value={formData.bathrooms} onChange={e => setFormData({ ...formData, bathrooms: e.target.value })} /></div>
                 <div className="space-y-2"><Label>Bedrooms</Label><Input value={formData.bedrooms} onChange={e => setFormData({ ...formData, bedrooms: e.target.value })} /></div>
               </div>
@@ -606,7 +945,17 @@ export default function ContactsPage() {
                 <div className="space-y-2"><Label>State</Label>
                   <Select value={formData.state} onValueChange={v => setFormData({ ...formData, state: v })}>
                     <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
-                    <SelectContent><SelectItem value="Alabama">Alabama</SelectItem><SelectItem value="California">California</SelectItem></SelectContent>
+                    <SelectContent>
+                      {statesList.map(s => (
+                        <SelectItem key={s.id} value={s.name}>{s.name}</SelectItem>
+                      ))}
+                      {statesList.length === 0 && (
+                        <>
+                          <SelectItem value="Alabama">Alabama</SelectItem>
+                          <SelectItem value="California">California</SelectItem>
+                        </>
+                      )}
+                    </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-2"><Label>City</Label><Input value={formData.city} onChange={e => setFormData({ ...formData, city: e.target.value })} /></div>
@@ -614,12 +963,23 @@ export default function ContactsPage() {
               </div>
 
               <div className="space-y-2"><Label>Special instructions</Label><Input value={formData.specialInstructions} onChange={e => setFormData({ ...formData, specialInstructions: e.target.value })} /></div>
+
+              <Separator className="my-6" />
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold text-primary flex items-center gap-2">
+                  Booking Data (Service Defaults)
+                </h3>
+                <ServiceDefaults
+                  editorData={formData.serviceDefaults}
+                  onChange={(newData) => setFormData({ ...formData, serviceDefaults: newData })}
+                />
+              </div>
             </form>
           </div>
 
-          <SheetFooter className="p-4 border-t gap-2">
-            <Button onClick={handleSubmit}>Save Changes</Button>
+          <SheetFooter className="p-4 border-t gap-2 flex flex-row justify-end ">
             <Button variant="outline" onClick={() => setIsSheetOpen(false)}>Cancel</Button>
+            <Button onClick={handleSubmit}>Save Changes</Button>
           </SheetFooter>
         </SheetContent>
       </Sheet>

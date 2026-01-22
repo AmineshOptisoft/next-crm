@@ -1,0 +1,199 @@
+/* Date Range Picker Theme - Matches Next.js Default Theme */
+
+.rdrCalendarWrapper {
+  font-family: inherit;
+  background: hsl(var(--background));
+  border-radius: 0.5rem;
+  border: 1px solid hsl(var(--border));
+}
+
+.rdrCalendarHeader {
+  background: transparent;
+  padding: 0.75rem;
+  border-bottom: 1px solid hsl(var(--border));
+}
+
+.rdrMonthName {
+  color: hsl(var(--foreground));
+  font-weight: 500;
+  font-size: 0.875rem;
+}
+
+.rdrDayNumber {
+  color: hsl(var(--foreground));
+}
+
+.rdrDayNumber span {
+  color: hsl(var(--muted-foreground));
+}
+
+.rdrWeekDays {
+  background: hsl(var(--muted));
+  border-bottom: 1px solid hsl(var(--border));
+}
+
+.rdrWeekDay {
+  color: hsl(var(--muted-foreground));
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+/* Day Cell Styling */
+.rdrDay {
+  border: none;
+}
+
+.rdrDay:not(.rdrDayPassive) {
+  background: hsl(var(--background));
+}
+
+.rdrDay:not(.rdrDayPassive):not(.rdrDayDisabled):hover {
+  background: hsl(var(--muted));
+}
+
+/* Selected Day */
+.rdrDay.rdrDaySelected,
+.rdrDay.rdrDayInRange {
+  background: hsl(var(--primary));
+  color: white;
+}
+
+.rdrDay.rdrDaySelected .rdrDayNumber span {
+  color: white;
+}
+
+.rdrDay.rdrDayInRange .rdrDayNumber span {
+  color: white;
+}
+
+/* Start and End of Range */
+.rdrDay.rdrDayStartOfRange,
+.rdrDay.rdrDayEndOfRange {
+  background: hsl(var(--primary));
+  color: white;
+}
+
+.rdrDay.rdrDayStartOfRange .rdrDayNumber span,
+.rdrDay.rdrDayEndOfRange .rdrDayNumber span {
+  color: white;
+}
+
+/* Passive Days (other months) */
+.rdrDay.rdrDayPassive {
+  color: hsl(var(--muted-foreground));
+  background: hsl(var(--muted));
+  opacity: 0.5;
+}
+
+.rdrDay.rdrDayDisabled {
+  background: hsl(var(--muted));
+  color: hsl(var(--muted-foreground));
+  cursor: not-allowed;
+}
+
+/* Month/Year Selector */
+.rdrMonthAndYearPickers {
+  background: hsl(var(--muted));
+  border-bottom: 1px solid hsl(var(--border));
+  padding: 0.5rem;
+}
+
+.rdrMonthPicker,
+.rdrYearPicker {
+  color: hsl(var(--foreground));
+}
+
+.rdrMonthPicker button,
+.rdrYearPicker button {
+  color: hsl(var(--foreground));
+  background: hsl(var(--background));
+  border: 1px solid hsl(var(--border));
+  border-radius: 0.375rem;
+  padding: 0.375rem 0.75rem;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.rdrMonthPicker button:hover,
+.rdrYearPicker button:hover {
+  background: hsl(var(--primary));
+  color: white;
+  border-color: hsl(var(--primary));
+}
+
+.rdrMonthPicker button.rdrMonthPicker--active,
+.rdrYearPicker button.rdrYearPicker--active {
+  background: hsl(var(--primary));
+  color: white;
+  border-color: hsl(var(--primary));
+}
+
+/* Today Indicator */
+.rdrDay.rdrDayToday .rdrDayNumber {
+  border: 1px solid hsl(var(--primary));
+}
+
+.rdrDay.rdrDayToday .rdrDayNumber span {
+  color: hsl(var(--primary));
+  font-weight: 600;
+}
+
+/* Navigation Arrows */
+.rdrNextPrevButton {
+  background: hsl(var(--background));
+  border: 1px solid hsl(var(--border));
+  color: hsl(var(--foreground));
+  cursor: pointer;
+  border-radius: 0.375rem;
+  padding: 0.375rem;
+  transition: all 0.2s ease;
+}
+
+.rdrNextPrevButton:hover {
+  background: hsl(var(--primary));
+  color: white;
+  border-color: hsl(var(--primary));
+}
+
+/* Preset Selection (if used) */
+.rdrPresetRanges {
+  background: hsl(var(--muted));
+  border-right: 1px solid hsl(var(--border));
+  padding: 0.5rem;
+}
+
+.rdrPresetRange {
+  color: hsl(var(--foreground));
+  background: hsl(var(--background));
+  border: 1px solid hsl(var(--border));
+  border-radius: 0.375rem;
+  padding: 0.375rem 0.75rem;
+  font-size: 0.875rem;
+  cursor: pointer;
+  margin-bottom: 0.5rem;
+  transition: all 0.2s ease;
+}
+
+.rdrPresetRange:hover {
+  background: hsl(var(--primary));
+  color: white;
+  border-color: hsl(var(--primary));
+}
+
+.rdrPresetRange.active {
+  background: hsl(var(--primary));
+  color: white;
+  border-color: hsl(var(--primary));
+}
+
+/* Dark Mode Support */
+@media (prefers-color-scheme: dark) {
+  .rdrCalendarWrapper {
+    background: hsl(var(--background));
+  }
+
+  .rdrDay:not(.rdrDayPassive):not(.rdrDayDisabled):hover {
+    background: hsl(var(--muted));
+  }
+}

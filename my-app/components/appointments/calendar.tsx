@@ -4,60 +4,111 @@ import { useEvents } from "@/context/events-context";
 import "@/app/calendar.css";
 import {
   DateSelectArg,
-  DayCellContentArg,
-  DayHeaderContentArg,
   EventChangeArg,
   EventClickArg,
-  EventContentArg,
 } from "@fullcalendar/core/index.js";
-import dayGridPlugin from "@fullcalendar/daygrid";
 import interactionPlugin from "@fullcalendar/interaction";
-import listPlugin from "@fullcalendar/list";
-import multiMonthPlugin from "@fullcalendar/multimonth";
 import FullCalendar from "@fullcalendar/react";
-import timeGridPlugin from "@fullcalendar/timegrid";
-
-import { useRef, useState } from "react";
-import CalendarNav from "./calendar-nav";
-import { CalendarEvent, earliestTime, latestTime } from "@/utils/calendar-data";
-import { getDateFromMinutes } from "@/utils/calendar-utils";
+import resourceTimelinePlugin from '@fullcalendar/resource-timeline';
+import { useRef, useState, useEffect } from "react";
+import { CalendarEvent } from "@/utils/calendar-data";
 import { Card } from "@/components/ui/card";
 import { EventEditForm } from "./event-edit-form";
-import { EventView } from "./event-view";
+import { AppointmentDetailsSheet, type AppointmentDetails } from "./appointment-details-sheet";
+import { AddBookingForm } from "./add-booking-form";
 
-type EventItemProps = {
-  info: EventContentArg;
-};
-
-type DayHeaderProps = {
-  info: DayHeaderContentArg;
-};
-
-type DayRenderProps = {
-  info: DayCellContentArg;
-};
 
 export default function Calendar() {
-  const { events, setEventAddOpen, setEventEditOpen, setEventViewOpen } =
-    useEvents();
+  const { 
+    eventAddOpen, 
+    setEventAddOpen, 
+    appointmentDetailsOpen,
+    setAppointmentDetailsOpen
+  } = useEvents();
 
   const calendarRef = useRef<FullCalendar | null>(null);
-  const [viewedDate, setViewedDate] = useState(new Date());
   const [selectedStart, setSelectedStart] = useState(new Date());
   const [selectedEnd, setSelectedEnd] = useState(new Date());
-  const [selectedOldEvent, setSelectedOldEvent] = useState<
-    CalendarEvent | undefined
-  >();
-  const [selectedEvent, setSelectedEvent] = useState<
-    CalendarEvent | undefined
-  >();
+  const [selectedOldEvent, setSelectedOldEvent] = useState<CalendarEvent | undefined>();
+  const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | undefined>();
+  const [selectedAppointment, setSelectedAppointment] = useState<AppointmentDetails | undefined>();
   const [isDrag, setIsDrag] = useState(false);
 
+  // State for resources and events from mock API
+  const [resources, setResources] = useState([]);
+  const [events, setEvents] = useState([]);
+
+  // Fetch mock data
+  useEffect(() => {
+    async function fetchData() {
+      try {
+        const res = await fetch('/api/appointments/mock');
+        const data = await res.json();
+        setResources(data.resources);
+        setEvents(data.events);
+      } catch (error) {
+        console.error("Failed to fetch calendar data:", error);
+      }
+    }
+    fetchData();
+  }, []);
+
   const handleEventClick = (info: EventClickArg) => {
+    const props = info.event.extendedProps as Record<string, any>;
+
+    if (props?.type === "booking") {
+      const appointment: AppointmentDetails = {
+        id: info.event.id,
+        title: info.event.title,
+        start: info.event.start!,
+        end: info.event.end!,
+        status: props.status,
+        bookingStatus: props.bookingStatus,
+
+        service: props.service,
+        units: props.units,
+        addons: props.addons,
+        notes: props.notes,
+        preferences: props.preferences,
+        billingNotes: props.billingNotes,
+        billedAmount: props.billedAmount,
+        billedHours: props.billedHours,
+        bookingPrice: props.bookingPrice,
+        bookingDiscountPrice: props.bookingDiscountPrice,
+        bookingDiscount: props.bookingDiscount,
+        estimatedBilledAmount: props.estimatedBilledAmount,
+        estimatedBilledHours: props.estimatedBilledHours,
+        scheduledDuration: props.scheduledDuration,
+        teamCleaningTime: props.teamCleaningTime,
+        technicianTime: props.technicianTime,
+        timesheetNotes: props.timesheetNotes,
+        gpsArrivalTime: props.gpsArrivalTime,
+        gpsDepartureTime: props.gpsDepartureTime,
+
+        customerName: props.customerName,
+        customerEmail: props.customerEmail,
+        customerPhone: props.customerPhone,
+        customerAddress: props.customerAddress,
+        familyInfo: props.familyInfo,
+        parkingAccess: props.parkingAccess,
+        clientNotesFromTech: props.clientNotesFromTech,
+        specialInstructionsFromClient: props.specialInstructionsFromClient,
+        specialInstructionsFromAdmin: props.specialInstructionsFromAdmin,
+        specialRequestFromClient: props.specialRequestFromClient,
+
+        assignedStaff: props.assignedStaff,
+        preferredTechnician: props.preferredTechnician,
+      };
+
+      setSelectedAppointment(appointment);
+      setAppointmentDetailsOpen(true);
+      return;
+    }
+
     const event: CalendarEvent = {
       id: info.event.id,
       title: info.event.title,
-      description: info.event.extendedProps.description,
+      description: String(props?.description ?? ""),
       backgroundColor: info.event.backgroundColor,
       start: info.event.start!,
       end: info.event.end!,
@@ -66,207 +117,97 @@ export default function Calendar() {
     setIsDrag(false);
     setSelectedOldEvent(event);
     setSelectedEvent(event);
-    setEventViewOpen(true);
   };
 
   const handleEventChange = (info: EventChangeArg) => {
-    const event: CalendarEvent = {
-      id: info.event.id,
-      title: info.event.title,
-      description: info.event.extendedProps.description,
-      backgroundColor: info.event.backgroundColor,
-      start: info.event.start!,
-      end: info.event.end!,
-    };
-
-    const oldEvent: CalendarEvent = {
-      id: info.oldEvent.id,
-      title: info.oldEvent.title,
-      description: info.oldEvent.extendedProps.description,
-      backgroundColor: info.oldEvent.backgroundColor,
-      start: info.oldEvent.start!,
-      end: info.oldEvent.end!,
-    };
-
-    setIsDrag(true);
-    setSelectedOldEvent(oldEvent);
-    setSelectedEvent(event);
-    setEventEditOpen(true);
-  };
-
-  const EventItem = ({ info }: EventItemProps) => {
-    const { event } = info;
-    const [left, right] = info.timeText.split(" - ");
-
-    return (
-      <div className="overflow-hidden w-full">
-        {info.view.type == "dayGridMonth" ? (
-          <div
-            style={{ backgroundColor: info.backgroundColor }}
-            className={`flex flex-col rounded-md w-full px-2 py-1 line-clamp-1 text-[0.5rem] sm:text-[0.6rem] md:text-xs`}
-          >
-            <p className="font-semibold text-gray-950 line-clamp-1 w-11/12">
-              {event.title}
-            </p>
-
-            <p className="text-gray-800">{left}</p>
-            <p className="text-gray-800">{right}</p>
-          </div>
-        ) : (
-          <div className="flex flex-col space-y-0 text-[0.5rem] sm:text-[0.6rem] md:text-xs">
-            <p className="font-semibold w-full text-gray-950 line-clamp-1">
-              {event.title}
-            </p>
-            <p className="text-gray-800 line-clamp-1">{`${left} - ${right}`}</p>
-          </div>
-        )}
-      </div>
-    );
-  };
-
-  const DayHeader = ({ info }: DayHeaderProps) => {
-    const [weekday] = info.text.split(" ");
-
-    return (
-      <div className="flex items-center h-full overflow-hidden">
-        {info.view.type == "timeGridDay" ? (
-          <div className="flex flex-col rounded-sm">
-            <p>
-              {info.date.toLocaleDateString("en-US", {
-                month: "long",
-                day: "numeric",
-                year: "numeric",
-              })}
-            </p>
-          </div>
-        ) : info.view.type == "timeGridWeek" ? (
-          <div className="flex flex-col space-y-0.5 rounded-sm items-center w-full text-xs sm:text-sm md:text-md">
-            <p className="flex font-semibold">{weekday}</p>
-            {info.isToday ? (
-              <div className="flex bg-black dark:bg-white h-6 w-6 rounded-full items-center justify-center text-xs sm:text-sm md:text-md">
-                <p className="font-light dark:text-black text-white">
-                  {info.date.getDate()}
-                </p>
-              </div>
-            ) : (
-              <div className="h-6 w-6 rounded-full items-center justify-center">
-                <p className="font-light">{info.date.getDate()}</p>
-              </div>
-            )}
-          </div>
-        ) : (
-          <div className="flex flex-col rounded-sm">
-            <p>{weekday}</p>
-          </div>
-        )}
-      </div>
-    );
-  };
-
-  const DayRender = ({ info }: DayRenderProps) => {
-    return (
-      <div className="flex">
-        {info.view.type == "dayGridMonth" && info.isToday ? (
-          <div className="flex h-7 w-7 rounded-full bg-black dark:bg-white items-center justify-center text-sm text-white dark:text-black">
-            {info.dayNumberText}
-          </div>
-        ) : (
-          <div className="flex h-7 w-7 rounded-full items-center justify-center text-sm">
-            {info.dayNumberText}
-          </div>
-        )}
-      </div>
-    );
+    // Logic for updating event (would need API call)
   };
 
   const handleDateSelect = (info: DateSelectArg) => {
     setSelectedStart(info.start);
     setSelectedEnd(info.end);
+    setEventAddOpen(true);
   };
 
-  const earliestHour = getDateFromMinutes(earliestTime)
-    .getHours()
-    .toString()
-    .padStart(2, "0");
-  const earliestMin = getDateFromMinutes(earliestTime)
-    .getMinutes()
-    .toString()
-    .padStart(2, "0");
-  const latestHour = getDateFromMinutes(latestTime)
-    .getHours()
-    .toString()
-    .padStart(2, "0");
-  const latestMin = getDateFromMinutes(latestTime)
-    .getMinutes()
-    .toString()
-    .padStart(2, "0");
-
-  const calendarEarliestTime = `${earliestHour}:${earliestMin}`;
-  const calendarLatestTime = `${latestHour}:${latestMin}`;
-
   return (
-    <div className="space-y-5">
-      <CalendarNav
-        calendarRef={calendarRef}
-        start={selectedStart}
-        end={selectedEnd}
-        viewedDate={viewedDate}
-      />
-
-      <Card className="p-3">
+    <div className="space-y-5 h-full">
+      <Card className="p-0 border-none shadow-none h-full bg-white dark:bg-zinc-950">
         <FullCalendar
           ref={calendarRef}
+          schedulerLicenseKey="CC-Attribution-NonCommercial-NoDerivatives"
           timeZone="local"
           plugins={[
-            dayGridPlugin,
-            timeGridPlugin,
-            multiMonthPlugin,
+            resourceTimelinePlugin,
             interactionPlugin,
-            listPlugin,
           ]}
-          initialView="timeGridWeek"
-          headerToolbar={false}
-          slotMinTime={calendarEarliestTime}
-          slotMaxTime={calendarLatestTime}
-          allDaySlot={false}
-          firstDay={1}
-          height={"75vh"}
-          displayEventEnd={true}
-          windowResizeDelay={0}
+          initialView="resourceTimelineWeek"
+          headerToolbar={{
+            left: 'prev,today,next',
+            center: 'title',
+            right: 'resourceTimelineDay,resourceTimelineWeek,resourceTimelineMonth'
+          }}
+          resourceAreaWidth="15%"
+          resourceAreaHeaderContent="Technicians"
+          resources={resources}
           events={events}
-          slotLabelFormat={{
-            hour: "numeric",
-            minute: "2-digit",
-            hour12: true,
-          }}
-          eventTimeFormat={{
-            hour: "numeric",
-            minute: "2-digit",
-            hour12: true,
-          }}
-          eventBorderColor={"black"}
-          contentHeight={"auto"}
-          expandRows={true}
-          dayCellContent={(dayInfo) => <DayRender info={dayInfo} />}
-          eventContent={(eventInfo) => <EventItem info={eventInfo} />}
-          dayHeaderContent={(headerInfo) => <DayHeader info={headerInfo} />}
-          eventClick={(eventInfo) => handleEventClick(eventInfo)}
-          eventChange={(eventInfo) => handleEventChange(eventInfo)}
+          editable={true}
+          selectable={true}
+          selectMirror={true}
+          dayMaxEvents={true}
+          nowIndicator={true}
+          height="85vh" // Adjust height as needed
+          slotMinWidth={50}
+          resourceGroupField="group"
           select={handleDateSelect}
-          datesSet={(dates) => setViewedDate(dates.view.currentStart)}
-          dateClick={() => setEventAddOpen(true)}
-          nowIndicator
-          editable
-          selectable
+          eventClick={handleEventClick}
+          eventChange={handleEventChange}
+          views={{
+            resourceTimelineDay: {
+              buttonText: 'Day',
+              slotDuration: '00:30:00'
+            },
+            resourceTimelineWeek: {
+              buttonText: 'Week',
+              duration: { days: 7 },
+              slotDuration: { days: 1 },
+              slotLabelFormat: { weekday: 'short', day: 'numeric', month: 'numeric' }
+            },
+            resourceTimelineMonth: {
+              buttonText: 'Month'
+            }
+          }}
+          eventContent={(arg) => {
+            // Custom event content if needed, for now standard is fine or minimal customization
+            return (
+              <div className="flex flex-col overflow-hidden text-xs p-1 h-full justify-center">
+                <div className="font-semibold truncate">{arg.event.title}</div>
+              </div>
+            )
+          }}
         />
       </Card>
+
+      {/* Existing Dialogs */}
       <EventEditForm
         oldEvent={selectedOldEvent}
         event={selectedEvent}
         isDrag={isDrag}
         displayButton={false}
       />
-      <EventView event={selectedEvent} />
+
+      {/* Appointment Details Sheet */}
+      <AppointmentDetailsSheet
+        appointment={selectedAppointment}
+        open={appointmentDetailsOpen}
+        onOpenChange={setAppointmentDetailsOpen}
+      />
+
+      {/* New Booking Form */}
+      <AddBookingForm
+        open={eventAddOpen}
+        onOpenChange={setEventAddOpen}
+        initialData={{ start: selectedStart, end: selectedEnd }}
+      />
     </div>
   );
 }

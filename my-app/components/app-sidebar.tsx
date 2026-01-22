@@ -26,7 +26,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 // Single app card
 const appInfo = {
@@ -60,29 +60,7 @@ const menuItems = {
         </svg>
       ),
     },
-    {
-      title: "Employees",
-      href: "/dashboard/employees",
-      module: "employees",
-      icon: (
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          width="16"
-          height="16"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-         <circle cx="9" cy="7" r="4" />
-          <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
-          <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-        </svg>
-      ),
-    },
+
     {
       title: "Tasks",
       href: "/dashboard/tasks",
@@ -170,6 +148,7 @@ const menuItems = {
         </svg>
       ),
     },
+
     {
       title: "Appointments",
       href: "/dashboard/appointments",
@@ -305,6 +284,29 @@ const menuItems = {
       ),
     },
     {
+      title: "Services",
+      href: "/dashboard/services",
+      module: "services",
+      icon: (
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <rect width="18" height="18" x="3" y="3" rx="2" />
+          <path d="M7 7h10" />
+          <path d="M7 12h10" />
+          <path d="M7 17h10" />
+        </svg>
+      ),
+    },
+    {
       title: "Users",
       href: "/dashboard/users",
       icon: (
@@ -323,6 +325,29 @@ const menuItems = {
           <circle cx="9" cy="7" r="4" />
           <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
           <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+        </svg>
+      ),
+    },
+    {
+      title: "Industries",
+      href: "/dashboard/industries",
+      superAdminOnly: true,
+      icon: (
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <path d="M20 12V8H4v4" />
+          <path d="M4 16v-4h16v4" />
+          <path d="M4 8l4-4h8l4 4" />
+          <path d="M8 20h8" />
         </svg>
       ),
     },
@@ -400,7 +425,7 @@ const menuItems = {
           strokeLinejoin="round"
         >
           <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
-         <circle cx="12" cy="12" r="3" />
+          <circle cx="12" cy="12" r="3" />
         </svg>
       ),
       hasChevron: true,
@@ -413,6 +438,7 @@ type MeUser = {
   lastName?: string;
   email: string;
   role?: string;
+  avatarUrl?: string;
   permissions?: any[];
 };
 
@@ -477,25 +503,30 @@ export function AppSidebar() {
   // Check if user has permission to view a module
   const hasModulePermission = (module: string): boolean => {
     if (!me) return false;
-    
+
     // Super admin and company admin have access to all modules
     if (me.role === "super_admin" || me.role === "company_admin") {
       return true;
     }
-    
+
     // Company user - check permissions
     if (me.role === "company_user" && me.permissions) {
       const permission = me.permissions.find((p: any) => p.module === module);
       return permission?.canView === true;
     }
-    
+
     return false;
   };
 
   // Filter menu items based on permissions
-  const filteredGeneralItems = menuItems.general.filter((item) => 
+  const filteredGeneralItems = menuItems.general.filter((item) =>
     hasModulePermission(item.module)
   );
+
+  const filteredAdminItems = menuItems.admin.filter((item: any) => {
+    if (item.superAdminOnly && me?.role !== "super_admin") return false;
+    return true;
+  });
 
   return (
     <Sidebar>
@@ -525,7 +556,7 @@ export function AppSidebar() {
               {filteredGeneralItems.map((item) => {
                 // Check if this item should be disabled
                 const isDisabled = !profileCompleted && item.module !== 'company-settings';
-                
+
                 return (
                   <SidebarMenuItem key={item.title}>
                     <SidebarMenuButton
@@ -551,25 +582,19 @@ export function AppSidebar() {
             <SidebarGroupLabel>Administration</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
-                {menuItems.admin.map((item) => {
-                  // Disable all admin items except Company Settings if profile incomplete
-                  const isDisabled = !profileCompleted && item.href !== '/dashboard/company-settings';
-                  
-                  return (
-                    <SidebarMenuItem key={item.title}>
-                      <SidebarMenuButton
-                        asChild
-                        isActive={pathname === item.href}
-                        className={isDisabled ? 'opacity-40 pointer-events-none' : ''}
-                      >
-                        <Link href={item.href}>
-                          {item.icon}
-                          <span>{item.title}</span>
-                        </Link>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                  );
-                })}
+                {filteredAdminItems.map((item) => (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={pathname === item.href}
+                    >
+                      <Link href={item.href}>
+                        {item.icon}
+                        <span>{item.title}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>
@@ -582,7 +607,7 @@ export function AppSidebar() {
               {menuItems.other.map((item) => {
                 // Disable Other items if profile incomplete
                 const isDisabled = !profileCompleted;
-                
+
                 return (
                   <SidebarMenuItem key={item.title}>
                     <SidebarMenuButton
@@ -630,6 +655,7 @@ export function AppSidebar() {
                   className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
                 >
                   <Avatar className="h-8 w-8 rounded-lg">
+                    <AvatarImage src={me?.avatarUrl} alt={displayName} />
                     <AvatarFallback className="rounded-lg bg-primary text-primary-foreground">
                       {initials}
                     </AvatarFallback>
@@ -654,6 +680,7 @@ export function AppSidebar() {
                 <DropdownMenuLabel className="p-0 font-normal">
                   <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
                     <Avatar className="h-8 w-8 rounded-lg">
+                      <AvatarImage src={me?.avatarUrl} alt={displayName} />
                       <AvatarFallback className="rounded-lg">
                         {initials}
                       </AvatarFallback>
@@ -669,7 +696,7 @@ export function AppSidebar() {
                   </div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
-               
+
                 <DropdownMenuItem
                   onClick={() => router.push("/dashboard/settings/account")}
                 >

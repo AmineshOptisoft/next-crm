@@ -53,21 +53,6 @@ export async function PUT(req: NextRequest) {
 
   await connectDB();
 
-  // Debug: Log all fields for checking
-  console.log("=== Profile Completion Check ===");
-  console.log("name:", body.name || "MISSING");
-  console.log("logo:", body.logo ? "EXISTS" : "MISSING");
-  console.log("industry:", body.industry || "MISSING");
-  console.log("email:", body.email || "MISSING");
-  console.log("phone:", body.phone || "MISSING");
-  console.log("address.street:", body.address?.street || "MISSING");
-  console.log("address.city:", body.address?.city || "MISSING");
-  console.log("address.state:", body.address?.state || "MISSING");
-  console.log("address.country:", body.address?.country || "MISSING");
-  console.log("address.zipCode:", body.address?.zipCode || "MISSING");
-  console.log("address.latitude:", body.address?.latitude || "MISSING");
-  console.log("address.longitude:", body.address?.longitude || "MISSING");
-
   // Check if all required fields are present for profile completion
   const isProfileComplete = !!(
     body.name &&
@@ -83,9 +68,6 @@ export async function PUT(req: NextRequest) {
     body.address?.latitude &&
     body.address?.longitude
   );
-
-  console.log("profileCompleted:", isProfileComplete);
-  console.log("=== End Check ===");
 
   // Update company with profileCompleted status
   const updateData = {
@@ -105,8 +87,6 @@ export async function PUT(req: NextRequest) {
 
   // Convert to plain object to ensure all fields are returned
   const companyObject = company.toObject();
-  
-  console.log("Returning company object with profileCompleted:", companyObject.profileCompleted);
 
   return NextResponse.json(companyObject);
 }

@@ -1,11 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
 import { writeFile, mkdir } from "fs/promises";
 import path from "path";
+import { getCurrentUser } from "@/lib/auth";
 
 export async function POST(req: NextRequest) {
     try {
+        const user = await getCurrentUser();
+        if (!user) {
+            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        }
+
         const formData = await req.formData();
         const file = formData.get("file") as File;
+
+        // Get optional parameters from URL query
+        const { searchParams } = new URL(req.url);
+        const serviceId = searchParams.get("serviceId");
+        const subfolder = searchParams.get("subfolder") || "images"; // default to images
 
         if (!file) {
             return NextResponse.json({ error: "No file uploaded" }, { status: 400 });
@@ -15,10 +26,45 @@ export async function POST(req: NextRequest) {
         const buffer = Buffer.from(bytes);
 
         // Create unique filename
-        const filename = `${crypto.randomUUID()}-${file.name.replace(/[^a-zA-Z0-9.-]/g, "")}`;
+        const filename = `${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.-]/g, "")}`;
+
+        // Determine company ID
+        const companyId = user.role === "super_admin" && searchParams.get("companyId")
+            ? searchParams.get("companyId")
+            : user.companyId;
+
+        if (!companyId) {
+            return NextResponse.json({ error: "Company ID required" }, { status: 400 });
+        }
+
+        let uploadDir: string;
+        let url: string;
+
+        if (serviceId) {
+            // Service-specific upload: /uploads/{companyId}/services/{serviceId}/{subfolder}/
+            uploadDir = path.join(
+                process.cwd(),
+                "public",
+                "uploads",
+                companyId,
+                "services",
+                serviceId,
+                subfolder
+            );
+            url = `/uploads/${companyId}/services/${serviceId}/${subfolder}/${filename}`;
+        } else {
+            // Company-level upload: /uploads/{companyId}/{subfolder}/
+            uploadDir = path.join(
+                process.cwd(),
+                "public",
+                "uploads",
+                companyId,
+                subfolder
+            );
+            url = `/uploads/${companyId}/${subfolder}/${filename}`;
+        }
 
         // Ensure upload directory exists
-        const uploadDir = path.join(process.cwd(), "public", "uploads");
         try {
             await mkdir(uploadDir, { recursive: true });
         } catch (e) {
@@ -27,8 +73,6 @@ export async function POST(req: NextRequest) {
 
         const filepath = path.join(uploadDir, filename);
         await writeFile(filepath, buffer);
-
-        const url = `/uploads/${filename}`;
 
         return NextResponse.json({ url });
     } catch (e) {

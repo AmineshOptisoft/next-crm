@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
-import { Contact } from "@/app/models/Contact";
+import { User } from "@/app/models/User";
 import { getCurrentUser } from "@/lib/auth";
 import { checkPermission, buildCompanyFilter } from "@/lib/permissions";
+import bcrypt from "bcryptjs";
 
 type Context = { params: Promise<{ id: string }> } | { params: { id: string } };
 
@@ -27,8 +28,12 @@ export async function GET(req: NextRequest, context: Context) {
   await connectDB();
 
   // Build filter: super admins can access any contact, regular users only their company's
-  const filter = { _id: id, ...buildCompanyFilter(user) };
-  const contact = await Contact.findOne(filter).lean();
+  const filter = {
+    _id: id,
+    ...buildCompanyFilter(user),
+    role: "contact" // Ensure we only get users who are contacts
+  };
+  const contact = await User.findOne(filter).lean();
 
   if (!contact) {
     return NextResponse.json({ error: "Contact not found" }, { status: 404 });
@@ -84,26 +89,39 @@ export async function PUT(req: NextRequest, context: Context) {
     discount,
     tags,
     fsrAssigned,
+    staxId,
     serviceDefaults
   } = body;
 
-  const name = body.name || `${firstName || ""} ${lastName || ""}`.trim();
+  const fullName = body.name || `${firstName || ""} ${lastName || ""}`.trim();
 
   await connectDB();
 
-  // Build filter: super admins can edit any contact, regular users only their company's
-  const filter = { _id: id, ...buildCompanyFilter(user) };
+  // Check if contact exists and belongs to company
+  const filter = {
+    _id: id,
+    ...buildCompanyFilter(user),
+    role: "contact"
+  };
+
+  const existingContact = await User.findOne(filter);
+  if (!existingContact) {
+    return NextResponse.json({ error: "Contact not found" }, { status: 404 });
+  }
 
   // Prepare update data
   const updateData: any = {
-    name,
-    firstName,
-    lastName,
+    firstName: firstName || fullName.split(' ')[0],
+    lastName: lastName || fullName.split(' ').slice(1).join(' '),
     email,
-    phone,
-    company,
-    status,
-    image,
+    phoneNumber: phone,
+    companyName: company,
+    contactStatus: status,
+    avatarUrl: image,
+    address: streetAddress,
+    city,
+    state,
+    zipCode,
     billingAddress,
     shippingAddress,
     shippingAddresses,
@@ -128,22 +146,13 @@ export async function PUT(req: NextRequest, context: Context) {
     discount,
     tags,
     fsrAssigned,
+    staxId,
     serviceDefaults
   };
 
-  // Handle nested address update if basic address fields are provided
-  if (streetAddress || city || state || zipCode) {
-    updateData.address = {
-      street: streetAddress,
-      city,
-      state,
-      zipCode
-    };
-  }
-
   // Update password only if provided
   if (password) {
-    updateData.password = password;
+    updateData.passwordHash = await bcrypt.hash(password, 10);
   }
 
   // Super admins can change the companyId (reassign contact to different company)
@@ -151,17 +160,13 @@ export async function PUT(req: NextRequest, context: Context) {
     updateData.companyId = newCompanyId;
   }
 
-  const contact = await Contact.findOneAndUpdate(
+  const updatedContact = await User.findOneAndUpdate(
     filter,
-    updateData,
+    { $set: updateData },
     { new: true }
   ).lean();
 
-  if (!contact) {
-    return NextResponse.json({ error: "Contact not found" }, { status: 404 });
-  }
-
-  return NextResponse.json(contact);
+  return NextResponse.json(updatedContact);
 }
 
 export async function DELETE(req: NextRequest, context: Context) {
@@ -176,8 +181,12 @@ export async function DELETE(req: NextRequest, context: Context) {
   await connectDB();
 
   // Build filter: super admins can delete any contact, regular users only their company's
-  const filter = { _id: id, ...buildCompanyFilter(user) };
-  const deleted = await Contact.findOneAndDelete(filter).lean();
+  const filter = {
+    _id: id,
+    ...buildCompanyFilter(user),
+    role: "contact"
+  };
+  const deleted = await User.findOneAndDelete(filter).lean();
 
   if (!deleted) {
     return NextResponse.json({ error: "Contact not found" }, { status: 404 });

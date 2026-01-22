@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { User } from "@/app/models/User";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,6 +21,7 @@ import { X, Upload } from "lucide-react";
 
 import { UserBookings } from "./user-bookings";
 import { UserAvailability } from "./user-availability";
+import { UserOffTime } from "./user-off-time";
 import { UserSecurity } from "./user-security";
 import { UserReviews } from "./user-reviews";
 
@@ -41,6 +42,7 @@ export interface UserData {
   tags?: string[];
   description?: string;
   role: string;
+  customRoleId?: string | { _id: string; name: string };
   isActive: boolean;
   
   // Working Area
@@ -79,8 +81,28 @@ export function UserForm({ user, onSave, loading }: UserFormProps) {
     availabilityEnabled: user.availabilityEnabled ?? false,
     isTechnicianActive: user.isTechnicianActive ?? true,
     staffRole: user.staffRole ?? "Staff",
+    // Handle customRoleId being an object (populated) or string or undefined
+    customRoleId: (user.customRoleId && typeof user.customRoleId === 'object') 
+      ? (user.customRoleId as any)._id 
+      : (user.customRoleId || ""), 
   });
   const [newTag, setNewTag] = useState("");
+  const [roles, setRoles] = useState<{ _id: string; name: string }[]>([]);
+
+  useEffect(() => {
+    const fetchRoles = async () => {
+      try {
+        const response = await fetch("/api/roles?creator=me");
+        if (response.ok) {
+          const data = await response.json();
+          setRoles(data);
+        }
+      } catch (error) {
+        console.error("Failed to fetch roles:", error);
+      }
+    };
+    fetchRoles();
+  }, []);
   // Local state for zip codes area to handle text input
   const [zipCodesText, setZipCodesText] = useState(user.workingZipCodes?.join(", ") || "");
 
@@ -134,6 +156,7 @@ export function UserForm({ user, onSave, loading }: UserFormProps) {
             <TabsTrigger value="details">Technician Details</TabsTrigger>
             <TabsTrigger value="bookings">Technician Bookings</TabsTrigger>
             <TabsTrigger value="availability">Technician Availability</TabsTrigger>
+            <TabsTrigger value="offtime">Technician Off Time</TabsTrigger>
             <TabsTrigger value="security">Security</TabsTrigger>
             <TabsTrigger value="review">Review</TabsTrigger>
         </TabsList>
@@ -142,7 +165,7 @@ export function UserForm({ user, onSave, loading }: UserFormProps) {
           <Card>
             <CardHeader>
                 <div className="flex justify-between items-center">
-                    <div>
+                    <div className="flex flex-col gap-2">
                         <CardTitle>Technician Details</CardTitle>
                         <CardDescription>
                             General information and configuration
@@ -156,16 +179,72 @@ export function UserForm({ user, onSave, loading }: UserFormProps) {
                 </div>
             </CardHeader>
             <CardContent>
-                <form onSubmit={handleSubmit}>
+                <form onSubmit={handleSubmit} className="">
+                    {/* Upload Image - Redesigned & Moved to Top */}
+                    {/* Upload Image - Redesigned & Moved to Top */}
+                                        {/* Upload Image - Company Logo */}
+                    <div className="space-y-2 mb-6 flex flex-col gap-2">
+                        <h3 className="font-semibold">Image</h3>
+                        <div className="flex items-center gap-6">
+                            {formData.avatarUrl ? (
+                                <div className="relative">
+                                    <img
+                                        src={formData.avatarUrl}
+                                        alt="User Image"
+                                        className="h-24 w-24 rounded-lg object-cover border-2 border-gray-200"
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => handleChange("avatarUrl", "")}
+                                        className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
+                                    >
+                                        <X className="h-4 w-4" />
+                                    </button>
+                                </div>
+                            ) : (
+                                <div className="h-24 w-24 rounded-lg border-2 border-dashed border-gray-300 flex items-center justify-center bg-gray-50">
+                                    <Upload className="h-8 w-8 text-gray-400" />
+                                </div>
+                            )}
+                            <div className="flex-1">
+                                <Label htmlFor="avatar-upload" className="font-semibold">Upload Image</Label>
+                                <p className="text-sm text-muted-foreground mb-2">
+                                    PNG, JPG up to 5MB
+                                </p>
+                                <Input
+                                    id="avatar-upload"
+                                    type="file"
+                                    accept="image/png,image/jpeg,image/jpg"
+                                    onChange={(e) => {
+                                        if(e.target.files?.[0]) {
+                                            const file = e.target.files[0];
+                                            if (file.size <= 5 * 1024 * 1024) {
+                                                handleChange("avatarUrl", URL.createObjectURL(file));
+                                            } else {
+                                                alert("File size must be less than 5MB");
+                                            }
+                                        }
+                                    }}
+                                />
+                            </div>
+                        </div>
+                    </div>
                     {/* Name & Email */}
                     <div className="grid grid-cols-2 gap-6">
                         <div className="space-y-2">
-                            <Label htmlFor="name">Name</Label>
+                            <Label htmlFor="firstName">First Name</Label>
                             <Input 
-                                id="name" 
-                                defaultValue={`${formData.firstName} ${formData.lastName}`} 
-                                disabled 
-                                className="bg-muted"
+                                id="firstName" 
+                                value={formData.firstName || ""} 
+                                onChange={(e) => handleChange("firstName", e.target.value)}
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="lastName">Last Name</Label>
+                            <Input 
+                                id="lastName" 
+                                value={formData.lastName || ""} 
+                                onChange={(e) => handleChange("lastName", e.target.value)}
                             />
                         </div>
                         <div className="space-y-2">
@@ -176,11 +255,7 @@ export function UserForm({ user, onSave, loading }: UserFormProps) {
                                 onChange={(e) => handleChange("email", e.target.value)}
                                 />
                         </div>
-                    </div>
-
-                    {/* Contact & Keap ID (Removed Keap ID as requested) */}
-                    <div className="grid grid-cols-1 gap-6 mt-4">
-                            <div className="space-y-2">
+                        <div className="space-y-2">
                             <Label htmlFor="contact">Contact</Label>
                             <Input 
                                 id="contact" 
@@ -189,6 +264,11 @@ export function UserForm({ user, onSave, loading }: UserFormProps) {
                                 placeholder="(555) 555-5555"
                             />
                         </div>
+                    </div>
+
+                    {/* Contact & Keap ID (Removed Keap ID as requested) */}
+                    <div className="grid grid-cols-1 gap-6 mt-4">
+                            
 
                     </div>
 
@@ -215,6 +295,15 @@ export function UserForm({ user, onSave, loading }: UserFormProps) {
 
                     {/* State, City, Zip, Country */}
                     <div className="grid grid-cols-2 gap-6 mt-4">
+
+                        <div className="space-y-2">
+                                <Label htmlFor="country">Country</Label>
+                                <Input 
+                                id="country" 
+                                value={formData.country || ""}
+                                    onChange={(e) => handleChange("country", e.target.value)}
+                            />
+                        </div>
                             <div className="space-y-2">
                             <Label htmlFor="state">State</Label>
                             <Input 
@@ -231,8 +320,7 @@ export function UserForm({ user, onSave, loading }: UserFormProps) {
                                     onChange={(e) => handleChange("city", e.target.value)}
                             />
                         </div>
-                    </div>
-                        <div className="grid grid-cols-2 gap-6 mt-4">
+                        
                             <div className="space-y-2">
                             <Label htmlFor="zipCode">Zip code</Label>
                             <Input 
@@ -240,15 +328,8 @@ export function UserForm({ user, onSave, loading }: UserFormProps) {
                                 value={formData.zipCode || ""}
                                     onChange={(e) => handleChange("zipCode", e.target.value)}
                             />
-                        </div>
-                        <div className="space-y-2">
-                                <Label htmlFor="country">Country</Label>
-                                <Input 
-                                id="country" 
-                                value={formData.country || "USA"}
-                                    onChange={(e) => handleChange("country", e.target.value)}
-                            />
-                        </div>
+                    </div>
+                        
                     </div>
 
                     {/* Services & Gender */}
@@ -281,7 +362,7 @@ export function UserForm({ user, onSave, loading }: UserFormProps) {
                     {/* Tags */}
                     <div className="space-y-2 mt-4">
                         <Label htmlFor="tags">Tags</Label>
-                        <div className="border rounded-md p-2 min-h-[42px] flex flex-wrap gap-2">
+                        <div className="border rounded-md p-2 min-h-[42px]  bg-muted/50 flex flex-wrap gap-2">
                             {formData.tags?.map((tag, index) => (
                                 <Badge key={index} variant="secondary" className="gap-1">
                                     {tag}
@@ -292,7 +373,7 @@ export function UserForm({ user, onSave, loading }: UserFormProps) {
                                 </Badge>
                             ))}
                             <input 
-                                className="bg-transparent outline-none flex-1 text-sm min-w-[120px]"
+                                className="bg-transparent outline-none  flex-1 text-sm min-w-[120px]"
                                 placeholder="Choose a tags..."
                                 value={newTag}
                                 onChange={(e) => setNewTag(e.target.value)}
@@ -302,7 +383,7 @@ export function UserForm({ user, onSave, loading }: UserFormProps) {
                     </div>
 
                     {/* Working Area Section */}
-                    <div className="mt-8 border-t pt-6">
+                    <div className="mt-4 pt-6">
                         <h3 className="text-lg font-medium mb-4">Working Area</h3>
                         
                         <div className="grid grid-cols-2 gap-6">
@@ -369,49 +450,27 @@ export function UserForm({ user, onSave, loading }: UserFormProps) {
                             </div>
                         </div>
 
-                        {/* Role Radio */}
+                        {/* Role Dropdown */}
                         <div className="space-y-2 mt-6">
                             <Label>Role</Label>
-                            <div className="flex gap-6 items-center">
-                                <div className="flex items-center space-x-2">
-                                    <input 
-                                        type="radio" 
-                                        id="role-staff" 
-                                        name="staffRole" 
-                                        value="Staff"
-                                        checked={formData.staffRole === "Staff"}
-                                        onChange={() => handleChange("staffRole", "Staff")}
-                                        className="accent-primary h-4 w-4"
-                                    />
-                                    <Label htmlFor="role-staff" className="font-normal cursor-pointer">Staff</Label>
-                                </div>
-                                <div className="flex items-center space-x-2">
-                                    <input 
-                                        type="radio" 
-                                        id="role-trainee" 
-                                        name="staffRole" 
-                                        value="Trainee"
-                                        checked={formData.staffRole === "Trainee"}
-                                        onChange={() => handleChange("staffRole", "Trainee")}
-                                        className="accent-primary h-4 w-4"
-                                    />
-                                    <Label htmlFor="role-trainee" className="font-normal cursor-pointer">Trainee</Label>
-                                </div>
-                            </div>
+                            <Select 
+                                value={(formData.customRoleId as string) || ""} 
+                                onValueChange={(val) => handleChange("customRoleId", val)}
+                            >
+                                <SelectTrigger className="w-full">
+                                    <SelectValue placeholder="Select a role" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {roles.map((role) => (
+                                        <SelectItem key={role._id} value={role._id}>
+                                            {role.name}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
                         </div>
 
-                        {/* Upload Image */}
-                        <div className="space-y-2 mt-6">
-                            <Label>Upload Image</Label>
-                            <div className="flex gap-2">
-                                <Button type="button" variant="outline" className="w-auto">
-                                    Choose File
-                                </Button>
-                                <div className="border rounded-md px-3 py-2 flex-1 bg-muted/20 text-sm text-muted-foreground flex items-center">
-                                    {formData.avatarUrl ? "Image selected" : "No file chosen"}
-                                </div>
-                            </div>
-                        </div>
+
 
                     </div>
 
@@ -445,6 +504,25 @@ export function UserForm({ user, onSave, loading }: UserFormProps) {
             </CardHeader>
             <CardContent>
                 <UserAvailability />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="offtime">
+          <Card>
+            <CardHeader>
+                <div className="flex justify-between items-center">
+                    
+                <div className="flex flex-col gap-2">
+                <CardTitle>Off Time</CardTitle>
+                <CardDescription>Manage technician off-time requests</CardDescription>
+                </div>
+          <Button>Add Break</Button>
+                </div>
+
+            </CardHeader>
+            <CardContent>
+                <UserOffTime />
             </CardContent>
           </Card>
         </TabsContent>

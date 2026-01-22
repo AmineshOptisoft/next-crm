@@ -4,17 +4,17 @@ const CompanySchema = new Schema(
   {
     name: { type: String, required: true },
     adminId: { type: Types.ObjectId, ref: "User", required: true }, // Company admin who created it
-    
+
     // Company details
     description: { type: String },
     industry: { type: String },
     website: { type: String },
     logo: { type: String },
-    
+
     // Contact information
     email: { type: String },
     phone: { type: String },
-    
+
     // Address
     address: {
       street: { type: String },
@@ -25,7 +25,7 @@ const CompanySchema = new Schema(
       latitude: { type: Number },
       longitude: { type: Number },
     },
-    
+
     // Subscription/Plan (for future use)
     plan: {
       type: String,
@@ -33,20 +33,20 @@ const CompanySchema = new Schema(
       default: "free",
     },
     planExpiry: { type: Date },
-    
+
     // Limits
     limits: {
       users: { type: Number, default: 10 },
       contacts: { type: Number, default: 1000 },
       deals: { type: Number, default: 500 },
     },
-    
+
     // Status
     isActive: { type: Boolean, default: true },
-    
+
     // Profile completion tracking
     profileCompleted: { type: Boolean, default: false },
-    
+
     // Settings
     settings: {
       allowUserRegistration: { type: Boolean, default: false },

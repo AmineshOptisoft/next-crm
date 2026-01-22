@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { connectDB } from "@/lib/db";
-import { Employee } from "@/app/models/Employee";
+import { User } from "@/app/models/User";
 import { checkPermission, buildCompanyFilter, validateCompanyAccess } from "@/lib/permissions";
 
 export async function GET(req: NextRequest) {
@@ -13,11 +13,14 @@ export async function GET(req: NextRequest) {
     const user = permCheck.user;
 
     await connectDB();
-    
+
     // Build filter: super admins see all employees, regular users see only their company's employees
-    const filter = buildCompanyFilter(user);
-    
-    const employees = await Employee.find(filter).sort({
+    const filter = {
+      ...buildCompanyFilter(user),
+      role: "employee"
+    };
+
+    const employees = await User.find(filter).sort({
       createdAt: -1,
     });
 
@@ -49,10 +52,28 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     await connectDB();
 
-    const employee = await Employee.create({
+    // Ensure role is a staff role, default to company_user if not provided
+    const validStaffRoles = ["company_admin", "company_user", "employee"];
+    const targetRole = body.role && validStaffRoles.includes(body.role) ? body.role : "employee";
+
+    // Hash password if provided, otherwise generate a secure random one
+    let passwordHash = "";
+    if (body.password) {
+      const bcrypt = await import("bcryptjs");
+      passwordHash = await bcrypt.hash(body.password, 10);
+    } else {
+      const bcrypt = await import("bcryptjs");
+      passwordHash = await bcrypt.hash(Math.random().toString(36).slice(-10), 10);
+    }
+
+    const employee = await User.create({
       ...body,
+      role: targetRole,
+      passwordHash,
       companyId: user.companyId,
       ownerId: user.userId,
+      isVerified: true,
+      isActive: true,
     });
 
     return NextResponse.json(employee, { status: 201 });

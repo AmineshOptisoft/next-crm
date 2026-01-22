@@ -42,7 +42,6 @@ export default function LoginPage() {
     setLoading(true);
     setError(""); // Clear previous errors
 
-    console.log("Login attempt:", values.email); // Debug
 
     try {
       const res = await fetch("/api/auth/login", {
@@ -52,10 +51,8 @@ export default function LoginPage() {
         credentials: "include", // Important for cookies
       });
 
-      console.log("Login response status:", res.status); // Debug
 
       const data = await res.json();
-      console.log("Login response data:", data); // Debug
 
       if (!res.ok) {
         // Handle API errors
@@ -69,7 +66,6 @@ export default function LoginPage() {
       }
 
       // SUCCESS: API returned 200 + set cookie
-      console.log("✅ Login successful, redirecting...");
       router.push("/dashboard");
       router.refresh(); // Refresh to pick up auth state
     } catch (err) {
