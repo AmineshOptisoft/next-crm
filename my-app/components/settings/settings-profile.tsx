@@ -16,7 +16,6 @@ export function SettingsProfile() {
     setSaving(true);
     const formData = new FormData(e.currentTarget);
     // TODO: call your API to update profile
-    console.log("Profile form", Object.fromEntries(formData));
     setTimeout(() => setSaving(false), 800);
   }
 

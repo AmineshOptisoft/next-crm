@@ -11,7 +11,7 @@ import { getCurrentUser } from "@/lib/auth";
  */
 export async function GET(req: NextRequest) {
   const user = await getCurrentUser();
-  
+
   // Only super admins can run migrations
   if (!user || user.role !== "super_admin") {
     return NextResponse.json(
@@ -22,8 +22,7 @@ export async function GET(req: NextRequest) {
 
   try {
     await connectDB();
-    
-    console.log("Finding roles without isParent field...");
+
     const rolesToUpdate = await Role.find({
       $or: [
         { isParent: { $exists: false } },
@@ -31,7 +30,6 @@ export async function GET(req: NextRequest) {
       ]
     });
 
-    console.log(`Found ${rolesToUpdate.length} roles to update`);
 
     if (rolesToUpdate.length === 0) {
       return NextResponse.json({
@@ -40,7 +38,6 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    console.log("Updating roles...");
     const updatePromises = rolesToUpdate.map(async (role) => {
       return Role.findByIdAndUpdate(
         role._id,
@@ -55,12 +52,11 @@ export async function GET(req: NextRequest) {
     });
 
     await Promise.all(updatePromises);
-    
-    console.log(`✅ Successfully updated ${rolesToUpdate.length} roles`);
-    
+
+
     // Verify the update
     const verifyRoles = await Role.find({}).select('name isParent parentRoleId');
-    
+
     return NextResponse.json({
       message: "Migration completed successfully!",
       updated: rolesToUpdate.length,

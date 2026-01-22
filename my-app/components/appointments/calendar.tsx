@@ -69,7 +69,6 @@ export default function Calendar() {
 
   const handleEventChange = (info: EventChangeArg) => {
     // Logic for updating event (would need API call)
-    console.log("Event changed:", info);
   };
 
   const handleDateSelect = (info: DateSelectArg) => {

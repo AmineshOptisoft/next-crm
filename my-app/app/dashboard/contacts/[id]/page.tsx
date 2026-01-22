@@ -205,13 +205,9 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
                         setSameAsBilling(true);
                     }
                 }
-                console.log("contact,", contact);
-                // Initialize services data (fetch appointments if they exist)
                 setServices([]); // Reverting to empty array to prevent error/blank list if not an array
 
-                // If you have a real appointments API:
-                // const meetingsRes = await fetch(`/api/meetings?contactId=${id}`);
-                // if (meetingsRes.ok) setServices(await meetingsRes.json());
+
             } else {
                 toast.error("Contact not found");
                 router.push("/dashboard/contacts");

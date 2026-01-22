@@ -23,7 +23,7 @@ export async function GET(req: NextRequest) {
   // Build filter: super admins see all roles, company admins see only their company's roles
   const url = new URL(req.url);
   const creatorFilter = url.searchParams.get("creator");
-  
+
   const filter: any = { ...buildCompanyFilter(user), isActive: true };
   if (creatorFilter === "me") {
     filter.createdBy = user.userId;
@@ -82,13 +82,6 @@ export async function POST(req: NextRequest) {
   const body = await req.json();
   const { name, description, permissions, hasParent, isParent, parentRoleId } = body;
 
-  console.log("POST /api/roles - Received data:", {
-    name,
-    hasParent,
-    isParent,
-    parentRoleId,
-  });
-
   if (!name || !permissions) {
     return NextResponse.json(
       { error: "Name and permissions are required" },
@@ -133,10 +126,10 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       );
     }
-    
+
     // Check if the parent role is a parent role (isParent = 1 or undefined for old roles)
     const parentIsParent = parentRole.isParent !== undefined ? parentRole.isParent : 1;
-    
+
     if (parentIsParent !== 1) {
       return NextResponse.json(
         { error: `Selected role is not a parent role (isParent=${parentRole.isParent})` },
@@ -156,7 +149,6 @@ export async function POST(req: NextRequest) {
     parentRoleId: finalParentId,
   };
 
-  console.log("Creating role with data:", roleData);
 
   const role = await Role.create(roleData);
 

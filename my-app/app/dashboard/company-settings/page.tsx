@@ -370,29 +370,19 @@ export default function CompanySettingsPage() {
     setSaving(true);
 
     try {
-      console.log("=== FRONTEND: Submitting form ===");
-      console.log("Form data being sent:", formData);
-
       const response = await fetch("/api/company/settings", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData),
       });
 
-      console.log("Response status:", response.status);
-
       if (response.ok) {
         const updated = await response.json();
-        console.log("=== FRONTEND: Response received ===");
-        console.log("Full response:", updated);
-        console.log("profileCompleted value:", updated.profileCompleted);
-        console.log("Type of profileCompleted:", typeof updated.profileCompleted);
 
         setCompany(updated);
 
         // Check if profile is complete
         if (updated.profileCompleted === true) {
-          console.log("✅ PROFILE IS COMPLETE! Starting redirect...");
           alert("🎉 Company profile completed successfully! Redirecting to dashboard...");
 
           // Immediate redirect with page reload
@@ -400,7 +390,6 @@ export default function CompanySettingsPage() {
           window.location.href = "/dashboard";
           return; // Stop execution
         } else {
-          console.log("❌ Profile still incomplete. profileCompleted =", updated.profileCompleted);
           alert("Settings updated, but profile not complete yet. Please fill all required fields.");
         }
       } else {
@@ -409,7 +398,6 @@ export default function CompanySettingsPage() {
         alert(error.error || "Failed to update settings");
       }
     } catch (error) {
-      console.error("=== FRONTEND ERROR ===");
       console.error("Error updating settings:", error);
       alert("Failed to update settings. Check console for details.");
     } finally {
@@ -449,8 +437,6 @@ export default function CompanySettingsPage() {
     const defaultLat = formData.address.latitude || 19.0760;
     const defaultLng = formData.address.longitude || 72.8777;
 
-    console.log("Initializing map...");
-
     try {
       const map = new google.maps.Map(mapRef.current, {
         center: { lat: defaultLat, lng: defaultLng },
@@ -461,7 +447,6 @@ export default function CompanySettingsPage() {
       });
 
       mapInstanceRef.current = map;
-      console.log("Map initialized successfully!");
 
       // Add marker if coordinates exist
       if (formData.address.latitude && formData.address.longitude) {
@@ -477,8 +462,6 @@ export default function CompanySettingsPage() {
         if (e.latLng) {
           const lat = e.latLng.lat();
           const lng = e.latLng.lng();
-
-          console.log("Map clicked:", lat, lng);
 
           setFormData((prev) => ({
             ...prev,
@@ -547,7 +530,6 @@ export default function CompanySettingsPage() {
       <Script
         src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAQODjSc_eWcBWoIdk7trMzl98oRHF9HFs&libraries=places"
         onLoad={() => {
-          console.log("Google Maps script loaded!");
           setIsMapReady(true);
         }}
         onError={() => {

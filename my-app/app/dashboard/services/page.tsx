@@ -100,7 +100,7 @@ export default function ServicesPage() {
         data.append("file", file);
 
         try {
-            const res = await fetch("/api/upload", {
+            const res = await fetch("/api/upload?subfolder=services", {
                 method: "POST",
                 body: data,
             });
