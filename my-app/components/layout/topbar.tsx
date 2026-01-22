@@ -6,7 +6,7 @@ import { useTheme } from "next-themes";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   Search,
   Moon,
@@ -49,6 +49,7 @@ type MeResponse = {
     firstName?: string;
     lastName?: string;
     email: string;
+    avatarUrl?: string;
   } | null;
 };
 
@@ -59,6 +60,7 @@ export function Topbar() {
 
   const [userName, setUserName] = useState<string | undefined>();
   const [userEmail, setUserEmail] = useState<string | undefined>();
+  const [avatarUrl, setAvatarUrl] = useState<string | undefined>();
   const [openCmd, setOpenCmd] = useState(false);
 
   const title =
@@ -83,6 +85,7 @@ export function Topbar() {
 
         setUserName(fullName);
         setUserEmail(data.user.email);
+        setAvatarUrl(data.user.avatarUrl);
       } catch {
         // ignore
       }
@@ -213,6 +216,7 @@ export function Topbar() {
                 className="h-9 gap-2 rounded-full px-2 pr-3"
               >
                 <Avatar className="h-7 w-7">
+                  <AvatarImage src={avatarUrl} alt={userName} />
                   <AvatarFallback className="bg-primary text-primary-foreground text-[11px]">
                     {initials}
                   </AvatarFallback>

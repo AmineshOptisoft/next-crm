@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
 import { Deal } from "@/app/models/Deal";
-import { Contact } from "@/app/models/Contact";
+import { User } from "@/app/models/User";
 import { getCurrentUser } from "@/lib/auth";
 import { checkPermission, buildCompanyFilter } from "@/lib/permissions";
 
@@ -58,8 +58,10 @@ export async function PUT(req: NextRequest, context: Context) {
   let contactObjectId = undefined;
   if (contactId) {
     // For super admins, skip company check on contact
-    const contactFilter = user.role === "super_admin" ? { _id: contactId } : { _id: contactId, ...buildCompanyFilter(user) };
-    const contact = await Contact.findOne(contactFilter).lean();
+    const contactFilter = user.role === "super_admin"
+      ? { _id: contactId, role: "contact" }
+      : { _id: contactId, ...buildCompanyFilter(user), role: "contact" };
+    const contact = await User.findOne(contactFilter).lean();
     if (!contact) {
       return NextResponse.json(
         { error: "Invalid contact" },

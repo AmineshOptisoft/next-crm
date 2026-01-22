@@ -19,6 +19,7 @@ export interface IService extends Document {
     hourlyRate?: number; // Hour-based services ke liye
 
     status: "active" | "inactive" | "archived";
+    category: "main" | "sub" | "addon";
 
     // Hierarchy
     parentId?: mongoose.Types.ObjectId; // If this is a child service
@@ -60,6 +61,12 @@ const ServiceSchema = new Schema({
         type: String,
         enum: ["active", "inactive", "archived"],
         default: "active"
+    },
+
+    category: {
+        type: String,
+        enum: ["main", "sub", "addon"],
+        default: "main"
     },
 
     // Parent/Child relationship for complex hierarchy

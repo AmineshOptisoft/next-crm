@@ -7,13 +7,93 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ChevronDown, ChevronUp, Maximize2, Pencil, Trash2, Check, X, Eye, MapPin, User } from "lucide-react";
+import { ChevronDown, ChevronUp, Maximize2, Minimize2, Pencil, Trash2, Check, X, Eye, MapPin, User, Filter, Camera, Loader2, Copy as CopyIcon } from "lucide-react";
 import { toast } from "sonner";
-import { format } from "date-fns";
+import { Separator } from "@/components/ui/separator";
+import { endOfMonth, endOfWeek, format, startOfMonth, startOfWeek, subDays } from "date-fns";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger, SheetFooter, SheetClose } from "@/components/ui/sheet";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ServiceDefaults } from "./ServiceDefaults";
+import { DataTable } from "@/components/data-table";
+import { ColumnDef } from "@tanstack/react-table";
+import { DateRangePicker } from "@/components/date-range-picker";
+
+// Service Type Definition
+interface ServiceData {
+    id: string;
+    technicianName: string;
+    startDate: string;
+    service: string;
+    status: string;
+}
+
+// Define columns for DataTable
+const createServiceColumns = (
+    onView: (service: ServiceData) => void,
+    onApprove: (id: string) => void,
+    onReject: (id: string) => void
+): ColumnDef<ServiceData>[] => [
+        {
+            accessorKey: "technicianName",
+            header: "TECHNICIAN NAME",
+            cell: ({ row }) => <div className="font-medium">{row.getValue("preferredTechnician")}</div>,
+        },
+        {
+            accessorKey: "startDate",
+            header: "START DATE",
+            cell: ({ row }) => <div>{row.getValue("createdAt")}</div>,
+        },
+        {
+            accessorKey: "service",
+            header: "SERVICE",
+            cell: ({ row }) => <div>{row.getValue("service")}</div>,
+        },
+        {
+            accessorKey: "status",
+            header: "STATUS",
+            cell: ({ row }) => (
+                <Badge className="bg-blue-100 text-blue-800">{row.getValue("status")}</Badge>
+            ),
+        },
+        {
+            id: "actions",
+            header: "ACTION",
+            cell: ({ row }) => {
+                const service = row.original;
+                return (
+                    <div className="flex gap-1">
+                        <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-6 w-6"
+                            onClick={() => onView(service)}
+                        >
+                            <Eye className="h-3 w-3" />
+                        </Button>
+                        <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-6 w-6 text-green-600 hover:text-green-700"
+                            onClick={() => onApprove(service.id)}
+                        >
+                            <Check className="h-3 w-3" />
+                        </Button>
+                        <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-6 w-6 text-destructive"
+                            onClick={() => onReject(service.id)}
+                        >
+                            <X className="h-3 w-3" />
+                        </Button>
+                    </div>
+                );
+            },
+        },
+    ];
 
 // Accordion Item Component for cleaner code
 function AccordionItem({ title, isOpen, onToggle, children }: any) {
@@ -43,6 +123,12 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
 
     const [loading, setLoading] = useState(true);
     const [data, setData] = useState<any>(null);
+    const [services, setServices] = useState<ServiceData[]>([]);
+    const [isFilterOpen, setIsFilterOpen] = useState(false);
+    const [filterDates, setFilterDates] = useState({
+        appointmentFrom: "",
+        appointmentTo: "",
+    });
 
     // Accordion states
     const [sections, setSections] = useState({
@@ -52,6 +138,45 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
         service: false,
         shipping: false
     });
+    const [uploading, setUploading] = useState(false);
+    const [sameAsBilling, setSameAsBilling] = useState(false);
+    const [statesList, setStatesList] = useState<any[]>([]);
+    const [isExpanded, setIsExpanded] = useState(false);
+
+    useEffect(() => {
+        async function fetchStates() {
+            try {
+                // Defaulting to US states for dynamic list
+                const res = await fetch("/api/geo/states?countryId=US");
+                if (res.ok) {
+                    const data = await res.json();
+                    setStatesList(data);
+                }
+            } catch (err) {
+                console.error("Failed to fetch states", err);
+            }
+        }
+        fetchStates();
+    }, []);
+
+    const handleSameAsBillingToggle = (checked: boolean) => {
+        setSameAsBilling(checked);
+        if (checked) {
+            setData({
+                ...data,
+                shippingAddress: { ...data.billingAddress }
+            });
+        }
+    };
+
+    const updateBillingField = (field: string, value: any) => {
+        const newBillingAddress = { ...data.billingAddress, [field]: value };
+        const updates: any = { billingAddress: newBillingAddress };
+        if (sameAsBilling) {
+            updates.shippingAddress = { ...data.shippingAddress, [field]: value };
+        }
+        setData({ ...data, ...updates });
+    };
 
     const toggleSection = (key: keyof typeof sections) => {
         setSections(prev => ({ ...prev, [key]: !prev[key] }));
@@ -71,6 +196,22 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
                 contact.shippingAddress = contact.shippingAddress || {};
                 contact.shippingAddresses = contact.shippingAddresses || [];
                 setData(contact);
+
+                // Initialize sameAsBilling if they match
+                if (contact.billingAddress && contact.shippingAddress) {
+                    const b = contact.billingAddress;
+                    const s = contact.shippingAddress;
+                    if (b.street === s.street && b.city === s.city && b.state === s.state && b.zipCode === s.zipCode && b.street) {
+                        setSameAsBilling(true);
+                    }
+                }
+                console.log("contact,", contact);
+                // Initialize services data (fetch appointments if they exist)
+                setServices([]); // Reverting to empty array to prevent error/blank list if not an array
+
+                // If you have a real appointments API:
+                // const meetingsRes = await fetch(`/api/meetings?contactId=${id}`);
+                // if (meetingsRes.ok) setServices(await meetingsRes.json());
             } else {
                 toast.error("Contact not found");
                 router.push("/dashboard/contacts");
@@ -111,13 +252,101 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
         }
     }
 
+    async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        setUploading(true);
+        const formData = new FormData();
+        formData.append("file", file);
+
+        try {
+            const res = await fetch("/api/upload?subfolder=contacts", {
+                method: "POST",
+                body: formData,
+            });
+
+            if (!res.ok) throw new Error("Upload failed");
+
+            const dataRes = await res.json();
+            setData({ ...data, avatarUrl: dataRes.url });
+            toast.success("Image uploaded successfully");
+        } catch (error) {
+            console.error(error);
+            toast.error("Failed to upload image");
+        } finally {
+            setUploading(false);
+        }
+    }
+
+    // Service handlers
+    const handleViewService = (service: ServiceData) => {
+        toast.info(`Viewing service: ${service.service}`);
+    };
+
+    const handleApproveService = (serviceId: string) => {
+        setServices(services.map(s => s.id === serviceId ? { ...s, status: "Approved" } : s));
+        toast.success("Service approved");
+    };
+
+    const handleRejectService = (serviceId: string) => {
+        setServices(services.map(s => s.id === serviceId ? { ...s, status: "Rejected" } : s));
+        toast.error("Service rejected");
+    };
+
+    // --- Filter Modal State & Helpers ---
+    const [selectedPreset, setSelectedPreset] = useState<string>("");
+    const [filterTechnician, setFilterTechnician] = useState("");
+    function handlePreset(preset: string) {
+        setSelectedPreset(preset);
+        const today = new Date();
+        let from = "", to = "";
+        switch (preset) {
+            case "today":
+                from = to = today.toISOString().slice(0, 10);
+                break;
+            case "yesterday":
+                from = to = subDays(today, 1).toISOString().slice(0, 10);
+                break;
+            case "thisWeek":
+                from = startOfWeek(today, { weekStartsOn: 1 }).toISOString().slice(0, 10);
+                to = endOfWeek(today, { weekStartsOn: 1 }).toISOString().slice(0, 10);
+                break;
+            case "lastWeek": {
+                const lastWeekStart = startOfWeek(subDays(today, 7), { weekStartsOn: 1 });
+                const lastWeekEnd = endOfWeek(subDays(today, 7), { weekStartsOn: 1 });
+                from = lastWeekStart.toISOString().slice(0, 10);
+                to = lastWeekEnd.toISOString().slice(0, 10);
+                break;
+            }
+            case "thisMonth":
+                from = startOfMonth(today).toISOString().slice(0, 10);
+                to = endOfMonth(today).toISOString().slice(0, 10);
+                break;
+            case "lastMonth": {
+                const lastMonth = subDays(startOfMonth(today), 1);
+                from = startOfMonth(lastMonth).toISOString().slice(0, 10);
+                to = endOfMonth(lastMonth).toISOString().slice(0, 10);
+                break;
+            }
+            default:
+                break;
+        }
+        setFilterDates({ appointmentFrom: from, appointmentTo: to });
+    }
+    function formatDateInput(dateStr: string) {
+        if (!dateStr) return "";
+        const date = new Date(dateStr);
+        return date.toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
+    }
+
     if (loading) return <div className="p-8 text-center">Loading...</div>;
     if (!data) return <div className="p-8 text-center">Contact not found</div>;
 
     return (
         <div className="space-y-6">
             {/* Header */}
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-card p-4 rounded-lg shadow-sm border">
+            {/* <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-card p-4 rounded-lg shadow-sm border">
                 <div className="flex items-center gap-4">
                     {data.image ? (
                         <img src={data.image} alt={data.name} className="w-16 h-16 rounded-full object-cover" />
@@ -137,56 +366,50 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
                         Back to List
                     </Button>
                 </div>
+            </div> */}
+            <div className="space-y-6">
+                <div>
+                    <h1 className="text-3xl font-bold tracking-tight">Contacts Settings</h1>
+                    <p className="text-muted-foreground">
+                        Manage your account profile and preferences
+                    </p>
+                </div>
             </div>
-
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {/* Left Column: Services Table */}
-                <div className="space-y-4">
-                    <div className="flex justify-between items-center bg-card p-2 rounded border">
-                        <Button variant="default">
-                            Filter
-                        </Button>
-                        <div className="w-64">
-                            <Input placeholder="Keywords..." />
+                {!isExpanded && (
+                    <div className="space-y-4">
+                        <div className="flex items-center gap-2">
+                            <Button
+                                variant="outline"
+                                onClick={() => setIsFilterOpen(true)}
+                                className="flex items-center gap-2"
+                            >
+                                <Filter className="h-4 w-4" /> Filter
+                            </Button>
                         </div>
-                    </div>
 
-                    <div className="bg-card rounded border overflow-hidden">
-                        <table className="w-full text-sm text-left">
-                            <thead className="bg-muted border-b">
-                                <tr>
-                                    <th className="p-3 font-semibold text-muted-foreground">TECHNICIAN NAME</th>
-                                    <th className="p-3 font-semibold text-muted-foreground">START DATE</th>
-                                    <th className="p-3 font-semibold text-muted-foreground">SERVICE</th>
-                                    <th className="p-3 font-semibold text-muted-foreground">STATUS</th>
-                                    <th className="p-3 font-semibold text-muted-foreground">ACTION</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {/* Mock Data - Services not yet linked to backend */}
-                                {[1, 2, 3].map((i) => (
-                                    <tr key={i} className="border-b">
-                                        <td className="p-3">Satish Patidar</td>
-                                        <td className="p-3">2026-11-14 11:30:00</td>
-                                        <td className="p-3">House Cleaning</td>
-                                        <td className="p-3"><Badge>Confirmed</Badge></td>
-                                        <td className="p-3 flex gap-1">
-                                            <Button size="icon" variant="ghost" className="h-6 w-6"><Eye className="h-3 w-3" /></Button>
-                                            <Button size="icon" variant="ghost" className="h-6 w-6 text-green-600"><Check className="h-3 w-3" /></Button>
-                                            <Button size="icon" variant="ghost" className="h-6 w-6 text-destructive"><X className="h-3 w-3" /></Button>
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
+                        <DataTable
+                            columns={createServiceColumns(
+                                handleViewService,
+                                handleApproveService,
+                                handleRejectService
+                            )}
+                            data={services}
+                            searchPlaceholder="Search services..."
+                        />
                     </div>
-                </div>
+                )}
 
                 {/* Right Column: Customer Details */}
-                <div className="space-y-4">
+                <div className={`space-y-4 ${isExpanded ? "lg:col-span-2" : ""}`}>
                     <div className="flex justify-between items-center">
-                        <Button variant="default">
-                            <Maximize2 className="mr-2 h-4 w-4" /> Resize
+                        <Button variant="outline" size="sm" onClick={() => setIsExpanded(!isExpanded)}>
+                            {isExpanded ? (
+                                <><Minimize2 className="mr-2 h-4 w-4" /> Restore</>
+                            ) : (
+                                <><Maximize2 className="mr-2 h-4 w-4" /> Resize</>
+                            )}
                         </Button>
                         <span className="text-xs text-muted-foreground">Stax Id: {data.staxId || "N/A"}</span>
                     </div>
@@ -197,11 +420,37 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
                             <div className="space-y-4">
                                 {/* Header with Name and Email */}
                                 <div className="flex items-start gap-4 mb-4">
-                                    {data.image ? <img src={data.image} alt="" className="w-12 h-12 rounded object-cover" /> : <div className="w-12 h-12 bg-muted rounded flex items-center justify-center"><User className="h-6 w-6 text-muted-foreground" /></div>}
+                                    <div className="relative group">
+                                        {data.avatarUrl ? (
+                                            <img src={data.avatarUrl} alt="" className="w-16 h-16 rounded object-cover" />
+                                        ) : (
+                                            <div className="w-16 h-16 bg-muted rounded flex items-center justify-center">
+                                                <User className="h-8 w-8 text-muted-foreground" />
+                                            </div>
+                                        )}
+                                        <label
+                                            htmlFor="contact-avatar-upload"
+                                            className="absolute -bottom-1 -right-1 flex h-6 w-6 cursor-pointer items-center justify-center rounded-full bg-primary text-primary-foreground shadow-sm hover:bg-primary/90 opacity-0 group-hover:opacity-100 transition-opacity"
+                                        >
+                                            {uploading ? (
+                                                <Loader2 className="h-3 w-3 animate-spin" />
+                                            ) : (
+                                                <Camera className="h-3 w-3" />
+                                            )}
+                                            <input
+                                                id="contact-avatar-upload"
+                                                type="file"
+                                                className="hidden"
+                                                accept="image/*"
+                                                onChange={handleImageUpload}
+                                                disabled={uploading}
+                                            />
+                                        </label>
+                                    </div>
                                     <div>
-                                        <h3 className="text-lg font-semibold text-foreground">{data.name}</h3>
-                                        <p className="text-primary flex items-center gap-1">{data.email} <CopyIcon /></p>
-                                        <p className="text-muted-foreground flex items-center gap-1">{data.phone} <CopyIcon /></p>
+                                        <h3 className="text-lg font-semibold text-foreground">{data.firstName} {data.lastName}</h3>
+                                        <p className="text-primary flex items-center gap-1">{data.email} <CopyIcon className="h-3 w-3 cursor-pointer hover:text-primary" /></p>
+                                        <p className="text-muted-foreground flex items-center gap-1">{data.phoneNumber} <CopyIcon className="h-3 w-3 cursor-pointer hover:text-primary" /></p>
                                         <a href="#" className="text-primary text-xs underline">Check keap Details</a>
                                     </div>
                                 </div>
@@ -217,18 +466,18 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
                                     </div>
                                     <Button variant="ghost" size="icon" className="mt-6"><Pencil className="h-4 w-4" /></Button>
                                 </div>
-                                <div className="space-y-1 flex gap-2">
+                                {/* <div className="space-y-1 flex gap-2">
                                     <div className="flex-1">
                                         <Label>Stax Id</Label>
                                         <Input value={data.staxId || ""} onChange={(e) => setData({ ...data, staxId: e.target.value })} />
                                     </div>
                                     <Button variant="ghost" size="icon" className="mt-6"><Pencil className="h-4 w-4" /></Button>
-                                </div>
-                                <div className="space-y-1"><Label>Phone Number</Label><Input value={data.phone || ""} onChange={(e) => setData({ ...data, phone: e.target.value })} /></div>
+                                </div> */}
+                                <div className="space-y-1"><Label>Phone Number</Label><Input value={data.phoneNumber || ""} onChange={(e) => setData({ ...data, phoneNumber: e.target.value })} /></div>
 
                                 <div className="grid grid-cols-2 gap-4">
-                                    <div className="space-y-1"><Label>Password</Label><Input type="password" placeholder=".................." disabled /></div>
-                                    <div className="space-y-1"><Label>Customer Stage</Label><Input value={data.status} onChange={(e) => setData({ ...data, status: e.target.value })} /></div>
+                                    {/* <div className="space-y-1"><Label>Password</Label><Input type="password" placeholder=".................." disabled /></div> */}
+                                    <div className="space-y-1"><Label>Customer Stage</Label><Input value={data.contactStatus} onChange={(e) => setData({ ...data, contactStatus: e.target.value })} /></div>
                                 </div>
 
                                 <div className="grid grid-cols-2 gap-4">
@@ -248,20 +497,49 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
                         <AccordionItem title="Billing Details" isOpen={sections.billing} onToggle={() => toggleSection('billing')}>
                             <div className="space-y-4">
                                 <div className="grid grid-cols-2 gap-4">
-                                    <div className="space-y-1"><Label>Billing Address</Label><Input value={data.billingAddress?.street || ""} onChange={(e) => setData({ ...data, billingAddress: { ...data.billingAddress, street: e.target.value } })} /></div>
-                                    <div className="space-y-1"><Label>Billing Zip Code</Label><Input value={data.billingAddress?.zipCode || ""} onChange={(e) => setData({ ...data, billingAddress: { ...data.billingAddress, zipCode: e.target.value } })} /></div>
+                                    <div className="space-y-1">
+                                        <Label>Billing Address</Label>
+                                        <Input value={data.billingAddress?.street || ""} onChange={(e) => updateBillingField("street", e.target.value)} />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <Label>Billing Zip Code</Label>
+                                        <Input value={data.billingAddress?.zipCode || ""} onChange={(e) => updateBillingField("zipCode", e.target.value)} />
+                                    </div>
                                 </div>
                                 <div className="grid grid-cols-2 gap-4">
-                                    <div className="space-y-1"><Label>Billing City</Label><Input value={data.billingAddress?.city || ""} onChange={(e) => setData({ ...data, billingAddress: { ...data.billingAddress, city: e.target.value } })} /></div>
-                                    <div className="space-y-1"><Label>Billing State</Label>
-                                        <Select value={data.billingAddress?.state} onValueChange={(v) => setData({ ...data, billingAddress: { ...data.billingAddress, state: v } })}>
+                                    <div className="space-y-1">
+                                        <Label>Billing City</Label>
+                                        <Input value={data.billingAddress?.city || ""} onChange={(e) => updateBillingField("city", e.target.value)} />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <Label>Billing State</Label>
+                                        <Select value={data.billingAddress?.state} onValueChange={(v) => updateBillingField("state", v)}>
                                             <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
-                                            <SelectContent><SelectItem value="California">California</SelectItem><SelectItem value="Alabama">Alabama</SelectItem></SelectContent>
+                                            <SelectContent>
+                                                {statesList.map(s => (
+                                                    <SelectItem key={s.id} value={s.name}>{s.name}</SelectItem>
+                                                ))}
+                                                {statesList.length === 0 && (
+                                                    <>
+                                                        <SelectItem value="California">California</SelectItem>
+                                                        <SelectItem value="Alabama">Alabama</SelectItem>
+                                                    </>
+                                                )}
+                                            </SelectContent>
                                         </Select>
                                     </div>
                                 </div>
 
-                                <div className="space-y-1 pt-2">
+                                <div className="flex items-center space-x-2 pt-2">
+                                    <Checkbox id="same-as-billing" checked={sameAsBilling} onCheckedChange={handleSameAsBillingToggle} />
+                                    <Label htmlFor="same-as-billing" className="text-sm font-medium leading-none cursor-pointer">
+                                        Shipping address same as billing
+                                    </Label>
+                                </div>
+
+                                <Separator className="my-2" />
+
+                                <div className="space-y-1">
                                     <Label>Select Default Shipping Address</Label>
                                     <Select>
                                         <SelectTrigger><SelectValue placeholder="Select Default Shipping Address" /></SelectTrigger>
@@ -270,15 +548,51 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
                                 </div>
 
                                 <div className="grid grid-cols-2 gap-4">
-                                    <div className="space-y-1"><Label>Default Shipping Address</Label><Input value={data.shippingAddress?.street || ""} onChange={(e) => setData({ ...data, shippingAddress: { ...data.shippingAddress, street: e.target.value } })} /></div>
-                                    <div className="space-y-1"><Label>Shipping Zip Code</Label><Input value={data.shippingAddress?.zipCode || ""} onChange={(e) => setData({ ...data, shippingAddress: { ...data.shippingAddress, zipCode: e.target.value } })} /></div>
+                                    <div className="space-y-1">
+                                        <Label>Default Shipping Address</Label>
+                                        <Input
+                                            value={data.shippingAddress?.street || ""}
+                                            onChange={(e) => setData({ ...data, shippingAddress: { ...data.shippingAddress, street: e.target.value } })}
+                                            disabled={sameAsBilling}
+                                        />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <Label>Shipping Zip Code</Label>
+                                        <Input
+                                            value={data.shippingAddress?.zipCode || ""}
+                                            onChange={(e) => setData({ ...data, shippingAddress: { ...data.shippingAddress, zipCode: e.target.value } })}
+                                            disabled={sameAsBilling}
+                                        />
+                                    </div>
                                 </div>
                                 <div className="grid grid-cols-2 gap-4">
-                                    <div className="space-y-1"><Label>Shipping City</Label><Input value={data.shippingAddress?.city || ""} onChange={(e) => setData({ ...data, shippingAddress: { ...data.shippingAddress, city: e.target.value } })} /></div>
-                                    <div className="space-y-1"><Label>Shipping State</Label>
-                                        <Select value={data.shippingAddress?.state} onValueChange={(v) => setData({ ...data, shippingAddress: { ...data.shippingAddress, state: v } })}>
+                                    <div className="space-y-1">
+                                        <Label>Shipping City</Label>
+                                        <Input
+                                            value={data.shippingAddress?.city || ""}
+                                            onChange={(e) => setData({ ...data, shippingAddress: { ...data.shippingAddress, city: e.target.value } })}
+                                            disabled={sameAsBilling}
+                                        />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <Label>Shipping State</Label>
+                                        <Select
+                                            value={data.shippingAddress?.state}
+                                            onValueChange={(v) => setData({ ...data, shippingAddress: { ...data.shippingAddress, state: v } })}
+                                            disabled={sameAsBilling}
+                                        >
                                             <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
-                                            <SelectContent><SelectItem value="California">California</SelectItem><SelectItem value="Alabama">Alabama</SelectItem></SelectContent>
+                                            <SelectContent>
+                                                {statesList.map(s => (
+                                                    <SelectItem key={s.id} value={s.name}>{s.name}</SelectItem>
+                                                ))}
+                                                {statesList.length === 0 && (
+                                                    <>
+                                                        <SelectItem value="California">California</SelectItem>
+                                                        <SelectItem value="Alabama">Alabama</SelectItem>
+                                                    </>
+                                                )}
+                                            </SelectContent>
                                         </Select>
                                     </div>
                                 </div>
@@ -454,14 +768,47 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
                     </div>
                 </div>
             </div>
+
+            {/* Redesigned Filter Dialog */}
+            <Dialog open={isFilterOpen} onOpenChange={setIsFilterOpen} >
+                <DialogContent className=" p-0 rounded-2xl overflow-hidden bg-background border border-border">
+                    <div className="flex flex-col w-full">
+                        {/* Header */}
+                        <div className="flex items-center justify-between px-6 py-4 bg-muted border-b border-border">
+                            <span className="text-xl font-bold text-foreground">Filter data</span>
+                            {/* <button onClick={() => setIsFilterOpen(false)} className="text-2xl text-muted-foreground hover:text-foreground">&times;</button> */}
+                        </div>
+                        {/* Body */}
+                        <div className="flex w-full min-h-[350px]">
+
+
+                            <div className="bg-background rounded-lg shadow-sm border border-border">
+                                <DateRangePicker
+                                    startDate={filterDates.appointmentFrom}
+                                    endDate={filterDates.appointmentTo}
+                                    onRangeChange={(start, end) => setFilterDates({ appointmentFrom: start, appointmentTo: end })}
+                                    placeholder="Select date range"
+                                    showMonthAndYearPickers={true}
+                                    className="!bg-background"
+                                />
+                            </div>
+                        </div>
+                        {/* Footer */}
+                        <div className="flex justify-end px-6 py-4 bg-muted border-t border-border">
+                            <Button
+                                className=" font-bold px-8 py-2 rounded shadow"
+                                onClick={() => { setIsFilterOpen(false); toast.success('Filters applied'); }}
+                            >
+                                Submit
+                            </Button>
+                        </div>
+                    </div>
+                </DialogContent>
+            </Dialog>
+
         </div>
     );
 }
 
-function CopyIcon() {
-    return (
-        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-copy cursor-pointer hover:text-primary">
-            <rect width="14" height="14" x="8" y="8" rx="2" ry="2" /><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" />
-        </svg>
-    );
-}
+// CopyIcon removed as it's now imported or handled inline
+

@@ -27,7 +27,8 @@ export async function PUT(
         hourlyRate,
         status,
         parentId,
-        subServices
+        subServices,
+        category
     } = body;
 
     await connectDB();
@@ -53,6 +54,7 @@ export async function PUT(
     service.status = status || service.status;
     service.parentId = parentId !== undefined ? parentId : service.parentId;
     service.subServices = subServices || service.subServices;
+    service.category = category || service.category;
 
     // Handle logo update
     if (logo !== undefined && logo !== service.logo) {

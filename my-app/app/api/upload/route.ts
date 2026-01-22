@@ -53,16 +53,15 @@ export async function POST(req: NextRequest) {
             );
             url = `/uploads/${companyId}/services/${serviceId}/${subfolder}/${filename}`;
         } else {
-            // Company-level upload: /uploads/{companyId}/temp/
-            // These can be moved later when service is created
+            // Company-level upload: /uploads/{companyId}/{subfolder}/
             uploadDir = path.join(
                 process.cwd(),
                 "public",
                 "uploads",
                 companyId,
-                "temp"
+                subfolder
             );
-            url = `/uploads/${companyId}/temp/${filename}`;
+            url = `/uploads/${companyId}/${subfolder}/${filename}`;
         }
 
         // Ensure upload directory exists

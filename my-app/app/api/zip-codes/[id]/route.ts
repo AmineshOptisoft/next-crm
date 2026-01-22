@@ -1,11 +1,11 @@
-import { NextResponse } from "next/server";
+import { NextResponse, NextRequest } from "next/server";
 import { connectDB } from "@/lib/db";
 import { ZipCode } from "@/app/models/ZipCode";
 import { getCurrentUser } from "@/lib/auth";
 
 export async function DELETE(
-    req: Request,
-    { params }: { params: { id: string } }
+    req: NextRequest,
+    { params }: { params: Promise<{ id: string }> }
 ) {
     try {
         const user = await getCurrentUser();
@@ -13,10 +13,11 @@ export async function DELETE(
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 
+        const resolvedParams = await params;
         await connectDB();
 
         const deletedZipCode = await ZipCode.findOneAndDelete({
-            _id: params.id,
+            _id: resolvedParams.id,
             companyId: user.companyId,
         });
 

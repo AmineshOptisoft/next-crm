@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { connectDB } from "@/lib/db";
-import { Employee } from "@/app/models/Employee";
+import { User } from "@/app/models/User";
 import { checkPermission, buildCompanyFilter } from "@/lib/permissions";
 
 type Context = { params: { id: string } } | { params: Promise<{ id: string }> };
@@ -24,8 +24,8 @@ export async function GET(req: NextRequest, context: Context) {
     const { id } = await resolveParams(context);
 
     await connectDB();
-    const filter = { _id: id, ...buildCompanyFilter(user) };
-    const employee = await Employee.findOne(filter);
+    const filter = { _id: id, ...buildCompanyFilter(user), role: "employee" };
+    const employee = await User.findOne(filter);
 
     if (!employee) {
       return NextResponse.json(
@@ -56,8 +56,8 @@ export async function PUT(req: NextRequest, context: Context) {
     const body = await req.json();
 
     await connectDB();
-    const filter = { _id: id, ...buildCompanyFilter(user) };
-    const employee = await Employee.findOneAndUpdate(
+    const filter = { _id: id, ...buildCompanyFilter(user), role: "employee" };
+    const employee = await User.findOneAndUpdate(
       filter,
       body,
       { new: true, runValidators: true }
@@ -91,8 +91,8 @@ export async function DELETE(req: NextRequest, context: Context) {
     const { id } = await resolveParams(context);
 
     await connectDB();
-    const filter = { _id: id, ...buildCompanyFilter(user) };
-    const employee = await Employee.findOneAndDelete(filter);
+    const filter = { _id: id, ...buildCompanyFilter(user), role: "employee" };
+    const employee = await User.findOneAndDelete(filter);
 
     if (!employee) {
       return NextResponse.json(

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
 import { Deal } from "@/app/models/Deal";
-import { Contact } from "@/app/models/Contact";
+import { User } from "@/app/models/User";
 import { getCurrentUser } from "@/lib/auth";
 import { checkPermission } from "@/lib/permissions";
 
@@ -13,11 +13,11 @@ export async function GET(req: NextRequest) {
   const user = permCheck.user;
 
   await connectDB();
-  
+
   // Build filter: super admins see all deals, regular users see only their company's deals
   const { buildCompanyFilter } = await import("@/lib/permissions");
   const filter = buildCompanyFilter(user);
-  
+
   const deals = await Deal.find(filter)
     .populate("contactId")
     .sort({ createdAt: -1 })
@@ -62,12 +62,13 @@ export async function POST(req: NextRequest) {
 
   await connectDB();
 
-  // Optional: verify contact belongs to this company if contactId is present
+  // Optional: verify contact belongs to this company and is a contact role
   let contactObjectId = undefined;
   if (contactId) {
-    const contact = await Contact.findOne({
+    const contact = await User.findOne({
       _id: contactId,
       companyId: user.companyId,
+      role: "contact"
     }).lean();
     if (!contact) {
       return NextResponse.json(

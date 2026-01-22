@@ -26,7 +26,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 // Single app card
 const appInfo = {
@@ -60,29 +60,29 @@ const menuItems = {
         </svg>
       ),
     },
-    {
-      title: "Employees",
-      href: "/dashboard/employees",
-      module: "employees",
-      icon: (
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          width="16"
-          height="16"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-          <circle cx="9" cy="7" r="4" />
-          <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
-          <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-        </svg>
-      ),
-    },
+    // {
+    //   title: "Employees",
+    //   href: "/dashboard/employees",
+    //   module: "employees",
+    //   icon: (
+    //     <svg
+    //       xmlns="http://www.w3.org/2000/svg"
+    //       width="16"
+    //       height="16"
+    //       viewBox="0 0 24 24"
+    //       fill="none"
+    //       stroke="currentColor"
+    //       strokeWidth="2"
+    //       strokeLinecap="round"
+    //       strokeLinejoin="round"
+    //     >
+    //       <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+    //       <circle cx="9" cy="7" r="4" />
+    //       <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+    //       <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+    //     </svg>
+    //   ),
+    // },
     {
       title: "Tasks",
       href: "/dashboard/tasks",
@@ -460,6 +460,7 @@ type MeUser = {
   lastName?: string;
   email: string;
   role?: string;
+  avatarUrl?: string;
   permissions?: any[];
 };
 
@@ -676,6 +677,7 @@ export function AppSidebar() {
                   className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
                 >
                   <Avatar className="h-8 w-8 rounded-lg">
+                    <AvatarImage src={me?.avatarUrl} alt={displayName} />
                     <AvatarFallback className="rounded-lg bg-primary text-primary-foreground">
                       {initials}
                     </AvatarFallback>
@@ -700,6 +702,7 @@ export function AppSidebar() {
                 <DropdownMenuLabel className="p-0 font-normal">
                   <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
                     <Avatar className="h-8 w-8 rounded-lg">
+                      <AvatarImage src={me?.avatarUrl} alt={displayName} />
                       <AvatarFallback className="rounded-lg">
                         {initials}
                       </AvatarFallback>

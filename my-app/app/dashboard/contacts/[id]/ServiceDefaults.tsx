@@ -1,51 +1,27 @@
-"use client";
-
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Plus, Minus } from "lucide-react";
-
-// Configuration of services based on the user's screenshot
-const SERVICES_CONFIG = [
-    {
-        name: "Deluxe First Time Cleaning",
-        hasSubService: true,
-        hasAddons: true,
-        addons: []
-    },
-    {
-        name: "General First Time Cleaning",
-        hasSubService: true,
-        hasAddons: true,
-        addons: ["Fridge Cleaning", "Oven"]
-    },
-    {
-        name: "House Cleaning",
-        hasSubService: true,
-        hasAddons: true,
-        addons: ["Fridge Cleaning", "Oven Cleaning"]
-    },
-    {
-        name: "Move In/Out Service",
-        hasSubService: true,
-        hasAddons: true,
-        addons: []
-    },
-    {
-        name: "Training - Meeting",
-        hasSubService: true,
-        subServices: ["Time"],
-        hasAddons: true,
-        addons: []
-    },
-    {
-        name: "Window Cleaning",
-        hasSubService: true,
-        subServices: ["Standard Windows"],
-        hasAddons: true,
-        addons: []
-    }
-];
+import { Plus, Minus, Loader2 } from "lucide-react";
 
 export function ServiceDefaults({ editorData, onChange }: { editorData: any, onChange: (data: any) => void }) {
+    const [services, setServices] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        async function fetchServices() {
+            try {
+                const res = await fetch("/api/services");
+                if (res.ok) {
+                    const data = await res.json();
+                    setServices(data.filter((s: any) => !s.parentId)); // Only main services
+                }
+            } catch (err) {
+                console.error("Failed to fetch services", err);
+            } finally {
+                setLoading(false);
+            }
+        }
+        fetchServices();
+    }, []);
     // Helper to update count safely
     const updateCount = (serviceName: string, type: 'sub' | 'addon', itemName: string, delta: number) => {
         const currentServiceData = editorData[serviceName] || {};
@@ -70,63 +46,63 @@ export function ServiceDefaults({ editorData, onChange }: { editorData: any, onC
         return editorData?.[serviceName]?.[type]?.[itemName] || 0;
     };
 
+    if (loading) {
+        return (
+            <div className="flex items-center justify-center p-8">
+                <Loader2 className="h-6 w-6 animate-spin text-primary" />
+            </div>
+        );
+    }
+
+    if (services.length === 0) {
+        return (
+            <div className="p-4 text-center text-muted-foreground italic text-sm">
+                No services configured.
+            </div>
+        );
+    }
+
     return (
         <div className="space-y-6">
-            {SERVICES_CONFIG.map((service) => (
-                <div key={service.name} className="border-b pb-4 last:border-0">
-                    <h4 className="text-md font-bold text-primary mb-2">Service: {service.name}</h4>
+            {services.map((service) => (
+                <div key={service._id} className="border-b pb-4 last:border-0 hover:bg-muted/5 transition-colors p-2 rounded-lg">
+                    <h4 className="text-md font-bold text-primary mb-2 flex items-center justify-between">
+                        Service: {service.name}
+                    </h4>
 
-                    {/* SubService Section */}
-                    {service.hasSubService && (
+                    {/* SubServices Section */}
+                    {service.subServices && service.subServices.length > 0 && (
                         <div className="mb-2 bg-muted/30 p-2 rounded">
-                            <h5 className="font-semibold text-primary/80 mb-2">SubService</h5>
-                            {service.subServices ? (
-                                <div className="space-y-2">
-                                    {service.subServices.map(item => (
-                                        <div key={item} className="flex items-center justify-between bg-card p-2 rounded border">
-                                            <span className="text-sm font-medium text-foreground">{item}</span>
-                                            <div className="flex items-center gap-3">
-                                                <Button size="icon" variant="outline" className="h-8 w-8 rounded-full bg-lime-500 hover:bg-lime-600 text-white border-none" onClick={() => updateCount(service.name, 'sub', item, -1)}>
-                                                    <Minus className="h-4 w-4" />
-                                                </Button>
-                                                <span className="w-4 text-center font-bold">{getCount(service.name, 'sub', item)}</span>
-                                                <Button size="icon" variant="outline" className="h-8 w-8 rounded-full bg-lime-500 hover:bg-lime-600 text-white border-none" onClick={() => updateCount(service.name, 'sub', item, 1)}>
-                                                    <Plus className="h-4 w-4" />
-                                                </Button>
-                                            </div>
+                            <h5 className="font-semibold text-primary/80 mb-2 text-xs uppercase tracking-wider">Sub Services</h5>
+                            <div className="space-y-2">
+                                {service.subServices.map((item: any) => (
+                                    <div key={item.name} className="flex items-center justify-between bg-card p-2 rounded border shadow-sm">
+                                        <div className="flex flex-col">
+                                            <span className="text-sm font-medium text-foreground">{item.name}</span>
+                                            {item.price && <span className="text-[10px] text-muted-foreground">${item.price}</span>}
                                         </div>
-                                    ))}
-                                </div>
-                            ) : (
-                                <div className="text-xs text-muted-foreground italic pl-2"></div>
-                            )}
-                        </div>
-                    )}
-
-                    {/* Addons Section */}
-                    {service.hasAddons && (
-                        <div className="bg-muted/30 p-2 rounded">
-                            <h5 className="font-semibold text-primary/80 mb-2">Addons Service</h5>
-                            {service.addons && service.addons.length > 0 ? (
-                                <div className="space-y-2">
-                                    {service.addons.map(item => (
-                                        <div key={item} className="flex items-center justify-between bg-card p-2 rounded border">
-                                            <span className="text-sm font-medium text-foreground">{item}</span>
-                                            <div className="flex items-center gap-3">
-                                                <Button size="icon" variant="outline" className="h-8 w-8 rounded-full bg-lime-500 hover:bg-lime-600 text-white border-none" onClick={() => updateCount(service.name, 'addon', item, -1)}>
-                                                    <Minus className="h-4 w-4" />
-                                                </Button>
-                                                <span className="w-4 text-center font-bold">{getCount(service.name, 'addon', item)}</span>
-                                                <Button size="icon" variant="outline" className="h-8 w-8 rounded-full bg-lime-500 hover:bg-lime-600 text-white border-none" onClick={() => updateCount(service.name, 'addon', item, 1)}>
-                                                    <Plus className="h-4 w-4" />
-                                                </Button>
-                                            </div>
+                                        <div className="flex items-center gap-3">
+                                            <Button
+                                                size="icon"
+                                                variant="outline"
+                                                className="h-7 w-7 rounded-full bg-primary/10 hover:bg-primary text-primary hover:text-primary-foreground border-none transition-all"
+                                                onClick={() => updateCount(service.name, 'sub', item.name, -1)}
+                                            >
+                                                <Minus className="h-3 w-3" />
+                                            </Button>
+                                            <span className="w-4 text-center font-bold text-sm">{getCount(service.name, 'sub', item.name)}</span>
+                                            <Button
+                                                size="icon"
+                                                variant="outline"
+                                                className="h-7 w-7 rounded-full bg-primary/10 hover:bg-primary text-primary hover:text-primary-foreground border-none transition-all"
+                                                onClick={() => updateCount(service.name, 'sub', item.name, 1)}
+                                            >
+                                                <Plus className="h-3 w-3" />
+                                            </Button>
                                         </div>
-                                    ))}
-                                </div>
-                            ) : (
-                                <div className="text-xs text-muted-foreground italic pl-2"></div>
-                            )}
+                                    </div>
+                                ))}
+                            </div>
                         </div>
                     )}
                 </div>

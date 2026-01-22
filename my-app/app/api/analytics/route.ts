@@ -2,9 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
 import { Deal } from "@/app/models/Deal";
 import { Task } from "@/app/models/Task";
-import { Contact } from "@/app/models/Contact";
+import { User } from "@/app/models/User";
 import { Invoice } from "@/app/models/Invoice";
-import { Employee } from "@/app/models/Employee";
 import { Activity } from "@/app/models/Activity";
 import { getCurrentUser } from "@/lib/auth";
 import { Types } from "mongoose";
@@ -96,10 +95,10 @@ async function getOverviewReport(userId: string, dateFilter: any) {
       { $match: { ownerId: new Types.ObjectId(userId), stage: "won" } },
       { $group: { _id: null, total: { $sum: "$value" } } },
     ]),
-    Contact.countDocuments(filter),
+    User.countDocuments({ ...filter, role: "contact" }),
     Task.countDocuments(filter),
     Task.countDocuments({ ...filter, status: "completed" }),
-    Employee.countDocuments({ ownerId: userId, status: "active" }),
+    User.countDocuments({ ownerId: userId, role: "employee", employeeStatus: "active" }),
     Invoice.countDocuments(filter),
     Invoice.countDocuments({ ...filter, status: "paid" }),
   ]);
@@ -171,7 +170,7 @@ async function getSalesReport(userId: string, dateFilter: any) {
   const topDeals = await Deal.find(matchFilter)
     .sort({ value: -1 })
     .limit(10)
-    .populate("contactId", "name company")
+    .populate("contactId", "firstName lastName companyName")
     .lean();
 
   return {
@@ -244,9 +243,10 @@ async function getEmployeePerformanceReport(
   userId: string,
   dateFilter: any
 ) {
-  const employees = await Employee.find({
+  const employees = await User.find({
     ownerId: userId,
-    status: "active",
+    role: "employee",
+    employeeStatus: "active",
   }).lean();
 
   const performanceData = await Promise.all(

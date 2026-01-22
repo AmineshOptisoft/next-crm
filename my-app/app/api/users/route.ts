@@ -77,18 +77,15 @@ export async function POST(req: NextRequest) {
   const passwordHash = await bcrypt.hash(password, 10);
 
   const newUser = await User.create({
-    firstName,
-    lastName,
-    email,
+    ...body,
     passwordHash,
     role: "company_user",
     companyId: user.companyId,
-    customRoleId: customRoleId || null,
     isVerified: true, // Auto-verify company users
     isActive: true,
   });
 
-  const userResponse = await User.findById(newUser._id)
+  const userResponse = await User.findById((newUser as any)._id)
     .populate("customRoleId", "name permissions")
     .select("-passwordHash -verificationToken")
     .lean();
