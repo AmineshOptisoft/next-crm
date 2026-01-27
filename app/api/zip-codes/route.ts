@@ -11,7 +11,9 @@ export async function GET() {
         }
 
         await connectDB();
-        const zipCodes = await ZipCode.find({ companyId: user.companyId }).sort({ createdAt: -1 });
+        const zipCodes = await ZipCode.find({ companyId: user.companyId })
+            .populate('serviceAreaId', 'name')
+            .sort({ createdAt: -1 });
 
         return NextResponse.json(zipCodes);
     } catch (error) {
@@ -27,10 +29,10 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 
-        const { zone, code } = await req.json();
+        const { serviceAreaId, code } = await req.json();
 
-        if (!zone || !code) {
-            return NextResponse.json({ error: "Zone name and Zip code are required" }, { status: 400 });
+        if (!serviceAreaId || !code) {
+            return NextResponse.json({ error: "Service area and Zip code are required" }, { status: 400 });
         }
 
         await connectDB();
@@ -43,9 +45,12 @@ export async function POST(req: Request) {
 
         const newZipCode = await ZipCode.create({
             companyId: user.companyId,
-            zone,
+            serviceAreaId,
             code,
         });
+
+        // Populate service area name before returning
+        await newZipCode.populate('serviceAreaId', 'name');
 
         return NextResponse.json(newZipCode, { status: 201 });
     } catch (error) {

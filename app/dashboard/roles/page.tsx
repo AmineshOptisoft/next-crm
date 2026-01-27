@@ -50,8 +50,7 @@ interface Role {
   permissions: Permission[];
   isSystemRole: boolean;
   isActive: boolean;
-  isParent: number; // 1 = parent role, 0 = child role
-  parentRoleId?: string | null;
+  // Hierarchy fields removed
   companyId?: {
     _id: string;
     name: string;
@@ -86,8 +85,7 @@ export default function RolesPage() {
   const [formData, setFormData] = useState({
     name: "",
     description: "",
-    hasParent: false,
-    parentRoleId: "",
+    // Hierarchy fields removed
     permissions: MODULES.map((module) => ({
       module,
       canView: false,
@@ -119,11 +117,7 @@ export default function RolesPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Validate parent role selection
-    if (formData.hasParent && !formData.parentRoleId) {
-      alert("Please select a parent role");
-      return;
-    }
+
 
     try {
       const url = editingRole ? `/api/roles/${editingRole._id}` : "/api/roles";
@@ -134,10 +128,7 @@ export default function RolesPage() {
         name: formData.name,
         description: formData.description,
         permissions: formData.permissions,
-        // Explicitly converting to 0 (child) or 1 (parent)
-        isParent: formData.hasParent ? 0 : 1,
-        // Send actual ID or null
-        parentRoleId: formData.hasParent && formData.parentRoleId ? formData.parentRoleId : null,
+        // Hierarchy fields removed
       };
 
       const response = await fetch(url, {
@@ -185,8 +176,7 @@ export default function RolesPage() {
     setFormData({
       name: role.name,
       description: role.description || "",
-      hasParent: role.isParent === 0,
-      parentRoleId: role.parentRoleId || "",
+      // Hierarchy fields removed
       permissions: MODULES.map((module) => {
         const existing = role.permissions.find((p) => p.module === module);
         return (
@@ -222,8 +212,7 @@ export default function RolesPage() {
     setFormData({
       name: "",
       description: "",
-      hasParent: false,
-      parentRoleId: "",
+      // Hierarchy fields removed
       permissions: MODULES.map((module) => ({
         module,
         canView: false,
@@ -302,61 +291,7 @@ export default function RolesPage() {
                   </div>
                 </div>
 
-                {/* Role Hierarchy Section */}
-                <div className="space-y-4 border-t pt-4">
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-0.5">
-                      <Label htmlFor="hasParent">Has Parent Role</Label>
-                      <p className="text-sm text-muted-foreground">
-                        Enable to assign a parent role to this role
-                      </p>
-                    </div>
-                    <Switch
-                      id="hasParent"
-                      checked={formData.hasParent}
-                      onCheckedChange={(checked) =>
-                        setFormData(prev => ({
-                          ...prev,
-                          hasParent: checked,
-                          parentRoleId: checked ? prev.parentRoleId : "" // Keep existing ID if toggling ON, clear if OFF 
-                        }))
-                      }
-                    />
-                  </div>
 
-                  {formData.hasParent && (
-                    <div className="space-y-2">
-                      <Label htmlFor="parentRole">Parent Role *</Label>
-                      <Select
-                        value={formData.parentRoleId}
-                        onValueChange={(value) =>
-                          setFormData(prev => ({ ...prev, parentRoleId: value }))
-                        }
-                      >
-                        <SelectTrigger id="parentRole">
-                          <SelectValue placeholder="Select a parent role" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {roles
-                            .filter((role) =>
-                              role.isParent == 1 &&
-                              role._id !== editingRole?._id
-                            )
-                            .map((role) => (
-                              <SelectItem key={role._id} value={role._id}>
-                                {role.name}
-                              </SelectItem>
-                            ))}
-                        </SelectContent>
-                      </Select>
-                      {roles.filter((r) => r.isParent === 1 && r._id !== editingRole?._id).length === 0 && (
-                        <p className="text-sm text-muted-foreground">
-                          No parent roles available. Create a role without a parent first.
-                        </p>
-                      )}
-                    </div>
-                  )}
-                </div>
 
                 <div className="space-y-2">
                   <Label>Permissions</Label>

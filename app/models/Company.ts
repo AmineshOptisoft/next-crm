@@ -56,6 +56,16 @@ const CompanySchema = new Schema(
       currency: { type: String, default: "USD" },
       language: { type: String, default: "en" },
     },
+
+    // Master Availability - Company-wide schedule
+    masterAvailability: [
+      {
+        day: { type: String, required: true },
+        isOpen: { type: Boolean, default: true },
+        startTime: { type: String, default: "09:00 AM" },
+        endTime: { type: String, default: "06:00 PM" },
+      },
+    ],
   },
   {
     timestamps: true,

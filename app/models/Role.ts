@@ -36,22 +36,19 @@ const RoleSchema = new Schema(
     companyId: { type: Schema.Types.ObjectId, ref: "Company", required: true },
     name: { type: String, required: true },
     description: { type: String },
-    
+
     // Permissions array
     permissions: [PermissionSchema],
-    
+
     // System roles cannot be deleted
     isSystemRole: { type: Boolean, default: false },
-    
+
     // Status
     isActive: { type: Boolean, default: true },
-    
-    // Role hierarchy
-    // isParent: 1 means this role can be a parent (no parent assigned)
-    // isParent: 0 means this role has a parent (child role)
-    isParent: { type: Number, default: 1, enum: [0, 1] },
-    parentRoleId: { type: Schema.Types.ObjectId, ref: "Role", default: null },
-    
+
+    // Role hierarchy fields removed
+    // isParent and parentRoleId are no longer used
+
     // Created by
     createdBy: { type: Schema.Types.ObjectId, ref: "User" },
   },

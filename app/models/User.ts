@@ -142,6 +142,12 @@ const UserSchema = new Schema(
     timesheetEnabled: { type: Boolean, default: false },
     bookingEnabled: { type: Boolean, default: false },
     availabilityEnabled: { type: Boolean, default: false },
+    availability: [{
+      day: String,
+      isOpen: Boolean,
+      startTime: String,
+      endTime: String
+    }],
     isTechnicianActive: { type: Boolean, default: true }, // "Technician Status"
 
     // Role & Image
@@ -150,6 +156,9 @@ const UserSchema = new Schema(
 
     workingArea: [{ type: String }], // Keeping for backward compat if needed or just remove?
     description: { type: String },
+
+    // Services (Multi-select)
+    services: [{ type: Schema.Types.ObjectId, ref: "Service" }],
 
     // Verification
     isVerified: { type: Boolean, default: false },

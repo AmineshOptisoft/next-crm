@@ -2,7 +2,7 @@ import mongoose, { Document, Model, Schema } from "mongoose";
 
 export interface IZipCode extends Document {
     companyId: mongoose.Types.ObjectId;
-    zone: string;
+    serviceAreaId: mongoose.Types.ObjectId;
     code: string;
     createdAt: Date;
     updatedAt: Date;
@@ -15,10 +15,10 @@ const ZipCodeSchema: Schema = new Schema(
             ref: "Company",
             required: true,
         },
-        zone: {
-            type: String,
+        serviceAreaId: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "ServiceArea",
             required: true,
-            trim: true,
         },
         code: {
             type: String,

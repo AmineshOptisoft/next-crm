@@ -19,9 +19,9 @@ import { AddBookingForm } from "./add-booking-form";
 
 
 export default function Calendar() {
-  const { 
-    eventAddOpen, 
-    setEventAddOpen, 
+  const {
+    eventAddOpen,
+    setEventAddOpen,
     appointmentDetailsOpen,
     setAppointmentDetailsOpen
   } = useEvents();
@@ -38,11 +38,11 @@ export default function Calendar() {
   const [resources, setResources] = useState([]);
   const [events, setEvents] = useState([]);
 
-  // Fetch mock data
+  // Fetch data from real API
   useEffect(() => {
     async function fetchData() {
       try {
-        const res = await fetch('/api/appointments/mock');
+        const res = await fetch('/api/appointments/resources');
         const data = await res.json();
         setResources(data.resources);
         setEvents(data.events);

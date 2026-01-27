@@ -48,11 +48,10 @@ export async function GET(req: NextRequest) {
     });
   }
 
-  // Ensure isParent and parentRoleId fields exist (for backward compatibility)
+  // Ensure backward compatibility if needed, though fields are removed from schema
   roles = roles.map((role: any) => ({
     ...role,
-    isParent: role.isParent !== undefined ? role.isParent : 1,
-    parentRoleId: role.parentRoleId || null,
+    // isParent and parentRoleId removed
   }));
 
   return NextResponse.json(roles);
@@ -80,7 +79,7 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json();
-  const { name, description, permissions, hasParent, isParent, parentRoleId } = body;
+  const { name, description, permissions } = body;
 
   if (!name || !permissions) {
     return NextResponse.json(
@@ -89,18 +88,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // Determine standard values (prioritize isParent if sent, otherwise fallback to hasParent logic)
-  // Logic: If isParent is 0, it means it's a child.
-  const finalIsParent = isParent !== undefined ? isParent : (hasParent ? 0 : 1);
-  const finalParentId = (finalIsParent === 0 && parentRoleId) ? parentRoleId : null;
-
-  // Validate parent role if it's a child role
-  if (finalIsParent === 0 && !finalParentId) {
-    return NextResponse.json(
-      { error: "Parent role is required for child roles" },
-      { status: 400 }
-    );
-  }
+  // Hierarchy logic removed
 
   await connectDB();
 
@@ -117,26 +105,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // Validate parent role exists and is a parent role (isParent = 1)
-  if (finalIsParent === 0 && finalParentId) {
-    const parentRole = await Role.findById(finalParentId);
-    if (!parentRole) {
-      return NextResponse.json(
-        { error: "Selected parent role does not exist" },
-        { status: 400 }
-      );
-    }
 
-    // Check if the parent role is a parent role (isParent = 1 or undefined for old roles)
-    const parentIsParent = parentRole.isParent !== undefined ? parentRole.isParent : 1;
-
-    if (parentIsParent !== 1) {
-      return NextResponse.json(
-        { error: `Selected role is not a parent role (isParent=${parentRole.isParent})` },
-        { status: 400 }
-      );
-    }
-  }
 
   const roleData = {
     companyId: user.companyId,
@@ -145,8 +114,6 @@ export async function POST(req: NextRequest) {
     permissions,
     createdBy: user.userId,
     isSystemRole: false,
-    isParent: finalIsParent,
-    parentRoleId: finalParentId,
   };
 
 
