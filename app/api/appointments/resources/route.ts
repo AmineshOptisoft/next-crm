@@ -4,6 +4,7 @@ import { connectDB } from "@/lib/db";
 import { ServiceArea } from "@/app/models/ServiceArea";
 import { User } from "@/app/models/User";
 import { Company } from "@/app/models/Company";
+import { Booking } from "@/app/models/Booking";
 
 // GET - Fetch resources (service areas + technicians) and availability events
 export async function GET(req: NextRequest) {
@@ -68,9 +69,37 @@ export async function GET(req: NextRequest) {
             });
         });
 
+        // Fetch bookings and add them as yellow events
+        const bookings = await Booking.find({ companyId: user.companyId })
+            .populate('contactId', 'firstName lastName email phone')
+            .populate('serviceId', 'name')
+            .lean();
+
+        const bookingEvents = bookings.map((booking: any) => ({
+            id: `booking-${booking._id}`,
+            resourceId: booking.technicianId?.toString(),
+            title: `${booking.contactId?.firstName || ''} ${booking.contactId?.lastName || ''} - ${booking.serviceId?.name || 'Service'}`,
+            start: new Date(booking.appointmentDate),
+            end: new Date(booking.appointmentEndDate || booking.appointmentDate),
+            backgroundColor: "#eab308", // Yellow color
+            borderColor: "#ca8a04",
+            textColor: "#000000",
+            type: "booking",
+            extendedProps: {
+                bookingId: booking._id,
+                contactName: `${booking.contactId?.firstName || ''} ${booking.contactId?.lastName || ''}`,
+                contactEmail: booking.contactId?.email,
+                contactPhone: booking.contactId?.phone,
+                serviceName: booking.serviceId?.name,
+                status: booking.status,
+                estimatedPrice: booking.estimatedPrice,
+                discount: booking.discount
+            }
+        }));
+
         return NextResponse.json({
             resources,
-            events: availabilityEvents
+            events: [...availabilityEvents, ...bookingEvents]
         });
     } catch (error: any) {
         console.error("Error fetching appointment resources:", error);

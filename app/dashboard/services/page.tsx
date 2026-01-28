@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
@@ -58,6 +58,7 @@ interface Service {
     companyId: string;
     parentId?: string;
     category: "main" | "sub" | "addon";
+    estimatedTime?: number;
 }
 
 export default function ServicesPage() {
@@ -79,7 +80,8 @@ export default function ServicesPage() {
         status: "active",
         parentId: "",
         hasParent: false,
-        category: "main" as "main" | "sub" | "addon"
+        category: "main" as "main" | "sub" | "addon",
+        estimatedTime: 0
     });
 
     const [subServices, setSubServices] = useState<SubService[]>([]);
@@ -174,7 +176,8 @@ export default function ServicesPage() {
             status: "active",
             parentId: "",
             hasParent: false,
-            category: "main"
+            category: "main",
+            estimatedTime: 0
         });
         setSubServices([]);
         setNewSubService({ name: "", price: 0 });
@@ -194,7 +197,8 @@ export default function ServicesPage() {
             status: service.status || "active",
             parentId: service.parentId || "",
             hasParent: !!service.parentId,
-            category: service.category || "main"
+            category: service.category || "main",
+            estimatedTime: service.estimatedTime || 0
         });
         setSubServices(service.subServices || []);
         setIsSheetOpen(true);
@@ -514,40 +518,59 @@ export default function ServicesPage() {
                                         </SelectContent>
                                     </Select>
                                 </div>
-                                <div className="space-y-3">
-                                    <Label className="text-base font-semibold">Range Percentage (%)</Label>
-                                    <Input
-                                        type="number"
-                                        min="0"
-                                        max="100"
-                                        value={formData.percentage}
-                                        onChange={(e) => setFormData({ ...formData, percentage: parseFloat(e.target.value) || 0 })}
-                                        placeholder="0"
-                                        className="h-11"
-                                    />
-                                </div>
-                                <div className="space-y-3">
-                                    <Label className="text-base font-semibold">Base Price ($)</Label>
-                                    <Input
-                                        type="number"
-                                        value={formData.basePrice}
-                                        onChange={(e) => setFormData({ ...formData, basePrice: parseFloat(e.target.value) || 0 })}
-                                        placeholder="0.00"
-                                        className="h-11"
-                                    />
-                                </div>
-                                <div className="space-y-3">
-                                    <Label className="text-base font-semibold">Hourly Rate ($/hr)</Label>
-                                    <Input
-                                        type="number"
-                                        value={formData.hourlyRate}
-                                        onChange={(e) => setFormData({ ...formData, hourlyRate: parseFloat(e.target.value) || 0 })}
-                                        placeholder="0.00"
-                                        className="h-11"
-                                    />
-                                </div>
+                                {/* Percentage - Only for Sub and Addon */}
+                                {formData.category !== "main" && (
+                                    <div className="space-y-3">
+                                        <Label className="text-base font-semibold">Range Percentage (%)</Label>
+                                        <Input
+                                            type="number"
+                                            min="0"
+                                            max="100"
+                                            value={formData.percentage}
+                                            onChange={(e) => setFormData({ ...formData, percentage: parseFloat(e.target.value) || 0 })}
+                                            placeholder="0"
+                                            className="h-11"
+                                        />
+                                    </div>
+                                )}
                             </div>
 
+                            {/* Price Fields - Only for Sub and Addon */}
+                            {formData.category !== "main" && (
+                                <div className="grid grid-cols-3 gap-6 animate-in fade-in slide-in-from-top-2">
+                                    <div className="space-y-3">
+                                        <Label className="text-base font-semibold">Base Price ($)</Label>
+                                        <Input
+                                            type="number"
+                                            value={formData.basePrice}
+                                            onChange={(e) => setFormData({ ...formData, basePrice: parseFloat(e.target.value) || 0 })}
+                                            placeholder="0.00"
+                                            className="h-11"
+                                        />
+                                    </div>
+                                    <div className="space-y-3">
+                                        <Label className="text-base font-semibold">Hourly Rate ($/hr)</Label>
+                                        <Input
+                                            type="number"
+                                            value={formData.hourlyRate}
+                                            onChange={(e) => setFormData({ ...formData, hourlyRate: parseFloat(e.target.value) || 0 })}
+                                            placeholder="0.00"
+                                            className="h-11"
+                                        />
+                                    </div>
+                                    <div className="space-y-3">
+                                        <Label className="text-base font-semibold">Estimated Time (minutes)</Label>
+                                        <Input
+                                            type="number"
+                                            value={formData.estimatedTime}
+                                            onChange={(e) => setFormData({ ...formData, estimatedTime: parseInt(e.target.value) || 0 })}
+                                            placeholder="0"
+                                            className="h-11"
+                                            min="0"
+                                        />
+                                    </div>
+                                </div>
+                            )}
 
                             <div className="p-6 bg-background/80 backdrop-blur-sm border-t flex items-center gap-4 justify-end">
                                 <SheetClose asChild>
@@ -556,8 +579,6 @@ export default function ServicesPage() {
                                     </Button>
                                 </SheetClose>
                                 <Button type="submit" size="lg" className="min-w-[140px]  shadow-sm" disabled={isSaving}>
-                                    {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                    {editingService ? "Update Service" : "Save Service"}
                                 </Button>
                             </div>
                         </form>
@@ -620,13 +641,13 @@ export default function ServicesPage() {
                                                 </div>
                                             </TableCell>
                                             <TableCell>
-                                                {service.percentage || 0}%
+                                                {service.category === "main" ? "--" : `${service.percentage || 0}%`}
                                             </TableCell>
                                             <TableCell>
-                                                ${service.basePrice || 0}
+                                                {service.category === "main" ? "--" : `$${service.basePrice || 0}`}
                                             </TableCell>
                                             <TableCell>
-                                                ${service.hourlyRate || 0}/hr
+                                                {service.category === "main" ? "--" : `$${service.hourlyRate || 0}/hr`}
                                             </TableCell>
                                             <TableCell>
                                                 <div className="flex items-center gap-2">
@@ -671,3 +692,4 @@ export default function ServicesPage() {
         </div >
     );
 }
+

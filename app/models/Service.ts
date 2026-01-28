@@ -25,6 +25,9 @@ export interface IService extends Document {
     parentId?: mongoose.Types.ObjectId; // If this is a child service
     subServices: ISubService[]; // Kept for backward compatibility or simple lists
 
+    // Estimated time in minutes (for sub-services and addons)
+    estimatedTime?: number;
+
     companyId: mongoose.Types.ObjectId;
     createdAt: Date;
     updatedAt: Date;
@@ -87,7 +90,10 @@ const ServiceSchema = new Schema({
     subServices: {
         type: [SubServiceSchema],
         default: []
-    }
+    },
+
+    // Estimated time in minutes (for sub-services and addons)
+    estimatedTime: { type: Number, min: 0 }
 }, { timestamps: true });
 
 export const Service = models.Service || model<IService>("Service", ServiceSchema);

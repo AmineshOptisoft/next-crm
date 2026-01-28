@@ -131,7 +131,9 @@ export function UserForm({ user, onSave, loading }: UserFormProps) {
                 const response = await fetch("/api/services");
                 if (response.ok) {
                     const data = await response.json();
-                    setAvailableServices(data);
+                    // Filter to show only main services (not sub-services or addons)
+                    const mainServices = data.filter((service: any) => service.category === "main");
+                    setAvailableServices(mainServices);
                 }
             } catch (error) {
                 console.error("Failed to fetch services:", error);

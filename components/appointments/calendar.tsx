@@ -29,6 +29,7 @@ export default function Calendar() {
   const calendarRef = useRef<FullCalendar | null>(null);
   const [selectedStart, setSelectedStart] = useState(new Date());
   const [selectedEnd, setSelectedEnd] = useState(new Date());
+  const [selectedTechnicianId, setSelectedTechnicianId] = useState<string | undefined>();
   const [selectedOldEvent, setSelectedOldEvent] = useState<CalendarEvent | undefined>();
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | undefined>();
   const [selectedAppointment, setSelectedAppointment] = useState<AppointmentDetails | undefined>();
@@ -126,6 +127,7 @@ export default function Calendar() {
   const handleDateSelect = (info: DateSelectArg) => {
     setSelectedStart(info.start);
     setSelectedEnd(info.end);
+    setSelectedTechnicianId(info.resource?.id); // Capture technician ID from resource
     setEventAddOpen(true);
   };
 
@@ -206,8 +208,19 @@ export default function Calendar() {
       <AddBookingForm
         open={eventAddOpen}
         onOpenChange={setEventAddOpen}
-        initialData={{ start: selectedStart, end: selectedEnd }}
+        initialData={{
+          start: selectedStart,
+          end: selectedEnd,
+          technicianId: selectedTechnicianId
+        }}
       />
+      <style>
+        {`
+          .fc .fc-bg-event {
+            opacity: 1 !important;
+          }
+        `}
+      </style>
     </div>
   );
 }
