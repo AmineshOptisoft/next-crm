@@ -26,3 +26,12 @@ export async function sendVerificationEmail(email: string, token: string) {
     `,
   });
 }
+
+export async function sendMail({ to, subject, html }: { to: string; subject: string; html: string }) {
+  return await transporter.sendMail({
+    from: process.env.EMAIL_FROM,
+    to,
+    subject,
+    html,
+  });
+}
