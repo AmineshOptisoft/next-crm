@@ -12,7 +12,8 @@ import {
 } from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Info } from "lucide-react";
+import { Info, Loader2 } from "lucide-react";
+import { toast } from "sonner";
 
 const DAYS = [
   "Monday",
@@ -42,9 +43,10 @@ interface UserAvailabilityProps {
   availability?: DaySchedule[];
   onChange?: (schedule: DaySchedule[]) => void;
   onSave?: () => void;
+  loading?: boolean;
 }
 
-export function UserAvailability({ availability, onChange, onSave }: UserAvailabilityProps) {
+export function UserAvailability({ availability, onChange, onSave, loading }: UserAvailabilityProps) {
   const [schedule, setSchedule] = useState<DaySchedule[]>(
     availability && availability.length > 0 ? availability : DAYS.map(day => ({
       day,
@@ -111,7 +113,7 @@ export function UserAvailability({ availability, onChange, onSave }: UserAvailab
 
     // Prevent enabling days that are closed in master
     if (field === "isOpen" && value === true && !isDayAllowed(day)) {
-      alert(`${day} is not available in the company's master schedule.`);
+      toast.error(`${day} is not available in the company's master schedule.`);
       return;
     }
 
@@ -187,7 +189,8 @@ export function UserAvailability({ availability, onChange, onSave }: UserAvailab
       </div>
 
       <div className="flex justify-end mt-6">
-        <Button onClick={onSave} type="button">
+        <Button onClick={onSave} type="button" disabled={loading}>
+          {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
           Save Availability
         </Button>
       </div>

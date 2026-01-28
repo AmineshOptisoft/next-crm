@@ -7,6 +7,7 @@ import { User } from "@/types/user";
 import { UserForm, UserData } from "@/components/users/user-form";
 // UserListSidebar import removed
 import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 
 export default function UserEditPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
@@ -95,12 +96,14 @@ export default function UserEditPage({ params }: { params: Promise<{ id: string 
         // Update user in the list as well
         setUsers(users.map(u => u._id === updated._id ? updated : u));
         setFilteredUsers(filteredUsers.map(u => u._id === updated._id ? updated : u));
-        // Show success message (optional)
+        toast.success("Changes saved successfully");
       } else {
-        alert("Failed to update user");
+        const error = await res.json();
+        toast.error(error.error || "Failed to update user");
       }
     } catch (error) {
       console.error("Error saving user", error);
+      toast.error("Failed to save changes");
     } finally {
       setSaving(false);
     }

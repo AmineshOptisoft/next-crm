@@ -29,8 +29,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Pencil, Trash2, Users, UserCheck, UserX } from "lucide-react";
+import { Plus, Pencil, Trash2, Users, UserCheck, UserX, Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { toast } from "sonner";
 
 interface User {
   _id: string;
@@ -58,6 +59,8 @@ export default function UsersPage() {
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
@@ -99,6 +102,7 @@ export default function UsersPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsSaving(true);
     try {
       const url = editingUser ? `/api/users/${editingUser._id}` : "/api/users";
       const method = editingUser ? "PUT" : "POST";
@@ -125,19 +129,22 @@ export default function UsersPage() {
         fetchUsers();
         setIsDialogOpen(false);
         resetForm();
+        toast.success(editingUser ? "User updated successfully" : "User added successfully");
       } else {
         const error = await response.json();
-        alert(error.error || "Failed to save user");
+        toast.error(error.error || `Failed to ${editingUser ? "update" : "add"} user`);
       }
     } catch (error) {
       console.error("Error saving user:", error);
-      alert("Failed to save user");
+      toast.error(`Failed to ${editingUser ? "update" : "add"} user`);
+    } finally {
+      setIsSaving(false);
     }
   };
 
   const handleDelete = async (id: string) => {
     if (!confirm("Are you sure you want to deactivate this user?")) return;
-
+    setDeletingId(id);
     try {
       const response = await fetch(`/api/users/${id}`, {
         method: "DELETE",
@@ -145,12 +152,16 @@ export default function UsersPage() {
 
       if (response.ok) {
         fetchUsers();
+        toast.success("User deactivated successfully");
       } else {
         const error = await response.json();
-        alert(error.error || "Failed to deactivate user");
+        toast.error(error.error || "Failed to deactivate user");
       }
     } catch (error) {
       console.error("Error deactivating user:", error);
+      toast.error("Failed to deactivate user");
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -288,7 +299,7 @@ export default function UsersPage() {
                     <SelectTrigger>
                       <SelectValue placeholder="Select a role (optional)" />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent position="popper" sideOffset={5} className="z-[100]">
                       <SelectItem value="none">No Role</SelectItem>
                       {roles.map((role) => (
                         <SelectItem key={role._id} value={role._id}>
@@ -310,7 +321,8 @@ export default function UsersPage() {
                 >
                   Cancel
                 </Button>
-                <Button type="submit">
+                <Button type="submit" disabled={isSaving}>
+                  {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   {editingUser ? "Update User" : "Add User"}
                 </Button>
               </DialogFooter>
@@ -396,6 +408,7 @@ export default function UsersPage() {
                             <Button
                               variant="ghost"
                               size="icon"
+                              
                               onClick={() => handleEdit(user)}
                             >
                               <Pencil className="h-4 w-4" />
@@ -404,6 +417,7 @@ export default function UsersPage() {
                               variant="ghost"
                               size="icon"
                               onClick={() => handleDelete(user._id)}
+                              disabled={deletingId === user._id}
                             >
                               <Trash2 className="h-4 w-4" />
                             </Button>

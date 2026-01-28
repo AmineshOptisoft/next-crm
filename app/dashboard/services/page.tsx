@@ -87,6 +87,7 @@ export default function ServicesPage() {
     const [isUploading, setIsUploading] = useState(false);
     const [isDragging, setIsDragging] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
+    const [deletingId, setDeletingId] = useState<string | null>(null);
 
     async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
         const file = e.target.files?.[0];
@@ -271,6 +272,7 @@ export default function ServicesPage() {
 
     async function handleDelete(id: string) {
         if (!confirm("Are you sure you want to delete this service?")) return;
+        setDeletingId(id);
         try {
             const res = await fetch(`/api/services/${id}`, { method: "DELETE" });
             if (res.ok) {
@@ -282,6 +284,8 @@ export default function ServicesPage() {
         } catch (error) {
             console.error(error);
             toast.error("Error deleting service");
+        } finally {
+            setDeletingId(null);
         }
     }
 
@@ -655,6 +659,7 @@ export default function ServicesPage() {
                                                         size="icon"
                                                         onClick={() => handleDelete(service._id)}
                                                         className="hover:bg-red-50 hover:text-red-600 transition-colors"
+                                                        disabled={deletingId === service._id}
                                                     >
                                                         <Trash2 className="h-4 w-4" />
                                                     </Button>

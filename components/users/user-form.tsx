@@ -17,7 +17,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { X, Upload, Check, ChevronsUpDown } from "lucide-react";
+import { X, Upload, Check, ChevronsUpDown, Loader2 } from "lucide-react";
 import {
     Command,
     CommandEmpty,
@@ -618,6 +618,7 @@ export function UserForm({ user, onSave, loading }: UserFormProps) {
 
                                 <div className="mt-8 flex justify-end">
                                     <Button type="submit" disabled={loading} className="w-32">
+                                        {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                                         {loading ? "Saving..." : "Save"}
                                     </Button>
                                 </div>
@@ -649,6 +650,7 @@ export function UserForm({ user, onSave, loading }: UserFormProps) {
                                 availability={formData.availability}
                                 onChange={(newSchedule) => handleChange("availability", newSchedule)}
                                 onSave={() => onSave(formData)}
+                                loading={loading}
                             />
                         </CardContent>
                     </Card>

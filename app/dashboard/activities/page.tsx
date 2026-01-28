@@ -343,7 +343,7 @@ export default function ActivitiesPage() {
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
-                      <SelectContent>
+                      <SelectContent position="popper" sideOffset={5} className="z-[100]">
                         <SelectItem value="call">Call</SelectItem>
                         <SelectItem value="email">Email</SelectItem>
                         <SelectItem value="meeting">Meeting</SelectItem>
@@ -364,7 +364,7 @@ export default function ActivitiesPage() {
                       <SelectTrigger>
                         <SelectValue placeholder="Select contact" />
                       </SelectTrigger>
-                      <SelectContent>
+                      <SelectContent position="popper" sideOffset={5} className="z-[100]">
                         {contacts.map((contact) => (
                           <SelectItem key={contact._id} value={contact._id}>
                             {contact.name}
@@ -411,7 +411,7 @@ export default function ActivitiesPage() {
                       <SelectTrigger>
                         <SelectValue placeholder="Select deal (optional)" />
                       </SelectTrigger>
-                      <SelectContent>
+                      <SelectContent position="popper" sideOffset={5} className="z-[100]">
                         <SelectItem value="none">None</SelectItem>
                         {deals.map((deal) => (
                           <SelectItem key={deal._id} value={deal._id}>
@@ -432,7 +432,7 @@ export default function ActivitiesPage() {
                       <SelectTrigger>
                         <SelectValue placeholder="Select employee (optional)" />
                       </SelectTrigger>
-                      <SelectContent>
+                      <SelectContent position="popper" sideOffset={5} className="z-[100]">
                         <SelectItem value="none">None</SelectItem>
                         {employees.map((emp) => (
                           <SelectItem key={emp._id} value={emp._id}>
@@ -478,7 +478,7 @@ export default function ActivitiesPage() {
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
-                      <SelectContent>
+                      <SelectContent position="popper" sideOffset={5} className="z-[100]" >
                         <SelectItem value="scheduled">Scheduled</SelectItem>
                         <SelectItem value="completed">Completed</SelectItem>
                         <SelectItem value="cancelled">Cancelled</SelectItem>
@@ -499,7 +499,7 @@ export default function ActivitiesPage() {
                       <SelectTrigger>
                         <SelectValue placeholder="Select outcome" />
                       </SelectTrigger>
-                      <SelectContent>
+                      <SelectContent >
                         <SelectItem value="successful">Successful</SelectItem>
                         <SelectItem value="unsuccessful">Unsuccessful</SelectItem>
                         <SelectItem value="follow-up-required">

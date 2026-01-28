@@ -29,7 +29,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Pencil, Trash2, Package } from "lucide-react";
+import { Plus, Pencil, Trash2, Package, Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 
@@ -54,6 +54,8 @@ export default function ProductsPage() {
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     name: "",
     description: "",
@@ -92,6 +94,7 @@ export default function ProductsPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsSaving(true);
     try {
       const url = editingProduct
         ? `/api/products/${editingProduct._id}`
@@ -126,10 +129,13 @@ export default function ProductsPage() {
     } catch (error) {
       console.error("Error saving product:", error);
       toast.error("Failed to save product");
+    } finally {
+      setIsSaving(false);
     }
   };
 
   const handleDelete = async (id: string) => {
+    setDeletingId(id);
     toast.promise(
       fetch(`/api/products/${id}`, { method: "DELETE" }).then(async (response) => {
         if (!response.ok) {
@@ -138,7 +144,7 @@ export default function ProductsPage() {
         }
         await fetchProducts();
         return response;
-      }),
+      }).finally(() => setDeletingId(null)),
       {
         loading: "Deleting product...",
         success: "Product deleted successfully",
@@ -274,7 +280,7 @@ export default function ProductsPage() {
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
-                      <SelectContent>
+                      <SelectContent position="popper" sideOffset={5} className="z-[100]">
                         <SelectItem value="unit">Unit</SelectItem>
                         <SelectItem value="hour">Hour</SelectItem>
                         <SelectItem value="day">Day</SelectItem>
@@ -323,7 +329,7 @@ export default function ProductsPage() {
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
-                      <SelectContent>
+                      <SelectContent position="popper" sideOffset={5} className="z-[100]">
                         <SelectItem value="USD">USD</SelectItem>
                         <SelectItem value="EUR">EUR</SelectItem>
                         <SelectItem value="GBP">GBP</SelectItem>
@@ -380,7 +386,8 @@ export default function ProductsPage() {
                 >
                   Cancel
                 </Button>
-                <Button type="submit">
+                <Button type="submit" disabled={isSaving}>
+                  {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   {editingProduct ? "Update" : "Create"}
                 </Button>
               </DialogFooter>
@@ -469,6 +476,7 @@ export default function ProductsPage() {
                           variant="ghost"
                           size="icon"
                           onClick={() => handleDelete(product._id)}
+                          disabled={deletingId === product._id}
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
