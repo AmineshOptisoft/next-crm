@@ -5,6 +5,8 @@ import { ServiceArea } from "@/app/models/ServiceArea";
 import { User } from "@/app/models/User";
 import { Company } from "@/app/models/Company";
 import { Booking } from "@/app/models/Booking";
+import { Service } from "@/app/models/Service";
+
 
 // GET - Fetch resources (service areas + technicians) and availability events
 export async function GET(req: NextRequest) {
@@ -72,7 +74,12 @@ export async function GET(req: NextRequest) {
         // Fetch bookings and add them as yellow events
         const bookings = await Booking.find({ companyId: user.companyId })
             .populate('contactId', 'firstName lastName email phone')
-            .populate('serviceId', 'name')
+            // .populate('serviceId', 'name')
+            // .populate({
+            //     path: "serviceId",
+            //     model: "services",
+            //     select: "name"
+            // })
             .lean();
 
         const bookingEvents = bookings.map((booking: any) => ({
