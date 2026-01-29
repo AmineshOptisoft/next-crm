@@ -17,7 +17,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { X, Upload, Check, ChevronsUpDown } from "lucide-react";
+import { X, Upload, Check, ChevronsUpDown, Loader2 } from "lucide-react";
 import {
     Command,
     CommandEmpty,
@@ -38,6 +38,7 @@ import { UserAvailability } from "./user-availability";
 import { UserOffTime } from "./user-off-time";
 import { UserSecurity } from "./user-security";
 import { UserReviews } from "./user-reviews";
+import { Country, State, City } from "country-state-city";
 
 // Define a frontend interface that matches the API response
 export interface UserData {
@@ -158,6 +159,17 @@ export function UserForm({ user, onSave, loading }: UserFormProps) {
     }, []);
     // Local state for zip codes area to handle text input
     const [zipCodesText, setZipCodesText] = useState(user.workingZipCodes?.join(", ") || "");
+
+    // Cascading Location Logic
+    const countries = Country.getAllCountries();
+    const selectedCountry = countries.find((c) => c.name === formData.country);
+    const countryCode = selectedCountry?.isoCode;
+
+    const states = countryCode ? State.getStatesOfCountry(countryCode) : [];
+    const selectedState = states.find((s) => s.name === formData.state);
+    const stateCode = selectedState?.isoCode;
+
+    const cities = (countryCode && stateCode) ? City.getCitiesOfState(countryCode, stateCode) : [];
 
     const handleChange = (field: keyof UserData, value: any) => {
         setFormData((prev) => ({ ...prev, [field]: value }));
@@ -351,27 +363,66 @@ export function UserForm({ user, onSave, loading }: UserFormProps) {
 
                                     <div className="space-y-2">
                                         <Label htmlFor="country">Country</Label>
-                                        <Input
-                                            id="country"
+                                        <Select
                                             value={formData.country || ""}
-                                            onChange={(e) => handleChange("country", e.target.value)}
-                                        />
+                                            onValueChange={(val) => {
+                                                handleChange("country", val);
+                                                handleChange("state", "");
+                                                handleChange("city", "");
+                                            }}
+                                        >
+                                            <SelectTrigger id="country" className="w-full">
+                                                <SelectValue placeholder="Select Country" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {countries.map((country) => (
+                                                    <SelectItem key={country.isoCode} value={country.name}>
+                                                        {country.name}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
                                     </div>
                                     <div className="space-y-2">
                                         <Label htmlFor="state">State</Label>
-                                        <Input
-                                            id="state"
+                                        <Select
                                             value={formData.state || ""}
-                                            onChange={(e) => handleChange("state", e.target.value)}
-                                        />
+                                            onValueChange={(val) => {
+                                                handleChange("state", val);
+                                                handleChange("city", "");
+                                            }}
+                                            disabled={!countryCode}
+                                        >
+                                            <SelectTrigger id="state" className="w-full">
+                                                <SelectValue placeholder="Select State" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {states.map((state) => (
+                                                    <SelectItem key={state.isoCode} value={state.name}>
+                                                        {state.name}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
                                     </div>
                                     <div className="space-y-2">
                                         <Label htmlFor="city">City</Label>
-                                        <Input
-                                            id="city"
+                                        <Select
                                             value={formData.city || ""}
-                                            onChange={(e) => handleChange("city", e.target.value)}
-                                        />
+                                            onValueChange={(val) => handleChange("city", val)}
+                                            disabled={!stateCode}
+                                        >
+                                            <SelectTrigger id="city" className="w-full">
+                                                <SelectValue placeholder="Select City" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {cities.map((city) => (
+                                                    <SelectItem key={city.name} value={city.name}>
+                                                        {city.name}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
                                     </div>
 
                                     <div className="space-y-2">
@@ -397,7 +448,7 @@ export function UserForm({ user, onSave, loading }: UserFormProps) {
                                                     className="flex h-auto min-h-[40px] w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"
                                                     onClick={() => setOpenServiceCombobox(!openServiceCombobox)}
                                                 >
-                                                    <div className="flex flex-wrap gap-1">
+                                                    <div className="flex flex-wrap gap-1 ">
                                                         {formData.services && formData.services.length > 0 ? (
                                                             formData.services.map((serviceId) => {
                                                                 const service = availableServices.find((s) => s._id === serviceId);
@@ -620,6 +671,7 @@ export function UserForm({ user, onSave, loading }: UserFormProps) {
 
                                 <div className="mt-8 flex justify-end">
                                     <Button type="submit" disabled={loading} className="w-32">
+                                        {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                                         {loading ? "Saving..." : "Save"}
                                     </Button>
                                 </div>
@@ -651,6 +703,7 @@ export function UserForm({ user, onSave, loading }: UserFormProps) {
                                 availability={formData.availability}
                                 onChange={(newSchedule) => handleChange("availability", newSchedule)}
                                 onSave={() => onSave(formData)}
+                                loading={loading}
                             />
                         </CardContent>
                     </Card>

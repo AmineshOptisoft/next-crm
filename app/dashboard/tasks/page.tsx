@@ -29,7 +29,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Pencil, Trash2, CheckCircle } from "lucide-react";
+import { Plus, Pencil, Trash2, CheckCircle, Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 
@@ -61,6 +61,8 @@ export default function TasksPage() {
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     title: "",
     description: "",
@@ -107,6 +109,7 @@ export default function TasksPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsSaving(true);
     try {
       const url = editingTask ? `/api/tasks/${editingTask._id}` : "/api/tasks";
       const method = editingTask ? "PUT" : "POST";
@@ -139,10 +142,13 @@ export default function TasksPage() {
     } catch (error) {
       console.error("Error saving task:", error);
       toast.error("Failed to save task");
+    } finally {
+      setIsSaving(false);
     }
   };
 
   const handleDelete = async (id: string) => {
+    setDeletingId(id);
     toast.promise(
       fetch(`/api/tasks/${id}`, { method: "DELETE" }).then(async (response) => {
         if (!response.ok) {
@@ -151,7 +157,7 @@ export default function TasksPage() {
         }
         await fetchTasks();
         return response;
-      }),
+      }).finally(() => setDeletingId(null)),
       {
         loading: "Deleting task...",
         success: "Task deleted successfully",
@@ -340,7 +346,7 @@ export default function TasksPage() {
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
-                      <SelectContent>
+                      <SelectContent position="popper" sideOffset={5} className="z-[100]">
                         <SelectItem value="todo">To Do</SelectItem>
                         <SelectItem value="in-progress">In Progress</SelectItem>
                         <SelectItem value="completed">Completed</SelectItem>
@@ -359,7 +365,7 @@ export default function TasksPage() {
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
-                      <SelectContent>
+                      <SelectContent position="popper" sideOffset={5} className="z-[100]">
                         <SelectItem value="low">Low</SelectItem>
                         <SelectItem value="medium">Medium</SelectItem>
                         <SelectItem value="high">High</SelectItem>
@@ -377,7 +383,8 @@ export default function TasksPage() {
                 >
                   Cancel
                 </Button>
-                <Button type="submit">
+                <Button type="submit" disabled={isSaving}>
+                  {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   {editingTask ? "Update" : "Create"}
                 </Button>
               </DialogFooter>
@@ -459,6 +466,7 @@ export default function TasksPage() {
                           variant="ghost"
                           size="icon"
                           onClick={() => handleDelete(task._id)}
+                          disabled={deletingId === task._id}
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>

@@ -22,7 +22,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Pencil, Trash2, Shield, Eye } from "lucide-react";
+import { Plus, Pencil, Trash2, Shield, Eye, Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
@@ -33,6 +33,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { toast } from "sonner";
 
 interface Permission {
   module: string;
@@ -82,6 +83,10 @@ export default function RolesPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [viewRole, setViewRole] = useState<Role | null>(null);
   const [editingRole, setEditingRole] = useState<Role | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [roleToDelete, setRoleToDelete] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     name: "",
     description: "",
@@ -117,7 +122,7 @@ export default function RolesPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-
+    setIsSaving(true);
 
     try {
       const url = editingRole ? `/api/roles/${editingRole._id}` : "/api/roles";
@@ -141,33 +146,48 @@ export default function RolesPage() {
         fetchRoles();
         setIsDialogOpen(false);
         resetForm();
+        toast.success(editingRole ? "Role updated successfully" : "Role created successfully");
       } else {
         const error = await response.json();
         console.error("API Error:", error);
-        alert(error.error || "Failed to save role");
+        toast.error(error.error || `Failed to ${editingRole ? "update" : "create"} role`);
       }
     } catch (error) {
       console.error("Error saving role:", error);
-      alert("Failed to save role");
+      toast.error(`Failed to ${editingRole ? "update" : "create"} role`);
+    } finally {
+      setIsSaving(false);
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this role?")) return;
+  const handleDelete = (id: string) => {
+    setRoleToDelete(id);
+    setIsDeleteDialogOpen(true);
+  };
 
+  const confirmDelete = async () => {
+    if (!roleToDelete) return;
+
+    setDeletingId(roleToDelete);
     try {
-      const response = await fetch(`/api/roles/${id}`, {
+      const response = await fetch(`/api/roles/${roleToDelete}`, {
         method: "DELETE",
       });
 
       if (response.ok) {
         fetchRoles();
+        toast.success("Role deleted successfully");
+        setIsDeleteDialogOpen(false);
       } else {
         const error = await response.json();
-        alert(error.error || "Failed to delete role");
+        toast.error(error.error || "Failed to delete role");
       }
     } catch (error) {
       console.error("Error deleting role:", error);
+      toast.error("Failed to delete role");
+    } finally {
+      setDeletingId(null);
+      setRoleToDelete(null); // Ensure cleanup but after dialog might be closed
     }
   };
 
@@ -368,7 +388,8 @@ export default function RolesPage() {
                 >
                   Cancel
                 </Button>
-                <Button type="submit">
+                <Button type="submit" disabled={isSaving}>
+                  {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   {editingRole ? "Update Role" : "Create Role"}
                 </Button>
               </DialogFooter>
@@ -462,6 +483,7 @@ export default function RolesPage() {
                               variant="ghost"
                               size="icon"
                               onClick={() => handleDelete(role._id)}
+                              disabled={deletingId === role._id}
                             >
                               <Trash2 className="h-4 w-4" />
                             </Button>
@@ -546,6 +568,43 @@ export default function RolesPage() {
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Role</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete this role? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setIsDeleteDialogOpen(false);
+                setRoleToDelete(null);
+              }}
+              disabled={deletingId !== null}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={confirmDelete}
+              disabled={deletingId !== null}
+            >
+              {deletingId ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                "Delete"
+              )}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

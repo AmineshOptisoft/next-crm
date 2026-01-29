@@ -28,7 +28,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Pencil, Trash2 } from "lucide-react";
+import { Plus, Pencil, Trash2, Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 
@@ -57,6 +57,8 @@ export default function DealsPage() {
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingDeal, setEditingDeal] = useState<DealType | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     title: "",
     value: "",
@@ -141,6 +143,7 @@ export default function DealsPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    setIsSaving(true);
 
     const url = editingDeal ? `/api/deals/${editingDeal._id}` : "/api/deals";
     const method = editingDeal ? "PUT" : "POST";
@@ -181,10 +184,13 @@ export default function DealsPage() {
     } catch (e) {
       console.error("Error saving deal:", e);
       toast.error("Failed to save deal");
+    } finally {
+      setIsSaving(false);
     }
   }
 
   async function handleDelete(id: string) {
+    setDeletingId(id);
     toast.promise(
       fetch(`/api/deals/${id}`, { method: "DELETE" }).then(async (res) => {
         if (!res.ok) {
@@ -193,7 +199,7 @@ export default function DealsPage() {
         }
         await fetchAll();
         return res;
-      }),
+      }).finally(() => setDeletingId(null)),
       {
         loading: "Deleting deal...",
         success: "Deal deleted successfully",
@@ -324,7 +330,8 @@ export default function DealsPage() {
                 >
                   Cancel
                 </Button>
-                <Button type="submit">
+                <Button type="submit" disabled={isSaving}>
+                  {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   {editingDeal ? "Update" : "Create"}
                 </Button>
               </DialogFooter>
@@ -387,6 +394,7 @@ export default function DealsPage() {
                           variant="ghost"
                           size="icon"
                           onClick={() => handleDelete(deal._id)}
+                          disabled={deletingId === deal._id}
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>

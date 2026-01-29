@@ -29,9 +29,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Pencil, Trash2, Calendar, Video } from "lucide-react";
+import { Plus, Pencil, Trash2, Calendar, Video, Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { toast } from "sonner";
 
 interface Meeting {
   _id: string;
@@ -73,6 +74,8 @@ export default function MeetingsPage() {
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingMeeting, setEditingMeeting] = useState<Meeting | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [formData, setFormData] = useState({
     title: "",
@@ -97,9 +100,13 @@ export default function MeetingsPage() {
       if (response.ok) {
         const data = await response.json();
         setMeetings(data);
+      } else {
+        const error = await response.json();
+        toast.error(error.error || "Failed to fetch meetings");
       }
     } catch (error) {
       console.error("Error fetching meetings:", error);
+      toast.error("Failed to load meetings");
     } finally {
       setLoading(false);
     }
@@ -131,6 +138,7 @@ export default function MeetingsPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsSaving(true);
     try {
       const url = editingMeeting
         ? `/api/meetings/${editingMeeting._id}`
@@ -144,29 +152,43 @@ export default function MeetingsPage() {
       });
 
       if (response.ok) {
+        toast.success(
+          editingMeeting
+            ? "Meeting updated successfully"
+            : "Meeting scheduled successfully"
+        );
         fetchMeetings();
         setIsDialogOpen(false);
         resetForm();
+      } else {
+        const error = await response.json();
+        toast.error(error.error || "Failed to save meeting");
       }
     } catch (error) {
       console.error("Error saving meeting:", error);
+      toast.error("Failed to save meeting");
+    } finally {
+      setIsSaving(false);
     }
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this meeting?")) return;
-
-    try {
-      const response = await fetch(`/api/meetings/${id}`, {
-        method: "DELETE",
-      });
-
-      if (response.ok) {
-        fetchMeetings();
+    setDeletingId(id);
+    toast.promise(
+      fetch(`/api/meetings/${id}`, { method: "DELETE" }).then(async (response) => {
+       if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.error || "Failed to delete meeting");
+        }
+        await fetchMeetings();
+        return response;
+      }).finally(() => setDeletingId(null)),
+      {
+        loading: "Deleting meeting...",
+        success: "Meeting deleted successfully",
+        error: (err) => err.message || "Failed to delete meeting",
       }
-    } catch (error) {
-      console.error("Error deleting meeting:", error);
-    }
+    );
   };
 
   const handleEdit = (meeting: Meeting) => {
@@ -196,10 +218,15 @@ export default function MeetingsPage() {
       });
 
       if (response.ok) {
+        toast.success("Meeting status updated successfully");
         fetchMeetings();
+      } else {
+        const error = await response.json();
+        toast.error(error.error || "Failed to update status");
       }
     } catch (error) {
       console.error("Error updating meeting:", error);
+      toast.error("Failed to update status");
     }
   };
 
@@ -379,7 +406,7 @@ export default function MeetingsPage() {
                       <SelectTrigger className="flex-1">
                         <SelectValue placeholder="Add contact" />
                       </SelectTrigger>
-                      <SelectContent>
+                      <SelectContent position="popper" sideOffset={5} className="z-[100]">
                         {contacts.map((contact) => (
                           <SelectItem key={contact._id} value={contact._id}>
                             {contact.name}
@@ -391,7 +418,7 @@ export default function MeetingsPage() {
                       <SelectTrigger className="flex-1">
                         <SelectValue placeholder="Add employee" />
                       </SelectTrigger>
-                      <SelectContent>
+                      <SelectContent position="popper" sideOffset={5} className="z-[100]">
                         {employees.map((emp) => (
                           <SelectItem key={emp._id} value={emp._id}>
                             {emp.firstName} {emp.lastName}
@@ -450,7 +477,8 @@ export default function MeetingsPage() {
                 >
                   Cancel
                 </Button>
-                <Button type="submit">
+                <Button type="submit" disabled={isSaving}>
+                  {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   {editingMeeting ? "Update" : "Schedule"}
                 </Button>
               </DialogFooter>
@@ -585,6 +613,7 @@ export default function MeetingsPage() {
                               variant="ghost"
                               size="icon"
                               onClick={() => handleDelete(meeting._id)}
+                              disabled={deletingId === meeting._id}
                             >
                               <Trash2 className="h-4 w-4" />
                             </Button>

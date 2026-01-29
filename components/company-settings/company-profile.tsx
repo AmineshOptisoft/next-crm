@@ -14,7 +14,7 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Building2, Save, Upload, MapPin, X } from "lucide-react";
+import { Building2, Save, Upload, MapPin, X, Loader2 } from "lucide-react";
 
 interface CompanyProfileProps {
     formData: any;
@@ -173,7 +173,7 @@ export function CompanyProfile({ formData, setFormData, saving, handleSubmit, in
                                         onClick={handleRemoveLogo}
                                         className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
                                     >
-                                        <X className="h-4 w-4" />
+                            <X className="h-4 w-4" />
                                     </button>
                                 </div>
                             ) : (
@@ -417,7 +417,11 @@ export function CompanyProfile({ formData, setFormData, saving, handleSubmit, in
 
                     <div className="flex justify-end">
                         <Button type="submit" disabled={saving}>
-                            <Save className="mr-2 h-4 w-4" />
+                            {saving ? (
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            ) : (
+                                <Save className="mr-2 h-4 w-4" />
+                            )}
                             {saving ? "Saving..." : "Save Changes"}
                         </Button>
                     </div>
