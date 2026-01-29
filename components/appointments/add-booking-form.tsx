@@ -9,9 +9,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Badge } from "@/components/ui/badge";
-import { X, Calendar as CalendarIcon, DollarSign, Clock, ChevronDown, ChevronUp, Plus, Minus } from "lucide-react";
+import { MultiSelect } from "@/components/ui/multi-select";
+import { DateTimePicker } from "@/components/ui/date-time-picker";
+import { Check, ChevronsUpDown, X, Calendar as CalendarIcon, DollarSign, Clock, ChevronDown, ChevronUp, Plus, Minus } from "lucide-react";
 import { useState, useEffect } from "react";
 import { format } from "date-fns";
+import { cn } from "@/lib/utils";
 
 // Accordion Item component
 function AccordionItem({ title, isOpen, onToggle, children }: any) {
@@ -54,8 +57,10 @@ export function AddBookingForm({ open, onOpenChange, initialData }: AddBookingFo
     // Data states
     const [contacts, setContacts] = useState<any[]>([]);
     const [services, setServices] = useState<any[]>([]);
+    const [technicians, setTechnicians] = useState<any[]>([]);
     const [selectedContact, setSelectedContact] = useState<any>(null);
     const [selectedService, setSelectedService] = useState<any>(null);
+    const [selectedTechnicianIds, setSelectedTechnicianIds] = useState<string[]>([]);
 
     // Form states
     const [formData, setFormData] = useState({
@@ -86,6 +91,15 @@ export function AddBookingForm({ open, onOpenChange, initialData }: AddBookingFo
     const [selectedDays, setSelectedDays] = useState<number[]>([]);
     const [recurringEndDate, setRecurringEndDate] = useState("");
 
+    // Date/Time States (Local)
+    const [bookingStart, setBookingStart] = useState<Date | undefined>(initialData?.start);
+    const [bookingEnd, setBookingEnd] = useState<Date | undefined>(initialData?.end);
+
+    useEffect(() => {
+        if (initialData?.start) setBookingStart(initialData.start);
+        if (initialData?.end) setBookingEnd(initialData.end);
+    }, [initialData]);
+
     // Sub-services and addons with quantities
     const [subServiceQuantities, setSubServiceQuantities] = useState<Record<string, number>>({});
     const [addonQuantities, setAddonQuantities] = useState<Record<string, number>>({});
@@ -104,16 +118,37 @@ export function AddBookingForm({ open, onOpenChange, initialData }: AddBookingFo
         }
     }, [open, userType]);
 
-    // Fetch services when technician is selected
+    // Fetch services when technician is selected (using the primary/initial technician)
     useEffect(() => {
         if (open && initialData?.technicianId) {
             fetchTechnicianServices(initialData.technicianId);
+            // Initialize selected technicians with the clicked one
+            setSelectedTechnicianIds([initialData.technicianId]);
         }
     }, [open, initialData?.technicianId]);
 
+    // Fetch all technicians
+    useEffect(() => {
+        if (open) {
+            fetchTechnicians();
+        }
+    }, [open]);
+
+    const fetchTechnicians = async () => {
+        try {
+            const res = await fetch('/api/appointments/resources');
+            const data = await res.json();
+            // Flatten the resources array from groups if necessary, or use resources directly depending on API structure
+            // The API returns resources: [{id, title, group}, ...]
+            setTechnicians(data.resources || []);
+        } catch (error) {
+            console.error("Failed to fetch technicians:", error);
+        }
+    };
+
     // Auto-calculate end time based on estimated times of selected services
     useEffect(() => {
-        if (!selectedService || !initialData?.start) return;
+        if (!selectedService || !bookingStart) return;
 
         let totalMinutes = 0;
 
@@ -134,14 +169,30 @@ export function AddBookingForm({ open, onOpenChange, initialData }: AddBookingFo
         });
 
         // Calculate new end time
-        if (totalMinutes > 0 && initialData.start) {
-            const newEndTime = new Date(initialData.start.getTime() + totalMinutes * 60 * 1000);
-            // Update the initialData end time
-            if (initialData.end?.getTime() !== newEndTime.getTime()) {
-                initialData.end = newEndTime;
+        // Default duration if no estimated time is 60 minutes (or keep existing logic)
+        // If totalMinutes is 0, we can default to 1 hour or just keep current end time difference?
+        // Let's assume if totalMinutes > 0 we update.
+
+        if (totalMinutes > 0) {
+            const newEndTime = new Date(bookingStart.getTime() + totalMinutes * 60 * 1000);
+            setBookingEnd(newEndTime);
+        } else if (bookingStart) {
+            // Default 1 hour if nothing selected? Or keep original gap?
+            // Lets keep original logic: if totalMinutes is 0, maybe don't change end time unless start changed?
+            // If start changed, we want to maintain the DURATION or reset it?
+            // Usually reset to +1 hour or similar.
+            // For now, if totalMinutes is 0, we'll set it to Start + 1 hour as fallback or Start + Service Base Time?
+            // Service might have `estimatedTime`.
+            if (selectedService.estimatedTime) {
+                const newEndTime = new Date(bookingStart.getTime() + selectedService.estimatedTime * 60 * 1000);
+                setBookingEnd(newEndTime);
+            } else {
+                // Fallback 1 hour
+                const newEndTime = new Date(bookingStart.getTime() + 60 * 60 * 1000);
+                setBookingEnd(newEndTime);
             }
         }
-    }, [selectedService, subServiceQuantities, addonQuantities, initialData?.start]);
+    }, [selectedService, subServiceQuantities, addonQuantities, bookingStart]);
 
     const fetchContacts = async () => {
         try {
@@ -236,8 +287,8 @@ export function AddBookingForm({ open, onOpenChange, initialData }: AddBookingFo
         if (!selectedService) return { total: 0, subTotal: 0, addonsTotal: 0 };
 
         // Calculate hours from start and end time
-        const hours = initialData?.start && initialData?.end
-            ? (initialData.end.getTime() - initialData.start.getTime()) / (1000 * 60 * 60)
+        const hours = bookingStart && bookingEnd
+            ? (bookingEnd.getTime() - bookingStart.getTime()) / (1000 * 60 * 60)
             : 0;
 
         let total = 0; // Main service has no price
@@ -269,6 +320,11 @@ export function AddBookingForm({ open, onOpenChange, initialData }: AddBookingFo
 
     const { total, subTotal, addonsTotal } = calculatePrice();
     const finalAmount = total - discount;
+
+    const durationInHours = bookingStart && bookingEnd
+        ? (bookingEnd.getTime() - bookingStart.getTime()) / (1000 * 60 * 60)
+        : 0;
+    const effectiveRate = durationInHours > 0 ? finalAmount / durationInHours : 0;
 
     const handleSubmit = async () => {
         try {
@@ -326,9 +382,11 @@ export function AddBookingForm({ open, onOpenChange, initialData }: AddBookingFo
                 .map(([serviceId, quantity]) => ({ serviceId, quantity }));
 
             // Create booking
+            // Create booking
             const bookingData = {
                 contactId,
-                technicianId: initialData?.technicianId,
+                technicianId: initialData?.technicianId, // Keep for backward compatibility/reference
+                technicianIds: selectedTechnicianIds, // Send multiple IDs
                 serviceId: selectedService._id,
                 subServices,
                 addons,
@@ -338,8 +396,8 @@ export function AddBookingForm({ open, onOpenChange, initialData }: AddBookingFo
                     selectedDays,
                     endDate: recurringEndDate
                 } : undefined,
-                startDateTime: initialData?.start,
-                endDateTime: initialData?.end,
+                startDateTime: bookingStart,
+                endDateTime: bookingEnd,
                 shippingAddress: {
                     street: formData.shippingAddress,
                     city: formData.shippingCity,
@@ -739,9 +797,14 @@ export function AddBookingForm({ open, onOpenChange, initialData }: AddBookingFo
                                 </div>
                             )}
 
-                            <div className="space-y-2 pt-2">
-                                <Label>Technician</Label>
-                                <Input value="Auto-selected from calendar" disabled className="bg-muted" />
+                            <div className="space-y-3 pt-2">
+                                <Label className="text-base font-semibold">Technician(s)</Label>
+                                <MultiSelect
+                                    options={technicians.map(t => ({ label: t.title, value: t.id, group: t.group }))}
+                                    selected={selectedTechnicianIds}
+                                    onChange={setSelectedTechnicianIds}
+                                    placeholder="Select technicians..."
+                                />
                             </div>
                         </div>
                     </AccordionItem>
@@ -765,18 +828,19 @@ export function AddBookingForm({ open, onOpenChange, initialData }: AddBookingFo
                             {bookingType === "once" && (
                                 <div className="grid grid-cols-2 gap-6 pb-6 border-b border-dashed mb-4">
                                     <div className="space-y-2">
-                                        <Label>
-                                            <CalendarIcon className="h-3.5 w-3.5 inline mr-1" />
-                                            Start Date/Time
-                                        </Label>
-                                        <Input value={startDate} readOnly />
+                                        <Label>Start Date/Time</Label>
+                                        <DateTimePicker
+                                            date={bookingStart}
+                                            setDate={(d) => setBookingStart(d)}
+                                        />
                                     </div>
                                     <div className="space-y-2">
-                                        <Label>
-                                            <Clock className="h-3.5 w-3.5 inline mr-1" />
-                                            End Date/Time
-                                        </Label>
-                                        <Input value={endDate} readOnly />
+                                        <Label>End Date/Time (Auto-calculated)</Label>
+                                        <Input
+                                            value={bookingEnd ? format(bookingEnd, "PPP HH:mm") : ""}
+                                            readOnly
+                                            className="bg-muted text-muted-foreground"
+                                        />
                                     </div>
                                 </div>
                             )}
@@ -816,7 +880,14 @@ export function AddBookingForm({ open, onOpenChange, initialData }: AddBookingFo
                 <SheetFooter className="p-4 border-t bg-muted/30 flex-col sm:flex-row gap-2 sm:items-center shrink-0">
                     <div className="flex-1 flex items-center gap-2">
                         <DollarSign className="h-5 w-5 text-primary" />
-                        <span className="font-semibold text-lg">Total: ${finalAmount.toFixed(2)}</span>
+                        <div className="flex items-baseline gap-2">
+                            <span className="font-semibold text-lg">Total: ${finalAmount.toFixed(2)}</span>
+                            {durationInHours > 0 && (
+                                <span className="text-sm text-muted-foreground">
+                                    (${effectiveRate.toFixed(2)}/hr)
+                                </span>
+                            )}
+                        </div>
                     </div>
                     <div className="flex gap-2 w-full sm:w-auto">
                         <Button variant="default" onClick={handleSubmit}>Create Booking</Button>

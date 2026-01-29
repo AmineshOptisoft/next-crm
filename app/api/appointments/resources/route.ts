@@ -74,35 +74,63 @@ export async function GET(req: NextRequest) {
         // Fetch bookings and add them as yellow events
         const bookings = await Booking.find({ companyId: user.companyId })
             .populate('contactId', 'firstName lastName email phone')
-            // .populate('serviceId', 'name')
-            // .populate({
-            //     path: "serviceId",
-            //     model: "services",
-            //     select: "name"
-            // })
+            .populate('serviceId', 'name')
+            .populate({
+                path: 'subServices.serviceId',
+                select: 'name'
+            })
+            .populate({
+                path: 'addons.serviceId',
+                select: 'name'
+            })
             .lean();
 
-        const bookingEvents = bookings.map((booking: any) => ({
-            id: `booking-${booking._id}`,
-            resourceId: booking.technicianId?.toString(),
-            title: `${booking.contactId?.firstName || ''} ${booking.contactId?.lastName || ''} - ${booking.serviceId?.name || 'Service'}`,
-            start: new Date(booking.appointmentDate),
-            end: new Date(booking.appointmentEndDate || booking.appointmentDate),
-            backgroundColor: "#eab308", // Yellow color
-            borderColor: "#ca8a04",
-            textColor: "#000000",
-            type: "booking",
-            extendedProps: {
-                bookingId: booking._id,
-                contactName: `${booking.contactId?.firstName || ''} ${booking.contactId?.lastName || ''}`,
-                contactEmail: booking.contactId?.email,
-                contactPhone: booking.contactId?.phone,
-                serviceName: booking.serviceId?.name,
-                status: booking.status,
-                estimatedPrice: booking.estimatedPrice,
-                discount: booking.discount
-            }
-        }));
+        const bookingEvents = bookings.map((booking: any) => {
+            // Format address
+            const addr = booking.shippingAddress;
+            const formattedAddress = addr ? `${addr.street || ''}, ${addr.city || ''}, ${addr.state || ''} ${addr.zipCode || ''}` : '';
+
+            // Format units (sub-services)
+            const units = booking.subServices?.map((sub: any) =>
+                `${sub.serviceId?.name || 'Unknown'} (x${sub.quantity})`
+            ).join(', ') || '';
+
+            // Format addons
+            const addons = booking.addons?.map((addon: any) =>
+                `${addon.serviceId?.name || 'Unknown'} (x${addon.quantity})`
+            ).join(', ') || '';
+
+            return {
+                id: `booking-${booking._id}`,
+                resourceId: booking.technicianId?.toString(),
+                title: `${booking.contactId?.firstName || ''} ${booking.contactId?.lastName || ''} - ${booking.serviceId?.name || 'Service'}`,
+                start: new Date(booking.startDateTime),
+                end: new Date(booking.endDateTime),
+                backgroundColor: "#eab308", // Yellow color
+                borderColor: "#ca8a04",
+                textColor: "#000000",
+                type: "booking",
+                extendedProps: {
+                    bookingId: booking._id,
+                    bookingStatus: booking.status,
+                    service: booking.serviceId?.name,
+                    units: units,
+                    addons: addons,
+                    notes: booking.notes,
+                    bookingPrice: booking.pricing?.finalAmount ? `$${booking.pricing.finalAmount.toFixed(2)}` : '-',
+                    bookingDiscount: booking.pricing?.discount ? `$${booking.pricing.discount}` : '-',
+
+                    customerName: `${booking.contactId?.firstName || ''} ${booking.contactId?.lastName || ''}`,
+                    customerEmail: booking.contactId?.email,
+                    customerPhone: booking.contactId?.phone,
+                    customerAddress: formattedAddress,
+
+                    // Maps to Calendar.tsx mapping
+                    status: booking.status
+                }
+            };
+        });
+
 
         return NextResponse.json({
             resources,

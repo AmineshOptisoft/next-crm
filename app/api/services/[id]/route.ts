@@ -28,7 +28,8 @@ export async function PUT(
         status,
         parentId,
         subServices,
-        category
+        category,
+        estimatedTime
     } = body;
 
     await connectDB();
@@ -54,7 +55,9 @@ export async function PUT(
     service.status = status || service.status;
     service.parentId = parentId !== undefined ? parentId : service.parentId;
     service.subServices = subServices || service.subServices;
+    service.subServices = subServices || service.subServices;
     service.category = category || service.category;
+    service.estimatedTime = estimatedTime !== undefined ? estimatedTime : service.estimatedTime;
 
     // Handle logo update
     if (logo !== undefined && logo !== service.logo) {

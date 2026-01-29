@@ -6,6 +6,7 @@ import { Service } from "@/app/models/Service";
 import { v4 as uuidv4 } from "uuid";
 
 // POST - Create booking(s)
+// POST - Create booking(s)
 export async function POST(req: NextRequest) {
     try {
         const user = await getCurrentUser();
@@ -18,7 +19,8 @@ export async function POST(req: NextRequest) {
         const body = await req.json();
         const {
             contactId,
-            technicianId,
+            technicianId, // Legacy support (single ID)
+            technicianIds = [], // New support (array of IDs)
             serviceId,
             subServices = [],
             addons = [],
@@ -32,68 +34,79 @@ export async function POST(req: NextRequest) {
             pricing
         } = body;
 
+        // Determine list of technicians to book
+        let techIdsToProcess: string[] = [];
+        if (technicianIds && technicianIds.length > 0) {
+            techIdsToProcess = technicianIds;
+        } else if (technicianId) {
+            techIdsToProcess = [technicianId];
+        }
+
         // Validate required fields
-        if (!contactId || !technicianId || !serviceId || !startDateTime || !endDateTime) {
+        if (!contactId || techIdsToProcess.length === 0 || !serviceId || !startDateTime || !endDateTime) {
             return NextResponse.json(
                 { error: "Missing required fields" },
                 { status: 400 }
             );
         }
 
-        // If booking type is "once", create single booking
-        if (bookingType === "once") {
-            const booking = await Booking.create({
-                contactId,
-                technicianId,
-                serviceId,
-                subServices,
-                addons,
-                bookingType,
-                startDateTime: new Date(startDateTime),
-                endDateTime: new Date(endDateTime),
-                shippingAddress,
-                notes,
-                pricing,
-                companyId: user.companyId
-            });
+        // Generate a unique Group ID for this batch of bookings
+        // This ID will be shared across ALL bookings created in this request (single or recurring)
+        // enabling us to track them together.
+        const bookingGroupId = uuidv4();
 
-            return NextResponse.json(booking, { status: 201 });
+        let allCreatedBookings: any[] = [];
+
+        // Loop through each technician and create bookings
+        for (const techId of techIdsToProcess) {
+            if (bookingType === "once") {
+                const booking = await Booking.create({
+                    contactId,
+                    technicianId: techId,
+                    serviceId,
+                    subServices,
+                    addons,
+                    bookingType,
+                    startDateTime: new Date(startDateTime),
+                    endDateTime: new Date(endDateTime),
+                    shippingAddress,
+                    notes,
+                    pricing,
+                    recurringGroupId: bookingGroupId, // Use the shared group ID
+                    companyId: user.companyId
+                });
+                allCreatedBookings.push(booking);
+            }
+            else if (bookingType === "recurring") {
+                const bookings = generateRecurringBookings({
+                    contactId,
+                    technicianId: techId,
+                    serviceId,
+                    subServices,
+                    addons,
+                    frequency,
+                    customRecurrence,
+                    startDateTime,
+                    endDateTime,
+                    shippingAddress,
+                    notes,
+                    pricing,
+                    recurringGroupId: bookingGroupId, // Use the shared group ID
+                    companyId: user.companyId
+                });
+
+                const created = await Booking.insertMany(bookings);
+                allCreatedBookings.push(...created);
+            }
         }
 
-        // If booking type is "recurring", create multiple bookings
-        if (bookingType === "recurring") {
-            const recurringGroupId = uuidv4();
-            const bookings = generateRecurringBookings({
-                contactId,
-                technicianId,
-                serviceId,
-                subServices,
-                addons,
-                frequency,
-                customRecurrence,
-                startDateTime,
-                endDateTime,
-                shippingAddress,
-                notes,
-                pricing,
-                recurringGroupId,
-                companyId: user.companyId
-            });
+        return NextResponse.json({
+            message: `Created ${allCreatedBookings.length} bookings for ${techIdsToProcess.length} technicians`,
+            count: allCreatedBookings.length,
+            bookingGroupId: bookingGroupId,
+            bookings: allCreatedBookings
+        }, { status: 201 });
 
-            const createdBookings = await Booking.insertMany(bookings);
-
-            return NextResponse.json({
-                message: `Created ${createdBookings.length} recurring bookings`,
-                count: createdBookings.length,
-                recurringGroupId,
-                bookings: createdBookings
-            }, { status: 201 });
-        }
-
-        return NextResponse.json(
-            { error: "Invalid booking type" },
-            { status: 400 }
-        );
     } catch (error: any) {
         console.error("Error creating booking:", error);
         return NextResponse.json(

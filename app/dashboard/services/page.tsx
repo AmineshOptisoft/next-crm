@@ -602,6 +602,7 @@ export default function ServicesPage() {
                                     <TableHead>SERVICE PERCENTAGE</TableHead>
                                     <TableHead>BASE PRICE</TableHead>
                                     <TableHead>HOURLY RATE</TableHead>
+                                    <TableHead>ESTIMATED TIME</TableHead>
                                     <TableHead>STATUS</TableHead>
                                     <TableHead className="text-right">ACTION</TableHead>
                                 </TableRow>
@@ -648,6 +649,9 @@ export default function ServicesPage() {
                                             </TableCell>
                                             <TableCell>
                                                 {service.category === "main" ? "--" : `$${service.hourlyRate || 0}/hr`}
+                                            </TableCell>
+                                            <TableCell>
+                                                {service.category === "main" ? "--" : `${service.estimatedTime || 0} min`}
                                             </TableCell>
                                             <TableCell>
                                                 <div className="flex items-center gap-2">
