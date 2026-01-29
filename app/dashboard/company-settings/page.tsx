@@ -12,6 +12,16 @@ import { CompanyServiceAreas } from "@/components/company-settings/company-servi
 import { CompanyZipCodes } from "@/components/company-settings/company-zip-codes";
 import { CompanyAvailability } from "@/components/company-settings/company-availability";
 import { Company } from "@/components/company-settings/types";
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { CheckCircle2 } from "lucide-react";
 
 export default function CompanySettingsPage() {
     const router = useRouter();
@@ -19,6 +29,7 @@ export default function CompanySettingsPage() {
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [industries, setIndustries] = useState<Array<{ _id: string; name: string }>>([]);
+    const [isRedirectDialogOpen, setIsRedirectDialogOpen] = useState(false);
 
     const [formData, setFormData] = useState({
         name: "",
@@ -114,12 +125,8 @@ export default function CompanySettingsPage() {
 
                 // Check if profile is complete
                 if (updated.profileCompleted === true) {
-                    alert("🎉 Company profile completed successfully! Redirecting to dashboard...");
-
-                    // Immediate redirect with page reload
+                    setIsRedirectDialogOpen(true);
                     setSaving(false);
-                    window.location.href = "/dashboard";
-                    return; // Stop execution
                 } else {
                     alert("Settings updated, but profile not complete yet. Please fill all required fields.");
                 }
@@ -134,6 +141,10 @@ export default function CompanySettingsPage() {
         } finally {
             setSaving(false);
         }
+    };
+
+    const handleRedirect = () => {
+        window.location.href = "/dashboard";
     };
 
     if (loading) {
@@ -208,6 +219,26 @@ export default function CompanySettingsPage() {
                     <CompanyZipCodes />
                 </TabsContent>
             </Tabs>
+
+
+            <Dialog open={isRedirectDialogOpen} onOpenChange={setIsRedirectDialogOpen}>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <div className="flex items-center gap-2">
+                            <CheckCircle2 className="h-6 w-6 text-green-500" />
+                            <DialogTitle>Setup Complete!</DialogTitle>
+                        </div>
+                        <DialogDescription className="pt-2">
+                            🎉 Company profile completed successfully! You are now ready to access your dashboard.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter className="sm:justify-end">
+                        <Button onClick={handleRedirect} className="w-full sm:w-auto">
+                            Go to Dashboard
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }

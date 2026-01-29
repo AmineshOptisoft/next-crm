@@ -61,6 +61,8 @@ export default function UsersPage() {
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [idToDelete, setIdToDelete] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
@@ -142,17 +144,24 @@ export default function UsersPage() {
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm("Are you sure you want to deactivate this user?")) return;
-    setDeletingId(id);
+  const handleDelete = (id: string) => {
+    setIdToDelete(id);
+    setIsDeleteDialogOpen(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!idToDelete) return;
+
+    setDeletingId(idToDelete);
     try {
-      const response = await fetch(`/api/users/${id}`, {
+      const response = await fetch(`/api/users/${idToDelete}`, {
         method: "DELETE",
       });
 
       if (response.ok) {
         fetchUsers();
         toast.success("User deactivated successfully");
+        setIsDeleteDialogOpen(false);
       } else {
         const error = await response.json();
         toast.error(error.error || "Failed to deactivate user");
@@ -162,6 +171,7 @@ export default function UsersPage() {
       toast.error("Failed to deactivate user");
     } finally {
       setDeletingId(null);
+      if (!idToDelete) setIdToDelete(null);
     }
   };
 
@@ -437,6 +447,45 @@ export default function UsersPage() {
           </Table>
         </div>
       )}
+
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Deactivate User</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to deactivate this user? They will no longer be able to log in.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setIsDeleteDialogOpen(false);
+                setIdToDelete(null);
+              }}
+              disabled={deletingId !== null}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={confirmDelete}
+              disabled={deletingId !== null}
+            >
+              {deletingId ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Deactivating...
+                </>
+              ) : (
+                "Deactivate"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

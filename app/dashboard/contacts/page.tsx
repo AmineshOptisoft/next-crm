@@ -104,6 +104,7 @@ export default function ContactsPage() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [contactToDelete, setContactToDelete] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
 
   const [editingContact, setEditingContact] = useState<ContactType | null>(null);
   const [fileToUpload, setFileToUpload] = useState<File | null>(null);
@@ -294,13 +295,21 @@ export default function ContactsPage() {
       companyId: contact.companyId || "",
       serviceDefaults: (contact as any).serviceDefaults || {},
       zoneName: contact.zoneName || "",
-      fsrAssigned: contact.fsrAssigned || "",
+      fsrAssigned: (() => {
+        const assignedName = contact.fsrAssigned;
+        if (!assignedName) return "";
+        // Try to find user by name to get ID
+        const user = usersList.find(u => `${u.firstName} ${u.lastName}` === assignedName);
+        return user ? user._id : assignedName;
+      })(),
       role: contact?.role || "contact"
     });
     setPreviewUrl(contact.avatarUrl || null);
     setFileToUpload(null);
     setIsSheetOpen(true);
   }
+
+
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -309,26 +318,28 @@ export default function ContactsPage() {
       return;
     }
 
-    let imageUrl = editingContact?.avatarUrl || "";
-    if (fileToUpload) {
-      const uploaded = await uploadImage(fileToUpload);
-      if (uploaded) imageUrl = uploaded;
-      else toast.error("Image upload failed, continuing without new image");
-    }
-
-    const url = editingContact ? `/api/contacts/${editingContact._id}` : "/api/contacts";
-    const method = editingContact ? "PUT" : "POST";
-
-    const submitData: any = {
-      ...formData,
-      image: imageUrl
-    };
-
-    // Cleanup
-    if (currentUser?.role !== "super_admin") delete submitData.companyId;
-    delete submitData.confirmPassword;
+    setIsSaving(true);
 
     try {
+      let imageUrl = editingContact?.avatarUrl || "";
+      if (fileToUpload) {
+        const uploaded = await uploadImage(fileToUpload);
+        if (uploaded) imageUrl = uploaded;
+        else toast.error("Image upload failed, continuing without new image");
+      }
+
+      const url = editingContact ? `/api/contacts/${editingContact._id}` : "/api/contacts";
+      const method = editingContact ? "PUT" : "POST";
+
+      const submitData: any = {
+        ...formData,
+        image: imageUrl
+      };
+
+      // Cleanup
+      if (currentUser?.role !== "super_admin") delete submitData.companyId;
+      delete submitData.confirmPassword;
+
       const res = await fetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
@@ -346,6 +357,8 @@ export default function ContactsPage() {
       }
     } catch (e) {
       toast.error("Operation failed");
+    } finally {
+      setIsSaving(false);
     }
   }
 
@@ -567,7 +580,14 @@ export default function ContactsPage() {
           {
             accessorKey: "fsrAssigned",
             header: "FSR Assigned",
-            cell: ({ row }: { row: any }) => (visibleColumns.fsrAssigned ? (row.getValue("fsrAssigned") || "-") : null),
+            cell: ({ row }: { row: any }) => {
+              if (!visibleColumns.fsrAssigned) return null;
+              const val = row.getValue("fsrAssigned");
+              // Check if val is an ID (find in usersList)
+              const user = usersList.find(u => u._id === val);
+              if (user) return `${user.firstName} ${user.lastName}`;
+              return val || "-";
+            },
           },
           {
             accessorKey: "lastAppointment",
@@ -945,7 +965,7 @@ export default function ContactsPage() {
                     <SelectTrigger><SelectValue placeholder="Select FSR" /></SelectTrigger>
                     <SelectContent>
                       {usersList.map(u => (
-                        <SelectItem key={u._id} value={`${u.firstName} ${u.lastName}`}>
+                        <SelectItem key={u._id} value={u._id}>
                           {u.firstName} {u.lastName}
                         </SelectItem>
                       ))}
@@ -999,7 +1019,10 @@ export default function ContactsPage() {
 
           <SheetFooter className="p-4 border-t gap-2 flex flex-row justify-end ">
             <Button variant="outline" onClick={() => setIsSheetOpen(false)}>Cancel</Button>
-            <Button onClick={handleSubmit}>Save Changes</Button>
+            <Button onClick={handleSubmit} disabled={isSaving}>
+              {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Save Changes
+            </Button>
           </SheetFooter>
         </SheetContent>
       </Sheet>
@@ -1029,7 +1052,14 @@ export default function ContactsPage() {
               onClick={handleDelete}
               disabled={deletingId !== null}
             >
-              Delete
+              {deletingId ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                "Delete"
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>

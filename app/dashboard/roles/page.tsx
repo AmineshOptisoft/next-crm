@@ -595,7 +595,14 @@ export default function RolesPage() {
               onClick={confirmDelete}
               disabled={deletingId !== null}
             >
-              Delete
+              {deletingId ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                "Delete"
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>
