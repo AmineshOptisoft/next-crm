@@ -25,7 +25,7 @@ function EmailEditorInner({ initialData, mode = "add" }: EmailEditorComponentPro
     const searchParams = useSearchParams();
     const emailEditorRef = useRef<EditorRef>(null);
     const [viewMode, setViewMode] = useState<"desktop" | "mobile">("desktop");
-    const [emailSubject, setEmailSubject] = useState(initialData?.subject || "");
+    const [emailSubject, setEmailSubject] = useState(initialData?.subject || searchParams.get('subject') || "");
     const [emailSubjectError, setEmailSubjectError] = useState(false);
     const [loading, setLoading] = useState(false);
 

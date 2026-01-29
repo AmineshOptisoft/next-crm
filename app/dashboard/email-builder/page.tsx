@@ -23,14 +23,6 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table";
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuLabel,
-    DropdownMenuSeparator,
-    DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
 import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -77,8 +69,7 @@ export default function EmailBuilderListPage() {
     const [loadingEmails, setLoadingEmails] = useState(true);
 
     // Test Mail States
-    const [isTestMailDialogOpen, setIsTestMailDialogOpen] = useState(false);
-    const [testEmailId, setTestEmailId] = useState<string | null>(null);
+    const [selectedCampaignForTest, setSelectedCampaignForTest] = useState<any | null>(null);
     const [testEmail, setTestEmail] = useState("");
     const [testData, setTestData] = useState({
         firstname: "John",
@@ -89,6 +80,7 @@ export default function EmailBuilderListPage() {
         booking_date: new Date().toLocaleDateString()
     });
     const [isSendingTest, setIsSendingTest] = useState(false);
+    const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
 
     const [reminders, setReminders] = useState([
         { id: 1, label: "First", unit: "Hours", value: "6", enabled: true },
@@ -134,16 +126,24 @@ export default function EmailBuilderListPage() {
         if (!selectedEmailForReminder) return;
 
         try {
+            // Check if any reminder is enabled to decide status
+            const isAnyReminderEnabled = reminders.some(r => r.enabled);
+            // ⭐ FIXED: Set to "active" instead of "scheduled" so cron can find it
+            const status = isAnyReminderEnabled ? "active" : "draft";
+
             const res = await fetch(`/api/email-campaigns/${selectedEmailForReminder}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ reminders })
+                body: JSON.stringify({
+                    reminders,
+                    status: status
+                })
             });
 
             if (!res.ok) throw new Error("Update failed");
 
             setIsReminderDialogOpen(false);
-            toast.success("Reminders saved successfully!");
+            toast.success(`Reminders saved! Campaign is now ${status}.`);
             fetchEmails();
         } catch (error) {
             toast.error("Failed to save reminders");
@@ -151,14 +151,14 @@ export default function EmailBuilderListPage() {
     };
 
     const handleSendTestMail = async () => {
-        if (!testEmailId || !testEmail) {
+        if (!selectedCampaignForTest?._id || !testEmail) {
             toast.error("Please provide a test email address");
             return;
         }
 
         setIsSendingTest(true);
         try {
-            const res = await fetch(`/api/email-campaigns/${testEmailId}/test`, {
+            const res = await fetch(`/api/email-campaigns/${selectedCampaignForTest._id}/test`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -170,7 +170,7 @@ export default function EmailBuilderListPage() {
             const json = await res.json();
             if (json.success) {
                 toast.success("Test email sent!");
-                setIsTestMailDialogOpen(false);
+                setSelectedCampaignForTest(null);
             } else {
                 toast.error(json.error || "Failed to send test email");
             }
@@ -182,26 +182,40 @@ export default function EmailBuilderListPage() {
     };
 
     const templatesList = [
-        { id: "01_welcome_email", name: "Welcome Email", icon: "👋" },
-        { id: "02_booking_confirmation", name: "Booking Confirmation", icon: "✅" },
-        { id: "03_booking_reminder", name: "Booking Reminder", icon: "⏰" },
-        { id: "04_service_thank_you", name: "Service Thank You", icon: "🙏" },
-        { id: "05_follow_up_review", name: "Follow-up Review", icon: "⭐" },
-        { id: "06_offer_discount", name: "Offer & Discount", icon: "📢" },
-        { id: "07_reengagement_email", name: "Re-engagement", icon: "🔄" },
-        { id: "08_cancellation_confirmation", name: "Cancellation Confirmation", icon: "❌" },
-        { id: "09_daily_schedule_staff", name: "Daily Schedule (Staff)", icon: "📅" },
-        { id: "10_shift_reminder_staff", name: "Shift Reminder (Staff)", icon: "🔔" },
-        { id: "11_policy_update_staff", name: "Policy Update (Staff)", icon: "📋" },
-        { id: "12_payslip_info", name: "Payslip Info", icon: "💰" },
-        { id: "13_reset_password", name: "Reset Password", icon: "🔑" },
-        { id: "14_invoice_email", name: "Invoice Email", icon: "📑" },
-        { id: "15_account_confirmation", name: "Account Confirmation", icon: "👤" },
-        { id: "16_subscription_renewal", name: "Subscription Renewal", icon: "🔄" },
+        { id: "01_welcome_email", name: "Welcome Email", icon: "👋", defaultSubject: "Welcome to CRM!" },
+        { id: "02_booking_confirmation", name: "Booking Confirmation Email", icon: "✅", defaultSubject: "Booking Confirmed - {{service_name}}" },
+        { id: "03_booking_reminder", name: "Booking Reminder Email", icon: "⏰", defaultSubject: "Reminder: Your Upcoming Service" },
+        { id: "04_service_thank_you", name: "Service Thank You Email", icon: "🙏", defaultSubject: "Thank you for choosing CRM" },
+        { id: "05_follow_up_review", name: "Follow Up Review Email", icon: "⭐", defaultSubject: "How was your service? Rate us!" },
+        { id: "06_offer_discount", name: "Offer Discount Email", icon: "📢", defaultSubject: "Exclusive Offer for You!" },
+        { id: "07_reengagement_email", name: "Re-engagement Email", icon: "🔄", defaultSubject: "We miss you! Special discount inside" },
+        { id: "08_cancellation_confirmation", name: "Cancellation Confirmation Email", icon: "❌", defaultSubject: "Booking Cancellation Confirmed" },
+        { id: "09_daily_schedule_staff", name: "Daily Schedule Email (Staff)", icon: "📅", defaultSubject: "Your Schedule for Today" },
+        { id: "10_shift_reminder_staff", name: "Shift Reminder Email (Staff)", icon: "🔔", defaultSubject: "Upcoming Shift Reminder" },
+        { id: "11_policy_update_staff", name: "Policy Update Email", icon: "📋", defaultSubject: "Important Policy Updates" },
+        { id: "12_payslip_info", name: "Payslip Info Email", icon: "💰", defaultSubject: "Your Payslip Has Been Generated" },
+        { id: "13_reset_password", name: "Reset Password Email", icon: "🔑", defaultSubject: "Reset Your Password" },
+        { id: "14_invoice_email", name: "Invoice Email", icon: "📑", defaultSubject: "Invoice for Your Service" },
+        { id: "15_account_confirmation", name: "Account Confirmation Email", icon: "👤", defaultSubject: "Confirm Your Account" },
+        { id: "16_subscription_renewal", name: "Subscription Renewal Email", icon: "🔄", defaultSubject: "Your Subscription is Ready for Renewal" },
+        { id: "default", name: "Default Template", icon: "📄", defaultSubject: "New Email Notification" },
     ];
 
-    const handleSelectTemplate = (id: string) => {
-        router.push(`/dashboard/add-email-builder?template=${id}.html`);
+    const handleConfirmTemplate = () => {
+        if (!selectedTemplateId) {
+            toast.error("Please select a template first");
+            return;
+        }
+
+        const template = templatesList.find(t => t.id === selectedTemplateId);
+        const subject = template?.defaultSubject || "";
+
+        if (selectedTemplateId === "default") {
+            router.push(`/dashboard/add-email-builder?subject=${encodeURIComponent(subject)}`);
+        } else {
+            router.push(`/dashboard/add-email-builder?template=${selectedTemplateId}.html&subject=${encodeURIComponent(subject)}`);
+        }
+        setIsTemplateDialogOpen(false);
     };
 
     return (
@@ -212,13 +226,13 @@ export default function EmailBuilderListPage() {
                     <p className="text-muted-foreground">Manage and design your email campaigns and templates.</p>
                 </div>
                 <div className="flex gap-2">
-                    <Button variant="outline" onClick={() => router.push("/dashboard/add-email-builder")}>
+                    {/* <Button variant="outline" onClick={() => router.push("/dashboard/add-email-builder")}>
                         <Plus className="mr-2 h-4 w-4" />
                         Blank Email
-                    </Button>
+                    </Button> */}
                     <Button onClick={() => setIsTemplateDialogOpen(true)} className="bg-zinc-900 hover:bg-zinc-800 text-white">
                         <Mail className="mr-2 h-4 w-4" />
-                        Use Template
+                        Add Email
                     </Button>
                 </div>
             </div>
@@ -310,25 +324,44 @@ export default function EmailBuilderListPage() {
 
             {/* Template Selection Dialog */}
             <Dialog open={isTemplateDialogOpen} onOpenChange={setIsTemplateDialogOpen}>
-                <DialogContent className="sm:max-w-[800px] max-h-[85vh] overflow-hidden flex flex-col p-0 border-none shadow-2xl rounded-2xl">
-                    <DialogHeader className="px-8 py-6 bg-zinc-50 dark:bg-zinc-900/50 border-b">
-                        <DialogTitle className="text-2xl font-bold tracking-tight">Select a Predefined Template</DialogTitle>
-                        <CardDescription>Choose one of our professional templates to get started quickly.</CardDescription>
-                    </DialogHeader>
+                <DialogContent className="sm:max-w-[650px] p-0 overflow-hidden border-none rounded-[20px] shadow-xl bg-white">
+                    <div className="bg-[#E5E5E5] px-6 py-4 flex items-center justify-between">
+                        <h2 className="text-xl font-bold text-[#333333] tracking-tight">Choose your templates</h2>
+                    </div>
 
-                    <div className="flex-1 overflow-y-auto p-8 bg-white dark:bg-zinc-950">
-                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                            {templatesList.map((tpl) => (
-                                <button
-                                    key={tpl.id}
-                                    onClick={() => handleSelectTemplate(tpl.id)}
-                                    className="flex flex-col items-center justify-center p-6 rounded-xl border-2 border-zinc-100 hover:border-zinc-900 hover:bg-zinc-50 transition-all group text-center space-y-3"
-                                >
-                                    <span className="text-4xl group-hover:scale-110 transition-transform">{tpl.icon}</span>
-                                    <span className="text-sm font-semibold text-zinc-700 group-hover:text-black">{tpl.name}</span>
-                                </button>
-                            ))}
-                        </div>
+                    <div className="flex-1 overflow-y-auto px-8 py-4 flex flex-col max-h-[80vh] space-y-1">
+                        {templatesList.map((tpl) => (
+                            <button
+                                key={tpl.id}
+                                onClick={() => setSelectedTemplateId(tpl.id)}
+                                className="flex items-center gap-4 group text-left py-2.5 transition-colors"
+                            >
+                                <div className="w-5 h-5 rounded-full border border-zinc-400 shrink-0 flex items-center justify-center transition-colors">
+                                    {selectedTemplateId === tpl.id && (
+                                        <div className="w-2.5 h-2.5 rounded-full bg-zinc-800" />
+                                    )}
+                                </div>
+                                <span className="text-[16px] text-[#333333] font-normal leading-tight">
+                                    {tpl.name}
+                                </span>
+                            </button>
+                        ))}
+                    </div>
+
+                    <div className="px-6 py-4 flex items-center justify-end gap-3 border-t">
+                        <Button
+                            variant="ghost"
+                            onClick={() => setIsTemplateDialogOpen(false)}
+                            className="bg-[#6c757d] hover:bg-[#5a6268] text-white px-6 rounded-md h-10 font-medium"
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            onClick={handleConfirmTemplate}
+                            className="bg-[#dc3545] hover:bg-[#c82333] text-white px-6 rounded-md h-10 font-medium"
+                        >
+                            Confirm
+                        </Button>
                     </div>
                 </DialogContent>
             </Dialog>
@@ -364,20 +397,19 @@ export default function EmailBuilderListPage() {
                                 <TableHead>Email Name</TableHead>
                                 <TableHead>Status</TableHead>
                                 <TableHead>Last Sent</TableHead>
-                                <TableHead className="text-right">Opens/Clicks</TableHead>
-                                <TableHead className="w-[70px]"></TableHead>
+                                <TableHead className="w-[70px]">Actions</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
                             {loadingEmails ? (
                                 <TableRow>
-                                    <TableCell colSpan={5} className="h-24 text-center">
+                                    <TableCell colSpan={4} className="h-24 text-center">
                                         Loading campaigns...
                                     </TableCell>
                                 </TableRow>
                             ) : emails.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={5} className="h-24 text-center">
+                                    <TableCell colSpan={4} className="h-24 text-center">
                                         No campaigns found. Create your first email!
                                     </TableCell>
                                 </TableRow>
@@ -396,7 +428,7 @@ export default function EmailBuilderListPage() {
                                         <Badge
                                             variant={
                                                 email.status === "sent" ? "secondary" :
-                                                    email.status === "active" ? "default" :
+                                                    (email.status === "active" || email.status === "scheduled") ? "default" :
                                                         "outline"
                                             }
                                             className="capitalize"
@@ -407,66 +439,66 @@ export default function EmailBuilderListPage() {
                                     <TableCell className="text-muted-foreground text-sm">
                                         {new Date(email.createdAt).toLocaleDateString()}
                                     </TableCell>
-                                    <TableCell className="text-right text-sm">
-                                        <div className="flex flex-col items-end">
-                                            <span>0 opens</span>
-                                            <span className="text-xs text-muted-foreground">0 clicks</span>
-                                        </div>
-                                    </TableCell>
+
                                     <TableCell>
-                                        <DropdownMenu>
-                                            <DropdownMenuTrigger asChild>
-                                                <Button variant="ghost" className="h-8 w-8 p-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                    <MoreHorizontal className="h-4 w-4" />
-                                                </Button>
-                                            </DropdownMenuTrigger>
-                                            <DropdownMenuContent align="end">
-                                                <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                                                <DropdownMenuItem onClick={() => router.push(`/dashboard/email-builder/${email._id}/edit`)}>
-                                                    <Edit2 className="mr-2 h-4 w-4" />
-                                                    Edit Design
-                                                </DropdownMenuItem>
-                                                <DropdownMenuItem onClick={() => {
+                                        <div className="flex items-center gap-1 justify-end">
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="h-8 w-8 text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100"
+                                                onClick={() => router.push(`/dashboard/email-builder/${email._id}/edit`)}
+                                                title="Edit Design"
+                                            >
+                                                <Edit2 className="h-4 w-4" />
+                                            </Button>
+
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="h-8 w-8 text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100"
+                                                onClick={() => {
                                                     setSelectedEmailForReminder(email._id);
-                                                    // Load existing reminders if any
                                                     if (email.reminders && email.reminders.length > 0) {
                                                         setReminders(email.reminders.map((r: any, idx: number) => ({
                                                             ...r,
-                                                            id: idx + 1 // Ensure we have local IDs for UI mapping
+                                                            id: idx + 1
                                                         })));
                                                     }
                                                     setIsReminderDialogOpen(true);
-                                                }}>
-                                                    <Bell className="mr-2 h-4 w-4" />
-                                                    Set Reminder
-                                                </DropdownMenuItem>
-                                                <DropdownMenuItem onClick={() => {
-                                                    setTestEmailId(email._id);
-                                                    setIsTestMailDialogOpen(true);
-                                                }}>
-                                                    <Send className="mr-2 h-4 w-4" />
-                                                    Send Test Mail
-                                                </DropdownMenuItem>
-                                                <DropdownMenuItem>
-                                                    <Eye className="mr-2 h-4 w-4" />
-                                                    Duplicate
-                                                </DropdownMenuItem>
-                                                <DropdownMenuSeparator />
-                                                <DropdownMenuItem
-                                                    className="text-red-500"
-                                                    onClick={async () => {
-                                                        if (confirm("Are you sure you want to delete this campaign?")) {
-                                                            await fetch(`/api/email-campaigns/${email._id}`, { method: 'DELETE' });
-                                                            toast.success("Deleted successfully");
-                                                            fetchEmails();
-                                                        }
-                                                    }}
-                                                >
-                                                    <Trash2 className="mr-2 h-4 w-4" />
-                                                    Delete
-                                                </DropdownMenuItem>
-                                            </DropdownMenuContent>
-                                        </DropdownMenu>
+                                                }}
+                                                title="Set Reminder"
+                                            >
+                                                <Bell className="h-4 w-4" />
+                                            </Button>
+
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="h-8 w-8 text-zinc-500 hover:text-blue-600 hover:bg-blue-50"
+                                                onClick={() => {
+                                                    setSelectedCampaignForTest(email);
+                                                }}
+                                                title="Send Test Mail"
+                                            >
+                                                <Send className="h-4 w-4" />
+                                            </Button>
+
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="h-8 w-8 text-zinc-400 hover:text-red-600 hover:bg-red-50"
+                                                onClick={async () => {
+                                                    if (confirm("Are you sure you want to delete this campaign?")) {
+                                                        await fetch(`/api/email-campaigns/${email._id}`, { method: 'DELETE' });
+                                                        toast.success("Deleted successfully");
+                                                        fetchEmails();
+                                                    }
+                                                }}
+                                                title="Delete"
+                                            >
+                                                <Trash2 className="h-4 w-4" />
+                                            </Button>
+                                        </div>
                                     </TableCell>
                                 </TableRow>
                             ))}
@@ -475,12 +507,15 @@ export default function EmailBuilderListPage() {
                 </CardContent>
             </Card>
 
-            {/* Test Mail Dialog */}
-            <Dialog open={isTestMailDialogOpen} onOpenChange={setIsTestMailDialogOpen}>
+            <Dialog open={!!selectedCampaignForTest} onOpenChange={(open) => !open && setSelectedCampaignForTest(null)}>
                 <DialogContent className="sm:max-w-[500px]">
                     <DialogHeader>
                         <DialogTitle>Send Test Email</DialogTitle>
-                        <CardDescription>Enter the recipient and preview data for your test email.</CardDescription>
+                        <CardDescription>
+                            Testing campaign: <span className="font-semibold text-zinc-900">{selectedCampaignForTest?.name}</span>
+                            <br />
+                            Subject: <span className="italic">"{selectedCampaignForTest?.subject}"</span>
+                        </CardDescription>
                     </DialogHeader>
                     <div className="space-y-4 py-4">
                         <div className="space-y-2">
@@ -532,7 +567,7 @@ export default function EmailBuilderListPage() {
                         </div>
                     </div>
                     <DialogFooter>
-                        <Button variant="outline" onClick={() => setIsTestMailDialogOpen(false)}>Cancel</Button>
+                        <Button variant="outline" onClick={() => setSelectedCampaignForTest(null)}>Cancel</Button>
                         <Button onClick={handleSendTestMail} disabled={isSendingTest}>
                             {isSendingTest ? "Sending..." : "Send Test"}
                         </Button>

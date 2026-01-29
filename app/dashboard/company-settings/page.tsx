@@ -11,6 +11,7 @@ import { CompanyPromocodes } from "@/components/company-settings/company-promoco
 import { CompanyServiceAreas } from "@/components/company-settings/company-service-areas";
 import { CompanyZipCodes } from "@/components/company-settings/company-zip-codes";
 import { CompanyAvailability } from "@/components/company-settings/company-availability";
+import { CompanyMailSending } from "@/components/company-settings/company-mail-sending";
 import { Company } from "@/components/company-settings/types";
 
 export default function CompanySettingsPage() {
@@ -163,6 +164,7 @@ export default function CompanySettingsPage() {
                     <TabsTrigger value="promocodes">Promocodes</TabsTrigger>
                     <TabsTrigger value="service-areas">Service Areas</TabsTrigger>
                     <TabsTrigger value="zip-codes">Zip Codes</TabsTrigger>
+                    <TabsTrigger value="mail-sending">Mail Sending</TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="profile">
@@ -206,6 +208,10 @@ export default function CompanySettingsPage() {
 
                 <TabsContent value="zip-codes">
                     <CompanyZipCodes />
+                </TabsContent>
+
+                <TabsContent value="mail-sending">
+                    <CompanyMailSending company={company} />
                 </TabsContent>
             </Tabs>
         </div>

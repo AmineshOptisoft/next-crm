@@ -28,8 +28,8 @@
                                         "anchor": "",
                                         "src": {
                                             "url": "https://th.bing.com/th/id/OIG3.fOX5uS1eTrA0W465Krnz?w=270&h=270&c=6&r=0&o=5&cb=defcachec2&pid=ImgGn",
-                                            "width": 512,
-                                            "height": 120,
+                                            "width": 100,
+                                            "height": 100,
                                             "filename": "1752815630730-Logo.bd75d8af6c21c8a70441.png",
                                             "contentType": "image/png",
                                             "size": 43852,
@@ -57,7 +57,8 @@
                                         "deletable": true,
                                         "hideable": true,
                                         "locked": false,
-                                        "pending": false
+                                        "pending": false,
+                                        "width": "100px"
                                     }
                                 },
                                 {
@@ -89,7 +90,7 @@
                                         "deletable": true,
                                         "hideable": true,
                                         "locked": false,
-                                        "text": "<p style=\"line-height: 140%;\">Welcome to <strong>Green Frog House Cleaning</strong> - Your Partner in Cleanliness!</p>",
+                                        "text": "<p style=\"line-height: 140%;\">Welcome to <strong>CRM</strong> - Your Partner in CRM!</p>",
                                         "_languages": {}
                                     }
                                 },
@@ -126,7 +127,7 @@
                                         "deletable": true,
                                         "hideable": true,
                                         "locked": false,
-                                        "text": "<p style=\"line-height: 140%;\">Dear {{firstname}} {{lastname}},<br>Welcome to the Green Frog Family!&nbsp;</p>\n<p style=\"line-height: 140%;\">We are excited to help you keep your home sparkling clean. Whether it&rsquo;s a one-time clean or recurring service, we&rsquo;re here to make life easier for you.&nbsp;If you have any questions or want to book your first clean, feel free to reach out to us at 888-438-1781 or&nbsp;<a rel=\"noopener\" href=\"mailto:sales@greenfrogcleaning\" target=\"_blank\" data-u-link-value=\"eyJuYW1lIjoid2ViIiwiYXR0cnMiOnsiaHJlZiI6Int7aHJlZn19IiwidGFyZ2V0Ijoie3t0YXJnZXR9fSJ9LCJ2YWx1ZXMiOnsiaHJlZiI6Im1haWx0bzpzYWxlc0BncmVlbmZyb2djbGVhbmluZyIsInRhcmdldCI6Il9ibGFuayJ9fQ==\">sales@greenfrogcleaning.com</a><br>Thank you again for choosing Green Frog. We look forward to serving you!<br>Best Regards, Brian &amp; Jaime Owners, Green Frog Cleaning<br><a rel=\"noopener\" href=\"http://greenfrogcleaning.com\" target=\"_blank\" data-u-link-value=\"eyJuYW1lIjoid2ViIiwiYXR0cnMiOnsiaHJlZiI6Int7aHJlZn19IiwidGFyZ2V0Ijoie3t0YXJnZXR9fSJ9LCJ2YWx1ZXMiOnsiaHJlZiI6Imh0dHA6Ly9ncmVlbmZyb2djbGVhbmluZy5jb20iLCJ0YXJnZXQiOiJfYmxhbmsifX0=\">greenfrogcleaning.com</a></p>",
+                                        "text": "<p style=\"line-height: 140%;\">Dear {{firstname}} {{lastname}},<br>Welcome to the CRM Family!&nbsp;</p>\n<p style=\"line-height: 140%;\">We are excited to help you keep your home sparkling clean. Whether it&rsquo;s a one-time clean or recurring service, we&rsquo;re here to make life easier for you.&nbsp;If you have any questions or want to book your first clean, feel free to reach out to us at 888-438-1781 or&nbsp;<a rel=\"noopener\" href=\"mailto:sales@CRMcleaning\" target=\"_blank\" data-u-link-value=\"eyJuYW1lIjoid2ViIiwiYXR0cnMiOnsiaHJlZiI6Int7aHJlZn19IiwidGFyZ2V0Ijoie3t0YXJnZXR9fSJ9LCJ2YWx1ZXMiOnsiaHJlZiI6Im1haWx0bzpzYWxlc0BncmVlbmZyb2djbGVhbmluZyIsInRhcmdldCI6Il9ibGFuayJ9fQ==\">sales@CRMcleaning.com</a><br>Thank you again for choosing CRM. We look forward to serving you!<br>Best Regards, Brian &amp; Jaime Owners, CRM Cleaning<br><a rel=\"noopener\" href=\"http://CRMcleaning.com\" target=\"_blank\" data-u-link-value=\"eyJuYW1lIjoid2ViIiwiYXR0cnMiOnsiaHJlZiI6Int7aHJlZn19IiwidGFyZ2V0Ijoie3t0YXJnZXR9fSJ9LCJ2YWx1ZXMiOnsiaHJlZiI6Imh0dHA6Ly9ncmVlbmZyb2djbGVhbmluZy5jb20iLCJ0YXJnZXQiOiJfYmxhbmsifX0=\">CRMcleaning.com</a></p>",
                                         "_languages": {}
                                     }
                                 }
@@ -194,7 +195,7 @@
                                         "containerPadding": "10px",
                                         "anchor": "",
                                         "fontSize": "15px",
-                                        "color": "#ecf0f1",
+                                        "color": "#18181b",
                                         "textAlign": "left",
                                         "lineHeight": "150%",
                                         "linkStyle": {
@@ -223,7 +224,7 @@
                                 }
                             ],
                             "values": {
-                                "backgroundColor": "#76b318",
+                                "backgroundColor": "#ffffff",
                                 "padding": "0px",
                                 "border": {},
                                 "borderRadius": "0px",
@@ -249,11 +250,11 @@
                                             "icons": [
                                                 {
                                                     "name": "Facebook",
-                                                    "url": "https://www.facebook.com/greenfroghousecleaning/"
+                                                    "url": "https://www.facebook.com/CRMhousecleaning/"
                                                 },
                                                 {
                                                     "name": "LinkedIn",
-                                                    "url": "https://www.instagram.com/greenfrogcleaning/"
+                                                    "url": "https://www.instagram.com/CRMcleaning/"
                                                 },
                                                 {
                                                     "name": "Yelp",
@@ -306,13 +307,13 @@
                                         "deletable": true,
                                         "hideable": true,
                                         "locked": false,
-                                        "text": "<p style=\"line-height: 130%;\"><span style=\"color: rgb(255, 255, 255); line-height: 18.2px;\">&copy; 2025 <a rel=\"noopener\" href=\"https://greenfrogcleaning.com/\" target=\"_blank\" style=\"color: rgb(255, 255, 255);\" data-u-link-value=\"eyJuYW1lIjoid2ViIiwiYXR0cnMiOnsiaHJlZiI6Int7aHJlZn19IiwidGFyZ2V0Ijoie3t0YXJnZXR9fSJ9LCJ2YWx1ZXMiOnsiaHJlZiI6Imh0dHBzOi8vZ3JlZW5mcm9nY2xlYW5pbmcuY29tLyIsInRhcmdldCI6Il9ibGFuayJ9fQ==\"><strong>Green Frog House Cleaning</strong></a> All Rights Reserved</span></p>",
+                                        "text": "<p style=\"line-height: 130%;\"><span style=\"color: rgb(24, 24, 27); line-height: 18.2px;\">&copy; 2025 <a rel=\"noopener\" href=\"https://CRMcleaning.com/\" target=\"_blank\" style=\"color: rgb(24, 24, 27);\" data-u-link-value=\"eyJuYW1lIjoid2ViIiwiYXR0cnMiOnsiaHJlZiI6Int7aHJlZn19IiwidGFyZ2V0Ijoie3t0YXJnZXR9fSJ9LCJ2YWx1ZXMiOnsiaHJlZiI6Imh0dHBzOi8vZ3JlZW5mcm9nY2xlYW5pbmcuY29tLyIsInRhcmdldCI6Il9ibGFuayJ9fQ==\"><strong>CRM</strong></a> All Rights Reserved</span></p>",
                                         "_languages": {}
                                     }
                                 }
                             ],
                             "values": {
-                                "backgroundColor": "#76b318",
+                                "backgroundColor": "#ffffff",
                                 "padding": "0px",
                                 "border": {},
                                 "borderRadius": "0px",
@@ -444,8 +445,8 @@
                                         "anchor": "",
                                         "src": {
                                             "url": "https://th.bing.com/th/id/OIG3.fOX5uS1eTrA0W465Krnz?w=270&h=270&c=6&r=0&o=5&cb=defcachec2&pid=ImgGn",
-                                            "width": 512,
-                                            "height": 120,
+                                            "width": 100,
+                                            "height": 100,
                                             "filename": "1752815630730-Logo.bd75d8af6c21c8a70441.png",
                                             "contentType": "image/png",
                                             "size": 43852,
@@ -473,7 +474,8 @@
                                         "deletable": true,
                                         "hideable": true,
                                         "locked": false,
-                                        "pending": false
+                                        "pending": false,
+                                        "width": "100px"
                                     }
                                 },
                                 {
@@ -542,7 +544,7 @@
                                         "deletable": true,
                                         "hideable": true,
                                         "locked": false,
-                                        "text": "<p style=\"line-height: 140%;\">Dear {{firstname}} {{lastname}},&nbsp;</p>\n<p style=\"line-height: 140%;\">Your booking has been confirmed by <span style=\"background-color: rgb(255, 255, 255); line-height: 21px; color: rgb(0, 0, 0);\"><a rel=\"noopener\" href=\"https://greenfrogcleaning.com/\" target=\"_blank\" style=\"background-color: rgb(255, 255, 255); color: rgb(0, 0, 0);\" data-u-link-value=\"eyJuYW1lIjoid2ViIiwiYXR0cnMiOnsiaHJlZiI6Int7aHJlZn19IiwidGFyZ2V0Ijoie3t0YXJnZXR9fSJ9LCJ2YWx1ZXMiOnsiaHJlZiI6Imh0dHBzOi8vZ3JlZW5mcm9nY2xlYW5pbmcuY29tLyIsInRhcmdldCI6Il9ibGFuayJ9fQ==\"><strong>Green frog</strong></a>&nbsp;</span></p>\n<p style=\"line-height: 140%;\">Your bookings details&nbsp;</p>\n<p style=\"line-height: 140%;\">Service name : {{service_name}}</p>\n<p style=\"line-height: 140%;\">Technician name : {{technitian_name}}</p>\n<p style=\"line-height: 140%;\">Booking date time : {{booking_date}}</p>\n<p style=\"line-height: 140%;\">&nbsp;</p>\n<p style=\"line-height: 140%;\">&nbsp;If you have any inquiry feel free to reach out to us at <span style=\"color: rgb(255, 255, 255); line-height: 21px;\"><a rel=\"noopener\" href=\"tel:888-438-1781\" target=\"_blank\" style=\"color: rgb(255, 255, 255);\" data-u-link-value=\"eyJuYW1lIjoicGhvbmUiLCJhdHRycyI6eyJocmVmIjoidGVsOnt7cGhvbmV9fSJ9LCJ2YWx1ZXMiOnsicGhvbmUiOiI4ODgtNDM4LTE3ODEifX0=\"><span style=\"color: rgb(0, 0, 0); line-height: 21px;\">888-438-178</span>1</a></span> or <span style=\"color: rgb(0, 0, 0); line-height: 21px;\"><a rel=\"noopener\" href=\"mailto:sales@greenfrogcleaning\" target=\"_blank\" style=\"color: rgb(0, 0, 0);\" data-u-link-value=\"eyJuYW1lIjoiZW1haWwiLCJhdHRycyI6eyJocmVmIjoibWFpbHRvOnt7ZW1haWx9fT9zdWJqZWN0PXt7c3ViamVjdH19JmJvZHk9e3tib2R5fX0ifSwidmFsdWVzIjp7ImVtYWlsIjoic2FsZXNAZ3JlZW5mcm9nY2xlYW5pbmciLCJzdWJqZWN0IjoiIiwiYm9keSI6IiJ9fQ==\">sales@greenfrogcleaning.com</a></span></p>\n<p style=\"line-height: 140%;\">Thank you again for choosing Green Frog. We look forward to serving you!<br>Best Regards, Brian &amp; Jaime Owners, Green Frog Cleaning<br><span style=\"color: rgb(0, 0, 0); line-height: 21px;\"><a rel=\"noopener\" href=\"http://greenfrogcleaning.com\" target=\"_blank\" style=\"color: rgb(0, 0, 0);\" data-u-link-value=\"eyJuYW1lIjoid2ViIiwiYXR0cnMiOnsiaHJlZiI6Int7aHJlZn19IiwidGFyZ2V0Ijoie3t0YXJnZXR9fSJ9LCJ2YWx1ZXMiOnsiaHJlZiI6Imh0dHA6Ly9ncmVlbmZyb2djbGVhbmluZy5jb20iLCJ0YXJnZXQiOiJfYmxhbmsifX0=\">greenfrogcleaning.com</a></span></p>",
+                                        "text": "<p style=\"line-height: 140%;\">Dear {{firstname}} {{lastname}},&nbsp;</p>\n<p style=\"line-height: 140%;\">Your booking has been confirmed by <span style=\"background-color: rgb(24, 24, 27); line-height: 21px; color: rgb(0, 0, 0);\"><a rel=\"noopener\" href=\"https://CRMcleaning.com/\" target=\"_blank\" style=\"background-color: rgb(24, 24, 27); color: rgb(0, 0, 0);\" data-u-link-value=\"eyJuYW1lIjoid2ViIiwiYXR0cnMiOnsiaHJlZiI6Int7aHJlZn19IiwidGFyZ2V0Ijoie3t0YXJnZXR9fSJ9LCJ2YWx1ZXMiOnsiaHJlZiI6Imh0dHBzOi8vZ3JlZW5mcm9nY2xlYW5pbmcuY29tLyIsInRhcmdldCI6Il9ibGFuayJ9fQ==\"><strong>CRM</strong></a>&nbsp;</span></p>\n<p style=\"line-height: 140%;\">Your bookings details&nbsp;</p>\n<p style=\"line-height: 140%;\">Service name : {{service_name}}</p>\n<p style=\"line-height: 140%;\">Technician name : {{technitian_name}}</p>\n<p style=\"line-height: 140%;\">Booking date time : {{booking_date}}</p>\n<p style=\"line-height: 140%;\">&nbsp;</p>\n<p style=\"line-height: 140%;\">&nbsp;If you have any inquiry feel free to reach out to us at <span style=\"color: rgb(24, 24, 27); line-height: 21px;\"><a rel=\"noopener\" href=\"tel:888-438-1781\" target=\"_blank\" style=\"color: rgb(24, 24, 27);\" data-u-link-value=\"eyJuYW1lIjoicGhvbmUiLCJhdHRycyI6eyJocmVmIjoidGVsOnt7cGhvbmV9fSJ9LCJ2YWx1ZXMiOnsicGhvbmUiOiI4ODgtNDM4LTE3ODEifX0=\"><span style=\"color: rgb(0, 0, 0); line-height: 21px;\">888-438-178</span>1</a></span> or <span style=\"color: rgb(0, 0, 0); line-height: 21px;\"><a rel=\"noopener\" href=\"mailto:sales@CRMcleaning\" target=\"_blank\" style=\"color: rgb(0, 0, 0);\" data-u-link-value=\"eyJuYW1lIjoiZW1haWwiLCJhdHRycyI6eyJocmVmIjoibWFpbHRvOnt7ZW1haWx9fT9zdWJqZWN0PXt7c3ViamVjdH19JmJvZHk9e3tib2R5fX0ifSwidmFsdWVzIjp7ImVtYWlsIjoic2FsZXNAZ3JlZW5mcm9nY2xlYW5pbmciLCJzdWJqZWN0IjoiIiwiYm9keSI6IiJ9fQ==\">sales@CRMcleaning.com</a></span></p>\n<p style=\"line-height: 140%;\">Thank you again for choosing CRM. We look forward to serving you!<br>Best Regards, Brian &amp; Jaime Owners, CRM Cleaning<br><span style=\"color: rgb(0, 0, 0); line-height: 21px;\"><a rel=\"noopener\" href=\"http://CRMcleaning.com\" target=\"_blank\" style=\"color: rgb(0, 0, 0);\" data-u-link-value=\"eyJuYW1lIjoid2ViIiwiYXR0cnMiOnsiaHJlZiI6Int7aHJlZn19IiwidGFyZ2V0Ijoie3t0YXJnZXR9fSJ9LCJ2YWx1ZXMiOnsiaHJlZiI6Imh0dHA6Ly9ncmVlbmZyb2djbGVhbmluZy5jb20iLCJ0YXJnZXQiOiJfYmxhbmsifX0=\">CRMcleaning.com</a></span></p>",
                                         "_languages": {}
                                     }
                                 }
@@ -610,7 +612,7 @@
                                         "containerPadding": "10px",
                                         "anchor": "",
                                         "fontSize": "15px",
-                                        "color": "#ecf0f1",
+                                        "color": "#18181b",
                                         "textAlign": "left",
                                         "lineHeight": "150%",
                                         "linkStyle": {
@@ -633,13 +635,13 @@
                                         "deletable": true,
                                         "hideable": true,
                                         "locked": false,
-                                        "text": "<p style=\"line-height: 150%;\">Contact</p>\n<p style=\"line-height: 150%;\"><span style=\"color: rgb(255, 255, 255); line-height: 22.5px;\"><a rel=\"noopener\" href=\"tel:888-438-1781\" target=\"_blank\" style=\"color: rgb(255, 255, 255);\" data-u-link-value=\"eyJuYW1lIjoicGhvbmUiLCJhdHRycyI6eyJocmVmIjoidGVsOnt7cGhvbmV9fSJ9LCJ2YWx1ZXMiOnsicGhvbmUiOiI4ODgtNDM4LTE3ODEifX0=\">888-438-1781</a></span></p>\n<p style=\"line-height: 150%;\">7171 Alvarado Rd # 205, La Mesa, CA 91942, United States</p>",
+                                        "text": "<p style=\"line-height: 150%;\">Contact</p>\n<p style=\"line-height: 150%;\"><span style=\"color: rgb(24, 24, 27); line-height: 22.5px;\"><a rel=\"noopener\" href=\"tel:888-438-1781\" target=\"_blank\" style=\"color: rgb(24, 24, 27);\" data-u-link-value=\"eyJuYW1lIjoicGhvbmUiLCJhdHRycyI6eyJocmVmIjoidGVsOnt7cGhvbmV9fSJ9LCJ2YWx1ZXMiOnsicGhvbmUiOiI4ODgtNDM4LTE3ODEifX0=\">888-438-1781</a></span></p>\n<p style=\"line-height: 150%;\">7171 Alvarado Rd # 205, La Mesa, CA 91942, United States</p>",
                                         "_languages": {}
                                     }
                                 }
                             ],
                             "values": {
-                                "backgroundColor": "#76b318",
+                                "backgroundColor": "#ffffff",
                                 "padding": "0px",
                                 "border": {},
                                 "borderRadius": "0px",
@@ -665,11 +667,11 @@
                                             "icons": [
                                                 {
                                                     "name": "Facebook",
-                                                    "url": "https://www.facebook.com/greenfroghousecleaning/"
+                                                    "url": "https://www.facebook.com/CRMhousecleaning/"
                                                 },
                                                 {
                                                     "name": "LinkedIn",
-                                                    "url": "https://www.instagram.com/greenfrogcleaning/"
+                                                    "url": "https://www.instagram.com/CRMcleaning/"
                                                 },
                                                 {
                                                     "name": "Yelp",
@@ -724,13 +726,13 @@
                                         "deletable": true,
                                         "hideable": true,
                                         "locked": false,
-                                        "text": "<p style=\"line-height: 130%;\"><span style=\"color: rgb(255, 255, 255); line-height: 18.2px;\">&copy; 2025 <a rel=\"noopener\" href=\"https://greenfrogcleaning.com/\" target=\"_blank\" style=\"color: rgb(255, 255, 255);\" data-u-link-value=\"eyJuYW1lIjoid2ViIiwiYXR0cnMiOnsiaHJlZiI6Int7aHJlZn19IiwidGFyZ2V0Ijoie3t0YXJnZXR9fSJ9LCJ2YWx1ZXMiOnsiaHJlZiI6Imh0dHBzOi8vZ3JlZW5mcm9nY2xlYW5pbmcuY29tLyIsInRhcmdldCI6Il9ibGFuayJ9fQ==\"><strong>Green Frog House Cleaning</strong></a> All Rights Reserved</span></p>",
+                                        "text": "<p style=\"line-height: 130%;\"><span style=\"color: rgb(24, 24, 27); line-height: 18.2px;\">&copy; 2025 <a rel=\"noopener\" href=\"https://CRMcleaning.com/\" target=\"_blank\" style=\"color: rgb(24, 24, 27);\" data-u-link-value=\"eyJuYW1lIjoid2ViIiwiYXR0cnMiOnsiaHJlZiI6Int7aHJlZn19IiwidGFyZ2V0Ijoie3t0YXJnZXR9fSJ9LCJ2YWx1ZXMiOnsiaHJlZiI6Imh0dHBzOi8vZ3JlZW5mcm9nY2xlYW5pbmcuY29tLyIsInRhcmdldCI6Il9ibGFuayJ9fQ==\"><strong>CRM</strong></a> All Rights Reserved</span></p>",
                                         "_languages": {}
                                     }
                                 }
                             ],
                             "values": {
-                                "backgroundColor": "#76b318",
+                                "backgroundColor": "#ffffff",
                                 "padding": "0px",
                                 "border": {},
                                 "borderRadius": "0px",
@@ -862,8 +864,8 @@
                                         "anchor": "",
                                         "src": {
                                             "url": "https://th.bing.com/th/id/OIG3.fOX5uS1eTrA0W465Krnz?w=270&h=270&c=6&r=0&o=5&cb=defcachec2&pid=ImgGn",
-                                            "width": 512,
-                                            "height": 120,
+                                            "width": 100,
+                                            "height": 100,
                                             "filename": "1752815630730-Logo.bd75d8af6c21c8a70441.png",
                                             "contentType": "image/png",
                                             "size": 43852,
@@ -891,7 +893,8 @@
                                         "deletable": true,
                                         "hideable": true,
                                         "locked": false,
-                                        "pending": false
+                                        "pending": false,
+                                        "width": "100px"
                                     }
                                 },
                                 {
@@ -923,7 +926,7 @@
                                         "deletable": true,
                                         "hideable": true,
                                         "locked": false,
-                                        "text": "<p style=\"line-height: 140%;\">Welcome to <strong>Green Frog House Cleaning</strong> - Your Partner in Cleanliness!</p>",
+                                        "text": "<p style=\"line-height: 140%;\">Welcome to <strong>CRM</strong> - Your Partner in CRM!</p>",
                                         "_languages": {}
                                     }
                                 },
@@ -960,7 +963,7 @@
                                         "deletable": true,
                                         "hideable": true,
                                         "locked": false,
-                                        "text": "<p style=\"line-height: 140%;\">Dear {{firstname}} {{lastname}},<br>Welcome to the Green Frog Family!&nbsp;</p>\n<p style=\"line-height: 140%;\">We are excited to help you keep your home sparkling clean. Whether it&rsquo;s a one-time clean or recurring service, we&rsquo;re here to make life easier for you.&nbsp;If you have any questions or want to book your first clean, feel free to reach out to us at 888-438-1781 or&nbsp;<a rel=\"noopener\" href=\"mailto:sales@greenfrogcleaning\" target=\"_blank\" data-u-link-value=\"eyJuYW1lIjoid2ViIiwiYXR0cnMiOnsiaHJlZiI6Int7aHJlZn19IiwidGFyZ2V0Ijoie3t0YXJnZXR9fSJ9LCJ2YWx1ZXMiOnsiaHJlZiI6Im1haWx0bzpzYWxlc0BncmVlbmZyb2djbGVhbmluZyIsInRhcmdldCI6Il9ibGFuayJ9fQ==\">sales@greenfrogcleaning.com</a><br>Thank you again for choosing Green Frog. We look forward to serving you!<br>Best Regards, Brian &amp; Jaime Owners, Green Frog Cleaning<br><a rel=\"noopener\" href=\"http://greenfrogcleaning.com\" target=\"_blank\" data-u-link-value=\"eyJuYW1lIjoid2ViIiwiYXR0cnMiOnsiaHJlZiI6Int7aHJlZn19IiwidGFyZ2V0Ijoie3t0YXJnZXR9fSJ9LCJ2YWx1ZXMiOnsiaHJlZiI6Imh0dHA6Ly9ncmVlbmZyb2djbGVhbmluZy5jb20iLCJ0YXJnZXQiOiJfYmxhbmsifX0=\">greenfrogcleaning.com</a></p>",
+                                        "text": "<p style=\"line-height: 140%;\">Dear {{firstname}} {{lastname}},<br>Welcome to the CRM Family!&nbsp;</p>\n<p style=\"line-height: 140%;\">We are excited to help you keep your home sparkling clean. Whether it&rsquo;s a one-time clean or recurring service, we&rsquo;re here to make life easier for you.&nbsp;If you have any questions or want to book your first clean, feel free to reach out to us at 888-438-1781 or&nbsp;<a rel=\"noopener\" href=\"mailto:sales@CRMcleaning\" target=\"_blank\" data-u-link-value=\"eyJuYW1lIjoid2ViIiwiYXR0cnMiOnsiaHJlZiI6Int7aHJlZn19IiwidGFyZ2V0Ijoie3t0YXJnZXR9fSJ9LCJ2YWx1ZXMiOnsiaHJlZiI6Im1haWx0bzpzYWxlc0BncmVlbmZyb2djbGVhbmluZyIsInRhcmdldCI6Il9ibGFuayJ9fQ==\">sales@CRMcleaning.com</a><br>Thank you again for choosing CRM. We look forward to serving you!<br>Best Regards, Brian &amp; Jaime Owners, CRM Cleaning<br><a rel=\"noopener\" href=\"http://CRMcleaning.com\" target=\"_blank\" data-u-link-value=\"eyJuYW1lIjoid2ViIiwiYXR0cnMiOnsiaHJlZiI6Int7aHJlZn19IiwidGFyZ2V0Ijoie3t0YXJnZXR9fSJ9LCJ2YWx1ZXMiOnsiaHJlZiI6Imh0dHA6Ly9ncmVlbmZyb2djbGVhbmluZy5jb20iLCJ0YXJnZXQiOiJfYmxhbmsifX0=\">CRMcleaning.com</a></p>",
                                         "_languages": {}
                                     }
                                 }
@@ -1028,7 +1031,7 @@
                                         "containerPadding": "10px",
                                         "anchor": "",
                                         "fontSize": "15px",
-                                        "color": "#ecf0f1",
+                                        "color": "#18181b",
                                         "textAlign": "left",
                                         "lineHeight": "150%",
                                         "linkStyle": {
@@ -1057,7 +1060,7 @@
                                 }
                             ],
                             "values": {
-                                "backgroundColor": "#76b318",
+                                "backgroundColor": "#ffffff",
                                 "padding": "0px",
                                 "border": {},
                                 "borderRadius": "0px",
@@ -1083,11 +1086,11 @@
                                             "icons": [
                                                 {
                                                     "name": "Facebook",
-                                                    "url": "https://www.facebook.com/greenfroghousecleaning/"
+                                                    "url": "https://www.facebook.com/CRMhousecleaning/"
                                                 },
                                                 {
                                                     "name": "LinkedIn",
-                                                    "url": "https://www.instagram.com/greenfrogcleaning/"
+                                                    "url": "https://www.instagram.com/CRMcleaning/"
                                                 },
                                                 {
                                                     "name": "Yelp",
@@ -1140,13 +1143,13 @@
                                         "deletable": true,
                                         "hideable": true,
                                         "locked": false,
-                                        "text": "<p style=\"line-height: 130%;\"><span style=\"color: rgb(255, 255, 255); line-height: 18.2px;\">&copy; 2025 <a rel=\"noopener\" href=\"https://greenfrogcleaning.com/\" target=\"_blank\" style=\"color: rgb(255, 255, 255);\" data-u-link-value=\"eyJuYW1lIjoid2ViIiwiYXR0cnMiOnsiaHJlZiI6Int7aHJlZn19IiwidGFyZ2V0Ijoie3t0YXJnZXR9fSJ9LCJ2YWx1ZXMiOnsiaHJlZiI6Imh0dHBzOi8vZ3JlZW5mcm9nY2xlYW5pbmcuY29tLyIsInRhcmdldCI6Il9ibGFuayJ9fQ==\"><strong>Green Frog House Cleaning</strong></a> All Rights Reserved</span></p>",
+                                        "text": "<p style=\"line-height: 130%;\"><span style=\"color: rgb(24, 24, 27); line-height: 18.2px;\">&copy; 2025 <a rel=\"noopener\" href=\"https://CRMcleaning.com/\" target=\"_blank\" style=\"color: rgb(24, 24, 27);\" data-u-link-value=\"eyJuYW1lIjoid2ViIiwiYXR0cnMiOnsiaHJlZiI6Int7aHJlZn19IiwidGFyZ2V0Ijoie3t0YXJnZXR9fSJ9LCJ2YWx1ZXMiOnsiaHJlZiI6Imh0dHBzOi8vZ3JlZW5mcm9nY2xlYW5pbmcuY29tLyIsInRhcmdldCI6Il9ibGFuayJ9fQ==\"><strong>CRM</strong></a> All Rights Reserved</span></p>",
                                         "_languages": {}
                                     }
                                 }
                             ],
                             "values": {
-                                "backgroundColor": "#76b318",
+                                "backgroundColor": "#ffffff",
                                 "padding": "0px",
                                 "border": {},
                                 "borderRadius": "0px",
@@ -1278,8 +1281,8 @@
                                         "anchor": "",
                                         "src": {
                                             "url": "https://th.bing.com/th/id/OIG3.fOX5uS1eTrA0W465Krnz?w=270&h=270&c=6&r=0&o=5&cb=defcachec2&pid=ImgGn",
-                                            "width": 512,
-                                            "height": 120,
+                                            "width": 100,
+                                            "height": 100,
                                             "filename": "1752815630730-Logo.bd75d8af6c21c8a70441.png",
                                             "contentType": "image/png",
                                             "size": 43852,
@@ -1307,7 +1310,8 @@
                                         "deletable": true,
                                         "hideable": true,
                                         "locked": false,
-                                        "pending": false
+                                        "pending": false,
+                                        "width": "100px"
                                     }
                                 },
                                 {
@@ -1339,7 +1343,7 @@
                                         "deletable": true,
                                         "hideable": true,
                                         "locked": false,
-                                        "text": "<p style=\"line-height: 140%;\">Welcome to <strong>Green Frog House Cleaning</strong> - Your Partner in Cleanliness!</p>",
+                                        "text": "<p style=\"line-height: 140%;\">Welcome to <strong>CRM</strong> - Your Partner in CRM!</p>",
                                         "_languages": {}
                                     }
                                 },
@@ -1376,7 +1380,7 @@
                                         "deletable": true,
                                         "hideable": true,
                                         "locked": false,
-                                        "text": "<p style=\"line-height: 140%;\">Dear {{firstname}} {{lastname}},<br>Welcome to the Green Frog Family!&nbsp;</p>\n<p style=\"line-height: 140%;\">We are excited to help you keep your home sparkling clean. Whether it&rsquo;s a one-time clean or recurring service, we&rsquo;re here to make life easier for you.&nbsp;If you have any questions or want to book your first clean, feel free to reach out to us at 888-438-1781 or&nbsp;<a rel=\"noopener\" href=\"mailto:sales@greenfrogcleaning\" target=\"_blank\" data-u-link-value=\"eyJuYW1lIjoid2ViIiwiYXR0cnMiOnsiaHJlZiI6Int7aHJlZn19IiwidGFyZ2V0Ijoie3t0YXJnZXR9fSJ9LCJ2YWx1ZXMiOnsiaHJlZiI6Im1haWx0bzpzYWxlc0BncmVlbmZyb2djbGVhbmluZyIsInRhcmdldCI6Il9ibGFuayJ9fQ==\">sales@greenfrogcleaning.com</a><br>Thank you again for choosing Green Frog. We look forward to serving you!<br>Best Regards, Brian &amp; Jaime Owners, Green Frog Cleaning<br><a rel=\"noopener\" href=\"http://greenfrogcleaning.com\" target=\"_blank\" data-u-link-value=\"eyJuYW1lIjoid2ViIiwiYXR0cnMiOnsiaHJlZiI6Int7aHJlZn19IiwidGFyZ2V0Ijoie3t0YXJnZXR9fSJ9LCJ2YWx1ZXMiOnsiaHJlZiI6Imh0dHA6Ly9ncmVlbmZyb2djbGVhbmluZy5jb20iLCJ0YXJnZXQiOiJfYmxhbmsifX0=\">greenfrogcleaning.com</a></p>",
+                                        "text": "<p style=\"line-height: 140%;\">Dear {{firstname}} {{lastname}},<br>Welcome to the CRM Family!&nbsp;</p>\n<p style=\"line-height: 140%;\">We are excited to help you keep your home sparkling clean. Whether it&rsquo;s a one-time clean or recurring service, we&rsquo;re here to make life easier for you.&nbsp;If you have any questions or want to book your first clean, feel free to reach out to us at 888-438-1781 or&nbsp;<a rel=\"noopener\" href=\"mailto:sales@CRMcleaning\" target=\"_blank\" data-u-link-value=\"eyJuYW1lIjoid2ViIiwiYXR0cnMiOnsiaHJlZiI6Int7aHJlZn19IiwidGFyZ2V0Ijoie3t0YXJnZXR9fSJ9LCJ2YWx1ZXMiOnsiaHJlZiI6Im1haWx0bzpzYWxlc0BncmVlbmZyb2djbGVhbmluZyIsInRhcmdldCI6Il9ibGFuayJ9fQ==\">sales@CRMcleaning.com</a><br>Thank you again for choosing CRM. We look forward to serving you!<br>Best Regards, Brian &amp; Jaime Owners, CRM Cleaning<br><a rel=\"noopener\" href=\"http://CRMcleaning.com\" target=\"_blank\" data-u-link-value=\"eyJuYW1lIjoid2ViIiwiYXR0cnMiOnsiaHJlZiI6Int7aHJlZn19IiwidGFyZ2V0Ijoie3t0YXJnZXR9fSJ9LCJ2YWx1ZXMiOnsiaHJlZiI6Imh0dHA6Ly9ncmVlbmZyb2djbGVhbmluZy5jb20iLCJ0YXJnZXQiOiJfYmxhbmsifX0=\">CRMcleaning.com</a></p>",
                                         "_languages": {}
                                     }
                                 }
@@ -1444,7 +1448,7 @@
                                         "containerPadding": "10px",
                                         "anchor": "",
                                         "fontSize": "15px",
-                                        "color": "#ecf0f1",
+                                        "color": "#18181b",
                                         "textAlign": "left",
                                         "lineHeight": "150%",
                                         "linkStyle": {
@@ -1473,7 +1477,7 @@
                                 }
                             ],
                             "values": {
-                                "backgroundColor": "#76b318",
+                                "backgroundColor": "#ffffff",
                                 "padding": "0px",
                                 "border": {},
                                 "borderRadius": "0px",
@@ -1499,11 +1503,11 @@
                                             "icons": [
                                                 {
                                                     "name": "Facebook",
-                                                    "url": "https://www.facebook.com/greenfroghousecleaning/"
+                                                    "url": "https://www.facebook.com/CRMhousecleaning/"
                                                 },
                                                 {
                                                     "name": "LinkedIn",
-                                                    "url": "https://www.instagram.com/greenfrogcleaning/"
+                                                    "url": "https://www.instagram.com/CRMcleaning/"
                                                 },
                                                 {
                                                     "name": "Yelp",
@@ -1556,13 +1560,13 @@
                                         "deletable": true,
                                         "hideable": true,
                                         "locked": false,
-                                        "text": "<p style=\"line-height: 130%;\"><span style=\"color: rgb(255, 255, 255); line-height: 18.2px;\">&copy; 2025 <a rel=\"noopener\" href=\"https://greenfrogcleaning.com/\" target=\"_blank\" style=\"color: rgb(255, 255, 255);\" data-u-link-value=\"eyJuYW1lIjoid2ViIiwiYXR0cnMiOnsiaHJlZiI6Int7aHJlZn19IiwidGFyZ2V0Ijoie3t0YXJnZXR9fSJ9LCJ2YWx1ZXMiOnsiaHJlZiI6Imh0dHBzOi8vZ3JlZW5mcm9nY2xlYW5pbmcuY29tLyIsInRhcmdldCI6Il9ibGFuayJ9fQ==\"><strong>Green Frog House Cleaning</strong></a> All Rights Reserved</span></p>",
+                                        "text": "<p style=\"line-height: 130%;\"><span style=\"color: rgb(24, 24, 27); line-height: 18.2px;\">&copy; 2025 <a rel=\"noopener\" href=\"https://CRMcleaning.com/\" target=\"_blank\" style=\"color: rgb(24, 24, 27);\" data-u-link-value=\"eyJuYW1lIjoid2ViIiwiYXR0cnMiOnsiaHJlZiI6Int7aHJlZn19IiwidGFyZ2V0Ijoie3t0YXJnZXR9fSJ9LCJ2YWx1ZXMiOnsiaHJlZiI6Imh0dHBzOi8vZ3JlZW5mcm9nY2xlYW5pbmcuY29tLyIsInRhcmdldCI6Il9ibGFuayJ9fQ==\"><strong>CRM</strong></a> All Rights Reserved</span></p>",
                                         "_languages": {}
                                     }
                                 }
                             ],
                             "values": {
-                                "backgroundColor": "#76b318",
+                                "backgroundColor": "#ffffff",
                                 "padding": "0px",
                                 "border": {},
                                 "borderRadius": "0px",
@@ -1694,8 +1698,8 @@
                                         "anchor": "",
                                         "src": {
                                             "url": "https://th.bing.com/th/id/OIG3.fOX5uS1eTrA0W465Krnz?w=270&h=270&c=6&r=0&o=5&cb=defcachec2&pid=ImgGn",
-                                            "width": 512,
-                                            "height": 120,
+                                            "width": 100,
+                                            "height": 100,
                                             "filename": "1752815630730-Logo.bd75d8af6c21c8a70441.png",
                                             "contentType": "image/png",
                                             "size": 43852,
@@ -1723,7 +1727,8 @@
                                         "deletable": true,
                                         "hideable": true,
                                         "locked": false,
-                                        "pending": false
+                                        "pending": false,
+                                        "width": "100px"
                                     }
                                 },
                                 {
@@ -1755,7 +1760,7 @@
                                         "deletable": true,
                                         "hideable": true,
                                         "locked": false,
-                                        "text": "<p style=\"line-height: 140%;\">Welcome to <strong>Green Frog House Cleaning</strong> - Your Partner in Cleanliness!</p>",
+                                        "text": "<p style=\"line-height: 140%;\">Welcome to <strong>CRM</strong> - Your Partner in CRM!</p>",
                                         "_languages": {}
                                     }
                                 },
@@ -1792,7 +1797,7 @@
                                         "deletable": true,
                                         "hideable": true,
                                         "locked": false,
-                                        "text": "<p style=\"line-height: 140%;\">Dear {{firstname}} {{lastname}},<br>Welcome to the Green Frog Family!&nbsp;</p>\n<p style=\"line-height: 140%;\">We are excited to help you keep your home sparkling clean. Whether it&rsquo;s a one-time clean or recurring service, we&rsquo;re here to make life easier for you.&nbsp;If you have any questions or want to book your first clean, feel free to reach out to us at 888-438-1781 or&nbsp;<a rel=\"noopener\" href=\"mailto:sales@greenfrogcleaning\" target=\"_blank\" data-u-link-value=\"eyJuYW1lIjoid2ViIiwiYXR0cnMiOnsiaHJlZiI6Int7aHJlZn19IiwidGFyZ2V0Ijoie3t0YXJnZXR9fSJ9LCJ2YWx1ZXMiOnsiaHJlZiI6Im1haWx0bzpzYWxlc0BncmVlbmZyb2djbGVhbmluZyIsInRhcmdldCI6Il9ibGFuayJ9fQ==\">sales@greenfrogcleaning.com</a><br>Thank you again for choosing Green Frog. We look forward to serving you!<br>Best Regards, Brian &amp; Jaime Owners, Green Frog Cleaning<br><a rel=\"noopener\" href=\"http://greenfrogcleaning.com\" target=\"_blank\" data-u-link-value=\"eyJuYW1lIjoid2ViIiwiYXR0cnMiOnsiaHJlZiI6Int7aHJlZn19IiwidGFyZ2V0Ijoie3t0YXJnZXR9fSJ9LCJ2YWx1ZXMiOnsiaHJlZiI6Imh0dHA6Ly9ncmVlbmZyb2djbGVhbmluZy5jb20iLCJ0YXJnZXQiOiJfYmxhbmsifX0=\">greenfrogcleaning.com</a></p>",
+                                        "text": "<p style=\"line-height: 140%;\">Dear {{firstname}} {{lastname}},<br>Welcome to the CRM Family!&nbsp;</p>\n<p style=\"line-height: 140%;\">We are excited to help you keep your home sparkling clean. Whether it&rsquo;s a one-time clean or recurring service, we&rsquo;re here to make life easier for you.&nbsp;If you have any questions or want to book your first clean, feel free to reach out to us at 888-438-1781 or&nbsp;<a rel=\"noopener\" href=\"mailto:sales@CRMcleaning\" target=\"_blank\" data-u-link-value=\"eyJuYW1lIjoid2ViIiwiYXR0cnMiOnsiaHJlZiI6Int7aHJlZn19IiwidGFyZ2V0Ijoie3t0YXJnZXR9fSJ9LCJ2YWx1ZXMiOnsiaHJlZiI6Im1haWx0bzpzYWxlc0BncmVlbmZyb2djbGVhbmluZyIsInRhcmdldCI6Il9ibGFuayJ9fQ==\">sales@CRMcleaning.com</a><br>Thank you again for choosing CRM. We look forward to serving you!<br>Best Regards, Brian &amp; Jaime Owners, CRM Cleaning<br><a rel=\"noopener\" href=\"http://CRMcleaning.com\" target=\"_blank\" data-u-link-value=\"eyJuYW1lIjoid2ViIiwiYXR0cnMiOnsiaHJlZiI6Int7aHJlZn19IiwidGFyZ2V0Ijoie3t0YXJnZXR9fSJ9LCJ2YWx1ZXMiOnsiaHJlZiI6Imh0dHA6Ly9ncmVlbmZyb2djbGVhbmluZy5jb20iLCJ0YXJnZXQiOiJfYmxhbmsifX0=\">CRMcleaning.com</a></p>",
                                         "_languages": {}
                                     }
                                 }
@@ -1860,7 +1865,7 @@
                                         "containerPadding": "10px",
                                         "anchor": "",
                                         "fontSize": "15px",
-                                        "color": "#ecf0f1",
+                                        "color": "#18181b",
                                         "textAlign": "left",
                                         "lineHeight": "150%",
                                         "linkStyle": {
@@ -1889,7 +1894,7 @@
                                 }
                             ],
                             "values": {
-                                "backgroundColor": "#76b318",
+                                "backgroundColor": "#ffffff",
                                 "padding": "0px",
                                 "border": {},
                                 "borderRadius": "0px",
@@ -1915,11 +1920,11 @@
                                             "icons": [
                                                 {
                                                     "name": "Facebook",
-                                                    "url": "https://www.facebook.com/greenfroghousecleaning/"
+                                                    "url": "https://www.facebook.com/CRMhousecleaning/"
                                                 },
                                                 {
                                                     "name": "LinkedIn",
-                                                    "url": "https://www.instagram.com/greenfrogcleaning/"
+                                                    "url": "https://www.instagram.com/CRMcleaning/"
                                                 },
                                                 {
                                                     "name": "Yelp",
@@ -1972,13 +1977,13 @@
                                         "deletable": true,
                                         "hideable": true,
                                         "locked": false,
-                                        "text": "<p style=\"line-height: 130%;\"><span style=\"color: rgb(255, 255, 255); line-height: 18.2px;\">&copy; 2025 <a rel=\"noopener\" href=\"https://greenfrogcleaning.com/\" target=\"_blank\" style=\"color: rgb(255, 255, 255);\" data-u-link-value=\"eyJuYW1lIjoid2ViIiwiYXR0cnMiOnsiaHJlZiI6Int7aHJlZn19IiwidGFyZ2V0Ijoie3t0YXJnZXR9fSJ9LCJ2YWx1ZXMiOnsiaHJlZiI6Imh0dHBzOi8vZ3JlZW5mcm9nY2xlYW5pbmcuY29tLyIsInRhcmdldCI6Il9ibGFuayJ9fQ==\"><strong>Green Frog House Cleaning</strong></a> All Rights Reserved</span></p>",
+                                        "text": "<p style=\"line-height: 130%;\"><span style=\"color: rgb(24, 24, 27); line-height: 18.2px;\">&copy; 2025 <a rel=\"noopener\" href=\"https://CRMcleaning.com/\" target=\"_blank\" style=\"color: rgb(24, 24, 27);\" data-u-link-value=\"eyJuYW1lIjoid2ViIiwiYXR0cnMiOnsiaHJlZiI6Int7aHJlZn19IiwidGFyZ2V0Ijoie3t0YXJnZXR9fSJ9LCJ2YWx1ZXMiOnsiaHJlZiI6Imh0dHBzOi8vZ3JlZW5mcm9nY2xlYW5pbmcuY29tLyIsInRhcmdldCI6Il9ibGFuayJ9fQ==\"><strong>CRM</strong></a> All Rights Reserved</span></p>",
                                         "_languages": {}
                                     }
                                 }
                             ],
                             "values": {
-                                "backgroundColor": "#76b318",
+                                "backgroundColor": "#ffffff",
                                 "padding": "0px",
                                 "border": {},
                                 "borderRadius": "0px",
@@ -2110,8 +2115,8 @@
                                         "anchor": "",
                                         "src": {
                                             "url": "https://th.bing.com/th/id/OIG3.fOX5uS1eTrA0W465Krnz?w=270&h=270&c=6&r=0&o=5&cb=defcachec2&pid=ImgGn",
-                                            "width": 512,
-                                            "height": 120,
+                                            "width": 100,
+                                            "height": 100,
                                             "filename": "1752815630730-Logo.bd75d8af6c21c8a70441.png",
                                             "contentType": "image/png",
                                             "size": 43852,
@@ -2139,7 +2144,8 @@
                                         "deletable": true,
                                         "hideable": true,
                                         "locked": false,
-                                        "pending": false
+                                        "pending": false,
+                                        "width": "100px"
                                     }
                                 },
                                 {
@@ -2171,7 +2177,7 @@
                                         "deletable": true,
                                         "hideable": true,
                                         "locked": false,
-                                        "text": "<p style=\"line-height: 140%;\">Welcome to <strong>Green Frog House Cleaning</strong> - Your Partner in Cleanliness!</p>",
+                                        "text": "<p style=\"line-height: 140%;\">Welcome to <strong>CRM</strong> - Your Partner in CRM!</p>",
                                         "_languages": {}
                                     }
                                 },
@@ -2208,7 +2214,7 @@
                                         "deletable": true,
                                         "hideable": true,
                                         "locked": false,
-                                        "text": "<p style=\"line-height: 140%;\">Dear {{firstname}} {{lastname}},<br>Welcome to the Green Frog Family!&nbsp;</p>\n<p style=\"line-height: 140%;\">We are excited to help you keep your home sparkling clean. Whether it&rsquo;s a one-time clean or recurring service, we&rsquo;re here to make life easier for you.&nbsp;If you have any questions or want to book your first clean, feel free to reach out to us at 888-438-1781 or&nbsp;<a rel=\"noopener\" href=\"mailto:sales@greenfrogcleaning\" target=\"_blank\" data-u-link-value=\"eyJuYW1lIjoid2ViIiwiYXR0cnMiOnsiaHJlZiI6Int7aHJlZn19IiwidGFyZ2V0Ijoie3t0YXJnZXR9fSJ9LCJ2YWx1ZXMiOnsiaHJlZiI6Im1haWx0bzpzYWxlc0BncmVlbmZyb2djbGVhbmluZyIsInRhcmdldCI6Il9ibGFuayJ9fQ==\">sales@greenfrogcleaning.com</a><br>Thank you again for choosing Green Frog. We look forward to serving you!<br>Best Regards, Brian &amp; Jaime Owners, Green Frog Cleaning<br><a rel=\"noopener\" href=\"http://greenfrogcleaning.com\" target=\"_blank\" data-u-link-value=\"eyJuYW1lIjoid2ViIiwiYXR0cnMiOnsiaHJlZiI6Int7aHJlZn19IiwidGFyZ2V0Ijoie3t0YXJnZXR9fSJ9LCJ2YWx1ZXMiOnsiaHJlZiI6Imh0dHA6Ly9ncmVlbmZyb2djbGVhbmluZy5jb20iLCJ0YXJnZXQiOiJfYmxhbmsifX0=\">greenfrogcleaning.com</a></p>",
+                                        "text": "<p style=\"line-height: 140%;\">Dear {{firstname}} {{lastname}},<br>Welcome to the CRM Family!&nbsp;</p>\n<p style=\"line-height: 140%;\">We are excited to help you keep your home sparkling clean. Whether it&rsquo;s a one-time clean or recurring service, we&rsquo;re here to make life easier for you.&nbsp;If you have any questions or want to book your first clean, feel free to reach out to us at 888-438-1781 or&nbsp;<a rel=\"noopener\" href=\"mailto:sales@CRMcleaning\" target=\"_blank\" data-u-link-value=\"eyJuYW1lIjoid2ViIiwiYXR0cnMiOnsiaHJlZiI6Int7aHJlZn19IiwidGFyZ2V0Ijoie3t0YXJnZXR9fSJ9LCJ2YWx1ZXMiOnsiaHJlZiI6Im1haWx0bzpzYWxlc0BncmVlbmZyb2djbGVhbmluZyIsInRhcmdldCI6Il9ibGFuayJ9fQ==\">sales@CRMcleaning.com</a><br>Thank you again for choosing CRM. We look forward to serving you!<br>Best Regards, Brian &amp; Jaime Owners, CRM Cleaning<br><a rel=\"noopener\" href=\"http://CRMcleaning.com\" target=\"_blank\" data-u-link-value=\"eyJuYW1lIjoid2ViIiwiYXR0cnMiOnsiaHJlZiI6Int7aHJlZn19IiwidGFyZ2V0Ijoie3t0YXJnZXR9fSJ9LCJ2YWx1ZXMiOnsiaHJlZiI6Imh0dHA6Ly9ncmVlbmZyb2djbGVhbmluZy5jb20iLCJ0YXJnZXQiOiJfYmxhbmsifX0=\">CRMcleaning.com</a></p>",
                                         "_languages": {}
                                     }
                                 }
@@ -2276,7 +2282,7 @@
                                         "containerPadding": "10px",
                                         "anchor": "",
                                         "fontSize": "15px",
-                                        "color": "#ecf0f1",
+                                        "color": "#18181b",
                                         "textAlign": "left",
                                         "lineHeight": "150%",
                                         "linkStyle": {
@@ -2305,7 +2311,7 @@
                                 }
                             ],
                             "values": {
-                                "backgroundColor": "#76b318",
+                                "backgroundColor": "#ffffff",
                                 "padding": "0px",
                                 "border": {},
                                 "borderRadius": "0px",
@@ -2331,11 +2337,11 @@
                                             "icons": [
                                                 {
                                                     "name": "Facebook",
-                                                    "url": "https://www.facebook.com/greenfroghousecleaning/"
+                                                    "url": "https://www.facebook.com/CRMhousecleaning/"
                                                 },
                                                 {
                                                     "name": "LinkedIn",
-                                                    "url": "https://www.instagram.com/greenfrogcleaning/"
+                                                    "url": "https://www.instagram.com/CRMcleaning/"
                                                 },
                                                 {
                                                     "name": "Yelp",
@@ -2388,13 +2394,13 @@
                                         "deletable": true,
                                         "hideable": true,
                                         "locked": false,
-                                        "text": "<p style=\"line-height: 130%;\"><span style=\"color: rgb(255, 255, 255); line-height: 18.2px;\">&copy; 2025 <a rel=\"noopener\" href=\"https://greenfrogcleaning.com/\" target=\"_blank\" style=\"color: rgb(255, 255, 255);\" data-u-link-value=\"eyJuYW1lIjoid2ViIiwiYXR0cnMiOnsiaHJlZiI6Int7aHJlZn19IiwidGFyZ2V0Ijoie3t0YXJnZXR9fSJ9LCJ2YWx1ZXMiOnsiaHJlZiI6Imh0dHBzOi8vZ3JlZW5mcm9nY2xlYW5pbmcuY29tLyIsInRhcmdldCI6Il9ibGFuayJ9fQ==\"><strong>Green Frog House Cleaning</strong></a> All Rights Reserved</span></p>",
+                                        "text": "<p style=\"line-height: 130%;\"><span style=\"color: rgb(24, 24, 27); line-height: 18.2px;\">&copy; 2025 <a rel=\"noopener\" href=\"https://CRMcleaning.com/\" target=\"_blank\" style=\"color: rgb(24, 24, 27);\" data-u-link-value=\"eyJuYW1lIjoid2ViIiwiYXR0cnMiOnsiaHJlZiI6Int7aHJlZn19IiwidGFyZ2V0Ijoie3t0YXJnZXR9fSJ9LCJ2YWx1ZXMiOnsiaHJlZiI6Imh0dHBzOi8vZ3JlZW5mcm9nY2xlYW5pbmcuY29tLyIsInRhcmdldCI6Il9ibGFuayJ9fQ==\"><strong>CRM</strong></a> All Rights Reserved</span></p>",
                                         "_languages": {}
                                     }
                                 }
                             ],
                             "values": {
-                                "backgroundColor": "#76b318",
+                                "backgroundColor": "#ffffff",
                                 "padding": "0px",
                                 "border": {},
                                 "borderRadius": "0px",
@@ -2526,8 +2532,8 @@
                                         "anchor": "",
                                         "src": {
                                             "url": "https://th.bing.com/th/id/OIG3.fOX5uS1eTrA0W465Krnz?w=270&h=270&c=6&r=0&o=5&cb=defcachec2&pid=ImgGn",
-                                            "width": 512,
-                                            "height": 120,
+                                            "width": 100,
+                                            "height": 100,
                                             "filename": "1752815630730-Logo.bd75d8af6c21c8a70441.png",
                                             "contentType": "image/png",
                                             "size": 43852,
@@ -2555,7 +2561,8 @@
                                         "deletable": true,
                                         "hideable": true,
                                         "locked": false,
-                                        "pending": false
+                                        "pending": false,
+                                        "width": "100px"
                                     }
                                 },
                                 {
@@ -2587,7 +2594,7 @@
                                         "deletable": true,
                                         "hideable": true,
                                         "locked": false,
-                                        "text": "<p style=\"line-height: 140%;\">Welcome to <strong>Green Frog House Cleaning</strong> - Your Partner in Cleanliness!</p>",
+                                        "text": "<p style=\"line-height: 140%;\">Welcome to <strong>CRM</strong> - Your Partner in CRM!</p>",
                                         "_languages": {}
                                     }
                                 },
@@ -2624,7 +2631,7 @@
                                         "deletable": true,
                                         "hideable": true,
                                         "locked": false,
-                                        "text": "<p style=\"line-height: 140%;\">Dear {{firstname}} {{lastname}},<br>Welcome to the Green Frog Family!&nbsp;</p>\n<p style=\"line-height: 140%;\">We are excited to help you keep your home sparkling clean. Whether it&rsquo;s a one-time clean or recurring service, we&rsquo;re here to make life easier for you.&nbsp;If you have any questions or want to book your first clean, feel free to reach out to us at 888-438-1781 or&nbsp;<a rel=\"noopener\" href=\"mailto:sales@greenfrogcleaning\" target=\"_blank\" data-u-link-value=\"eyJuYW1lIjoid2ViIiwiYXR0cnMiOnsiaHJlZiI6Int7aHJlZn19IiwidGFyZ2V0Ijoie3t0YXJnZXR9fSJ9LCJ2YWx1ZXMiOnsiaHJlZiI6Im1haWx0bzpzYWxlc0BncmVlbmZyb2djbGVhbmluZyIsInRhcmdldCI6Il9ibGFuayJ9fQ==\">sales@greenfrogcleaning.com</a><br>Thank you again for choosing Green Frog. We look forward to serving you!<br>Best Regards, Brian &amp; Jaime Owners, Green Frog Cleaning<br><a rel=\"noopener\" href=\"http://greenfrogcleaning.com\" target=\"_blank\" data-u-link-value=\"eyJuYW1lIjoid2ViIiwiYXR0cnMiOnsiaHJlZiI6Int7aHJlZn19IiwidGFyZ2V0Ijoie3t0YXJnZXR9fSJ9LCJ2YWx1ZXMiOnsiaHJlZiI6Imh0dHA6Ly9ncmVlbmZyb2djbGVhbmluZy5jb20iLCJ0YXJnZXQiOiJfYmxhbmsifX0=\">greenfrogcleaning.com</a></p>",
+                                        "text": "<p style=\"line-height: 140%;\">Dear {{firstname}} {{lastname}},<br>Welcome to the CRM Family!&nbsp;</p>\n<p style=\"line-height: 140%;\">We are excited to help you keep your home sparkling clean. Whether it&rsquo;s a one-time clean or recurring service, we&rsquo;re here to make life easier for you.&nbsp;If you have any questions or want to book your first clean, feel free to reach out to us at 888-438-1781 or&nbsp;<a rel=\"noopener\" href=\"mailto:sales@CRMcleaning\" target=\"_blank\" data-u-link-value=\"eyJuYW1lIjoid2ViIiwiYXR0cnMiOnsiaHJlZiI6Int7aHJlZn19IiwidGFyZ2V0Ijoie3t0YXJnZXR9fSJ9LCJ2YWx1ZXMiOnsiaHJlZiI6Im1haWx0bzpzYWxlc0BncmVlbmZyb2djbGVhbmluZyIsInRhcmdldCI6Il9ibGFuayJ9fQ==\">sales@CRMcleaning.com</a><br>Thank you again for choosing CRM. We look forward to serving you!<br>Best Regards, Brian &amp; Jaime Owners, CRM Cleaning<br><a rel=\"noopener\" href=\"http://CRMcleaning.com\" target=\"_blank\" data-u-link-value=\"eyJuYW1lIjoid2ViIiwiYXR0cnMiOnsiaHJlZiI6Int7aHJlZn19IiwidGFyZ2V0Ijoie3t0YXJnZXR9fSJ9LCJ2YWx1ZXMiOnsiaHJlZiI6Imh0dHA6Ly9ncmVlbmZyb2djbGVhbmluZy5jb20iLCJ0YXJnZXQiOiJfYmxhbmsifX0=\">CRMcleaning.com</a></p>",
                                         "_languages": {}
                                     }
                                 }
@@ -2692,7 +2699,7 @@
                                         "containerPadding": "10px",
                                         "anchor": "",
                                         "fontSize": "15px",
-                                        "color": "#ecf0f1",
+                                        "color": "#18181b",
                                         "textAlign": "left",
                                         "lineHeight": "150%",
                                         "linkStyle": {
@@ -2721,7 +2728,7 @@
                                 }
                             ],
                             "values": {
-                                "backgroundColor": "#76b318",
+                                "backgroundColor": "#ffffff",
                                 "padding": "0px",
                                 "border": {},
                                 "borderRadius": "0px",
@@ -2747,11 +2754,11 @@
                                             "icons": [
                                                 {
                                                     "name": "Facebook",
-                                                    "url": "https://www.facebook.com/greenfroghousecleaning/"
+                                                    "url": "https://www.facebook.com/CRMhousecleaning/"
                                                 },
                                                 {
                                                     "name": "LinkedIn",
-                                                    "url": "https://www.instagram.com/greenfrogcleaning/"
+                                                    "url": "https://www.instagram.com/CRMcleaning/"
                                                 },
                                                 {
                                                     "name": "Yelp",
@@ -2804,13 +2811,13 @@
                                         "deletable": true,
                                         "hideable": true,
                                         "locked": false,
-                                        "text": "<p style=\"line-height: 130%;\"><span style=\"color: rgb(255, 255, 255); line-height: 18.2px;\">&copy; 2025 <a rel=\"noopener\" href=\"https://greenfrogcleaning.com/\" target=\"_blank\" style=\"color: rgb(255, 255, 255);\" data-u-link-value=\"eyJuYW1lIjoid2ViIiwiYXR0cnMiOnsiaHJlZiI6Int7aHJlZn19IiwidGFyZ2V0Ijoie3t0YXJnZXR9fSJ9LCJ2YWx1ZXMiOnsiaHJlZiI6Imh0dHBzOi8vZ3JlZW5mcm9nY2xlYW5pbmcuY29tLyIsInRhcmdldCI6Il9ibGFuayJ9fQ==\"><strong>Green Frog House Cleaning</strong></a> All Rights Reserved</span></p>",
+                                        "text": "<p style=\"line-height: 130%;\"><span style=\"color: rgb(24, 24, 27); line-height: 18.2px;\">&copy; 2025 <a rel=\"noopener\" href=\"https://CRMcleaning.com/\" target=\"_blank\" style=\"color: rgb(24, 24, 27);\" data-u-link-value=\"eyJuYW1lIjoid2ViIiwiYXR0cnMiOnsiaHJlZiI6Int7aHJlZn19IiwidGFyZ2V0Ijoie3t0YXJnZXR9fSJ9LCJ2YWx1ZXMiOnsiaHJlZiI6Imh0dHBzOi8vZ3JlZW5mcm9nY2xlYW5pbmcuY29tLyIsInRhcmdldCI6Il9ibGFuayJ9fQ==\"><strong>CRM</strong></a> All Rights Reserved</span></p>",
                                         "_languages": {}
                                     }
                                 }
                             ],
                             "values": {
-                                "backgroundColor": "#76b318",
+                                "backgroundColor": "#ffffff",
                                 "padding": "0px",
                                 "border": {},
                                 "borderRadius": "0px",
@@ -2942,8 +2949,8 @@
                                         "anchor": "",
                                         "src": {
                                             "url": "https://th.bing.com/th/id/OIG3.fOX5uS1eTrA0W465Krnz?w=270&h=270&c=6&r=0&o=5&cb=defcachec2&pid=ImgGn",
-                                            "width": 512,
-                                            "height": 120,
+                                            "width": 100,
+                                            "height": 100,
                                             "filename": "1752815630730-Logo.bd75d8af6c21c8a70441.png",
                                             "contentType": "image/png",
                                             "size": 43852,
@@ -2971,7 +2978,8 @@
                                         "deletable": true,
                                         "hideable": true,
                                         "locked": false,
-                                        "pending": false
+                                        "pending": false,
+                                        "width": "100px"
                                     }
                                 },
                                 {
@@ -3003,7 +3011,7 @@
                                         "deletable": true,
                                         "hideable": true,
                                         "locked": false,
-                                        "text": "<p style=\"line-height: 140%;\">Welcome to <strong>Green Frog House Cleaning</strong> - Your Partner in Cleanliness!</p>",
+                                        "text": "<p style=\"line-height: 140%;\">Welcome to <strong>CRM</strong> - Your Partner in CRM!</p>",
                                         "_languages": {}
                                     }
                                 },
@@ -3040,7 +3048,7 @@
                                         "deletable": true,
                                         "hideable": true,
                                         "locked": false,
-                                        "text": "<p style=\"line-height: 140%;\">Dear {{firstname}} {{lastname}},<br>Welcome to the Green Frog Family!&nbsp;</p>\n<p style=\"line-height: 140%;\">We are excited to help you keep your home sparkling clean. Whether it&rsquo;s a one-time clean or recurring service, we&rsquo;re here to make life easier for you.&nbsp;If you have any questions or want to book your first clean, feel free to reach out to us at 888-438-1781 or&nbsp;<a rel=\"noopener\" href=\"mailto:sales@greenfrogcleaning\" target=\"_blank\" data-u-link-value=\"eyJuYW1lIjoid2ViIiwiYXR0cnMiOnsiaHJlZiI6Int7aHJlZn19IiwidGFyZ2V0Ijoie3t0YXJnZXR9fSJ9LCJ2YWx1ZXMiOnsiaHJlZiI6Im1haWx0bzpzYWxlc0BncmVlbmZyb2djbGVhbmluZyIsInRhcmdldCI6Il9ibGFuayJ9fQ==\">sales@greenfrogcleaning.com</a><br>Thank you again for choosing Green Frog. We look forward to serving you!<br>Best Regards, Brian &amp; Jaime Owners, Green Frog Cleaning<br><a rel=\"noopener\" href=\"http://greenfrogcleaning.com\" target=\"_blank\" data-u-link-value=\"eyJuYW1lIjoid2ViIiwiYXR0cnMiOnsiaHJlZiI6Int7aHJlZn19IiwidGFyZ2V0Ijoie3t0YXJnZXR9fSJ9LCJ2YWx1ZXMiOnsiaHJlZiI6Imh0dHA6Ly9ncmVlbmZyb2djbGVhbmluZy5jb20iLCJ0YXJnZXQiOiJfYmxhbmsifX0=\">greenfrogcleaning.com</a></p>",
+                                        "text": "<p style=\"line-height: 140%;\">Dear {{firstname}} {{lastname}},<br>Welcome to the CRM Family!&nbsp;</p>\n<p style=\"line-height: 140%;\">We are excited to help you keep your home sparkling clean. Whether it&rsquo;s a one-time clean or recurring service, we&rsquo;re here to make life easier for you.&nbsp;If you have any questions or want to book your first clean, feel free to reach out to us at 888-438-1781 or&nbsp;<a rel=\"noopener\" href=\"mailto:sales@CRMcleaning\" target=\"_blank\" data-u-link-value=\"eyJuYW1lIjoid2ViIiwiYXR0cnMiOnsiaHJlZiI6Int7aHJlZn19IiwidGFyZ2V0Ijoie3t0YXJnZXR9fSJ9LCJ2YWx1ZXMiOnsiaHJlZiI6Im1haWx0bzpzYWxlc0BncmVlbmZyb2djbGVhbmluZyIsInRhcmdldCI6Il9ibGFuayJ9fQ==\">sales@CRMcleaning.com</a><br>Thank you again for choosing CRM. We look forward to serving you!<br>Best Regards, Brian &amp; Jaime Owners, CRM Cleaning<br><a rel=\"noopener\" href=\"http://CRMcleaning.com\" target=\"_blank\" data-u-link-value=\"eyJuYW1lIjoid2ViIiwiYXR0cnMiOnsiaHJlZiI6Int7aHJlZn19IiwidGFyZ2V0Ijoie3t0YXJnZXR9fSJ9LCJ2YWx1ZXMiOnsiaHJlZiI6Imh0dHA6Ly9ncmVlbmZyb2djbGVhbmluZy5jb20iLCJ0YXJnZXQiOiJfYmxhbmsifX0=\">CRMcleaning.com</a></p>",
                                         "_languages": {}
                                     }
                                 }
@@ -3108,7 +3116,7 @@
                                         "containerPadding": "10px",
                                         "anchor": "",
                                         "fontSize": "15px",
-                                        "color": "#ecf0f1",
+                                        "color": "#18181b",
                                         "textAlign": "left",
                                         "lineHeight": "150%",
                                         "linkStyle": {
@@ -3137,7 +3145,7 @@
                                 }
                             ],
                             "values": {
-                                "backgroundColor": "#76b318",
+                                "backgroundColor": "#ffffff",
                                 "padding": "0px",
                                 "border": {},
                                 "borderRadius": "0px",
@@ -3163,11 +3171,11 @@
                                             "icons": [
                                                 {
                                                     "name": "Facebook",
-                                                    "url": "https://www.facebook.com/greenfroghousecleaning/"
+                                                    "url": "https://www.facebook.com/CRMhousecleaning/"
                                                 },
                                                 {
                                                     "name": "LinkedIn",
-                                                    "url": "https://www.instagram.com/greenfrogcleaning/"
+                                                    "url": "https://www.instagram.com/CRMcleaning/"
                                                 },
                                                 {
                                                     "name": "Yelp",
@@ -3220,13 +3228,13 @@
                                         "deletable": true,
                                         "hideable": true,
                                         "locked": false,
-                                        "text": "<p style=\"line-height: 130%;\"><span style=\"color: rgb(255, 255, 255); line-height: 18.2px;\">&copy; 2025 <a rel=\"noopener\" href=\"https://greenfrogcleaning.com/\" target=\"_blank\" style=\"color: rgb(255, 255, 255);\" data-u-link-value=\"eyJuYW1lIjoid2ViIiwiYXR0cnMiOnsiaHJlZiI6Int7aHJlZn19IiwidGFyZ2V0Ijoie3t0YXJnZXR9fSJ9LCJ2YWx1ZXMiOnsiaHJlZiI6Imh0dHBzOi8vZ3JlZW5mcm9nY2xlYW5pbmcuY29tLyIsInRhcmdldCI6Il9ibGFuayJ9fQ==\"><strong>Green Frog House Cleaning</strong></a> All Rights Reserved</span></p>",
+                                        "text": "<p style=\"line-height: 130%;\"><span style=\"color: rgb(24, 24, 27); line-height: 18.2px;\">&copy; 2025 <a rel=\"noopener\" href=\"https://CRMcleaning.com/\" target=\"_blank\" style=\"color: rgb(24, 24, 27);\" data-u-link-value=\"eyJuYW1lIjoid2ViIiwiYXR0cnMiOnsiaHJlZiI6Int7aHJlZn19IiwidGFyZ2V0Ijoie3t0YXJnZXR9fSJ9LCJ2YWx1ZXMiOnsiaHJlZiI6Imh0dHBzOi8vZ3JlZW5mcm9nY2xlYW5pbmcuY29tLyIsInRhcmdldCI6Il9ibGFuayJ9fQ==\"><strong>CRM</strong></a> All Rights Reserved</span></p>",
                                         "_languages": {}
                                     }
                                 }
                             ],
                             "values": {
-                                "backgroundColor": "#76b318",
+                                "backgroundColor": "#ffffff",
                                 "padding": "0px",
                                 "border": {},
                                 "borderRadius": "0px",
@@ -3358,8 +3366,8 @@
                                         "anchor": "",
                                         "src": {
                                             "url": "https://th.bing.com/th/id/OIG3.fOX5uS1eTrA0W465Krnz?w=270&h=270&c=6&r=0&o=5&cb=defcachec2&pid=ImgGn",
-                                            "width": 512,
-                                            "height": 120,
+                                            "width": 100,
+                                            "height": 100,
                                             "filename": "1752815630730-Logo.bd75d8af6c21c8a70441.png",
                                             "contentType": "image/png",
                                             "size": 43852,
@@ -3387,7 +3395,8 @@
                                         "deletable": true,
                                         "hideable": true,
                                         "locked": false,
-                                        "pending": false
+                                        "pending": false,
+                                        "width": "100px"
                                     }
                                 },
                                 {
@@ -3419,7 +3428,7 @@
                                         "deletable": true,
                                         "hideable": true,
                                         "locked": false,
-                                        "text": "<p style=\"line-height: 140%;\">Welcome to <strong>Green Frog House Cleaning</strong> - Your Partner in Cleanliness!</p>",
+                                        "text": "<p style=\"line-height: 140%;\">Welcome to <strong>CRM</strong> - Your Partner in CRM!</p>",
                                         "_languages": {}
                                     }
                                 },
@@ -3456,7 +3465,7 @@
                                         "deletable": true,
                                         "hideable": true,
                                         "locked": false,
-                                        "text": "<p style=\"line-height: 140%;\">Dear {{firstname}} {{lastname}},<br>Welcome to the Green Frog Family!&nbsp;</p>\n<p style=\"line-height: 140%;\">We are excited to help you keep your home sparkling clean. Whether it&rsquo;s a one-time clean or recurring service, we&rsquo;re here to make life easier for you.&nbsp;If you have any questions or want to book your first clean, feel free to reach out to us at 888-438-1781 or&nbsp;<a rel=\"noopener\" href=\"mailto:sales@greenfrogcleaning\" target=\"_blank\" data-u-link-value=\"eyJuYW1lIjoid2ViIiwiYXR0cnMiOnsiaHJlZiI6Int7aHJlZn19IiwidGFyZ2V0Ijoie3t0YXJnZXR9fSJ9LCJ2YWx1ZXMiOnsiaHJlZiI6Im1haWx0bzpzYWxlc0BncmVlbmZyb2djbGVhbmluZyIsInRhcmdldCI6Il9ibGFuayJ9fQ==\">sales@greenfrogcleaning.com</a><br>Thank you again for choosing Green Frog. We look forward to serving you!<br>Best Regards, Brian &amp; Jaime Owners, Green Frog Cleaning<br><a rel=\"noopener\" href=\"http://greenfrogcleaning.com\" target=\"_blank\" data-u-link-value=\"eyJuYW1lIjoid2ViIiwiYXR0cnMiOnsiaHJlZiI6Int7aHJlZn19IiwidGFyZ2V0Ijoie3t0YXJnZXR9fSJ9LCJ2YWx1ZXMiOnsiaHJlZiI6Imh0dHA6Ly9ncmVlbmZyb2djbGVhbmluZy5jb20iLCJ0YXJnZXQiOiJfYmxhbmsifX0=\">greenfrogcleaning.com</a></p>",
+                                        "text": "<p style=\"line-height: 140%;\">Dear {{firstname}} {{lastname}},<br>Welcome to the CRM Family!&nbsp;</p>\n<p style=\"line-height: 140%;\">We are excited to help you keep your home sparkling clean. Whether it&rsquo;s a one-time clean or recurring service, we&rsquo;re here to make life easier for you.&nbsp;If you have any questions or want to book your first clean, feel free to reach out to us at 888-438-1781 or&nbsp;<a rel=\"noopener\" href=\"mailto:sales@CRMcleaning\" target=\"_blank\" data-u-link-value=\"eyJuYW1lIjoid2ViIiwiYXR0cnMiOnsiaHJlZiI6Int7aHJlZn19IiwidGFyZ2V0Ijoie3t0YXJnZXR9fSJ9LCJ2YWx1ZXMiOnsiaHJlZiI6Im1haWx0bzpzYWxlc0BncmVlbmZyb2djbGVhbmluZyIsInRhcmdldCI6Il9ibGFuayJ9fQ==\">sales@CRMcleaning.com</a><br>Thank you again for choosing CRM. We look forward to serving you!<br>Best Regards, Brian &amp; Jaime Owners, CRM Cleaning<br><a rel=\"noopener\" href=\"http://CRMcleaning.com\" target=\"_blank\" data-u-link-value=\"eyJuYW1lIjoid2ViIiwiYXR0cnMiOnsiaHJlZiI6Int7aHJlZn19IiwidGFyZ2V0Ijoie3t0YXJnZXR9fSJ9LCJ2YWx1ZXMiOnsiaHJlZiI6Imh0dHA6Ly9ncmVlbmZyb2djbGVhbmluZy5jb20iLCJ0YXJnZXQiOiJfYmxhbmsifX0=\">CRMcleaning.com</a></p>",
                                         "_languages": {}
                                     }
                                 }
@@ -3524,7 +3533,7 @@
                                         "containerPadding": "10px",
                                         "anchor": "",
                                         "fontSize": "15px",
-                                        "color": "#ecf0f1",
+                                        "color": "#18181b",
                                         "textAlign": "left",
                                         "lineHeight": "150%",
                                         "linkStyle": {
@@ -3553,7 +3562,7 @@
                                 }
                             ],
                             "values": {
-                                "backgroundColor": "#76b318",
+                                "backgroundColor": "#ffffff",
                                 "padding": "0px",
                                 "border": {},
                                 "borderRadius": "0px",
@@ -3579,11 +3588,11 @@
                                             "icons": [
                                                 {
                                                     "name": "Facebook",
-                                                    "url": "https://www.facebook.com/greenfroghousecleaning/"
+                                                    "url": "https://www.facebook.com/CRMhousecleaning/"
                                                 },
                                                 {
                                                     "name": "LinkedIn",
-                                                    "url": "https://www.instagram.com/greenfrogcleaning/"
+                                                    "url": "https://www.instagram.com/CRMcleaning/"
                                                 },
                                                 {
                                                     "name": "Yelp",
@@ -3636,13 +3645,13 @@
                                         "deletable": true,
                                         "hideable": true,
                                         "locked": false,
-                                        "text": "<p style=\"line-height: 130%;\"><span style=\"color: rgb(255, 255, 255); line-height: 18.2px;\">&copy; 2025 <a rel=\"noopener\" href=\"https://greenfrogcleaning.com/\" target=\"_blank\" style=\"color: rgb(255, 255, 255);\" data-u-link-value=\"eyJuYW1lIjoid2ViIiwiYXR0cnMiOnsiaHJlZiI6Int7aHJlZn19IiwidGFyZ2V0Ijoie3t0YXJnZXR9fSJ9LCJ2YWx1ZXMiOnsiaHJlZiI6Imh0dHBzOi8vZ3JlZW5mcm9nY2xlYW5pbmcuY29tLyIsInRhcmdldCI6Il9ibGFuayJ9fQ==\"><strong>Green Frog House Cleaning</strong></a> All Rights Reserved</span></p>",
+                                        "text": "<p style=\"line-height: 130%;\"><span style=\"color: rgb(24, 24, 27); line-height: 18.2px;\">&copy; 2025 <a rel=\"noopener\" href=\"https://CRMcleaning.com/\" target=\"_blank\" style=\"color: rgb(24, 24, 27);\" data-u-link-value=\"eyJuYW1lIjoid2ViIiwiYXR0cnMiOnsiaHJlZiI6Int7aHJlZn19IiwidGFyZ2V0Ijoie3t0YXJnZXR9fSJ9LCJ2YWx1ZXMiOnsiaHJlZiI6Imh0dHBzOi8vZ3JlZW5mcm9nY2xlYW5pbmcuY29tLyIsInRhcmdldCI6Il9ibGFuayJ9fQ==\"><strong>CRM</strong></a> All Rights Reserved</span></p>",
                                         "_languages": {}
                                     }
                                 }
                             ],
                             "values": {
-                                "backgroundColor": "#76b318",
+                                "backgroundColor": "#ffffff",
                                 "padding": "0px",
                                 "border": {},
                                 "borderRadius": "0px",
@@ -3774,8 +3783,8 @@
                                         "anchor": "",
                                         "src": {
                                             "url": "https://th.bing.com/th/id/OIG3.fOX5uS1eTrA0W465Krnz?w=270&h=270&c=6&r=0&o=5&cb=defcachec2&pid=ImgGn",
-                                            "width": 512,
-                                            "height": 120,
+                                            "width": 100,
+                                            "height": 100,
                                             "filename": "1752815630730-Logo.bd75d8af6c21c8a70441.png",
                                             "contentType": "image/png",
                                             "size": 43852,
@@ -3803,7 +3812,8 @@
                                         "deletable": true,
                                         "hideable": true,
                                         "locked": false,
-                                        "pending": false
+                                        "pending": false,
+                                        "width": "100px"
                                     }
                                 },
                                 {
@@ -3835,7 +3845,7 @@
                                         "deletable": true,
                                         "hideable": true,
                                         "locked": false,
-                                        "text": "<p style=\"line-height: 140%;\">Welcome to <strong>Green Frog House Cleaning</strong> - Your Partner in Cleanliness!</p>",
+                                        "text": "<p style=\"line-height: 140%;\">Welcome to <strong>CRM</strong> - Your Partner in CRM!</p>",
                                         "_languages": {}
                                     }
                                 },
@@ -3872,7 +3882,7 @@
                                         "deletable": true,
                                         "hideable": true,
                                         "locked": false,
-                                        "text": "<p style=\"line-height: 140%;\">Dear {{firstname}} {{lastname}},<br>Welcome to the Green Frog Family!&nbsp;</p>\n<p style=\"line-height: 140%;\">We are excited to help you keep your home sparkling clean. Whether it&rsquo;s a one-time clean or recurring service, we&rsquo;re here to make life easier for you.&nbsp;If you have any questions or want to book your first clean, feel free to reach out to us at 888-438-1781 or&nbsp;<a rel=\"noopener\" href=\"mailto:sales@greenfrogcleaning\" target=\"_blank\" data-u-link-value=\"eyJuYW1lIjoid2ViIiwiYXR0cnMiOnsiaHJlZiI6Int7aHJlZn19IiwidGFyZ2V0Ijoie3t0YXJnZXR9fSJ9LCJ2YWx1ZXMiOnsiaHJlZiI6Im1haWx0bzpzYWxlc0BncmVlbmZyb2djbGVhbmluZyIsInRhcmdldCI6Il9ibGFuayJ9fQ==\">sales@greenfrogcleaning.com</a><br>Thank you again for choosing Green Frog. We look forward to serving you!<br>Best Regards, Brian &amp; Jaime Owners, Green Frog Cleaning<br><a rel=\"noopener\" href=\"http://greenfrogcleaning.com\" target=\"_blank\" data-u-link-value=\"eyJuYW1lIjoid2ViIiwiYXR0cnMiOnsiaHJlZiI6Int7aHJlZn19IiwidGFyZ2V0Ijoie3t0YXJnZXR9fSJ9LCJ2YWx1ZXMiOnsiaHJlZiI6Imh0dHA6Ly9ncmVlbmZyb2djbGVhbmluZy5jb20iLCJ0YXJnZXQiOiJfYmxhbmsifX0=\">greenfrogcleaning.com</a></p>",
+                                        "text": "<p style=\"line-height: 140%;\">Dear {{firstname}} {{lastname}},<br>Welcome to the CRM Family!&nbsp;</p>\n<p style=\"line-height: 140%;\">We are excited to help you keep your home sparkling clean. Whether it&rsquo;s a one-time clean or recurring service, we&rsquo;re here to make life easier for you.&nbsp;If you have any questions or want to book your first clean, feel free to reach out to us at 888-438-1781 or&nbsp;<a rel=\"noopener\" href=\"mailto:sales@CRMcleaning\" target=\"_blank\" data-u-link-value=\"eyJuYW1lIjoid2ViIiwiYXR0cnMiOnsiaHJlZiI6Int7aHJlZn19IiwidGFyZ2V0Ijoie3t0YXJnZXR9fSJ9LCJ2YWx1ZXMiOnsiaHJlZiI6Im1haWx0bzpzYWxlc0BncmVlbmZyb2djbGVhbmluZyIsInRhcmdldCI6Il9ibGFuayJ9fQ==\">sales@CRMcleaning.com</a><br>Thank you again for choosing CRM. We look forward to serving you!<br>Best Regards, Brian &amp; Jaime Owners, CRM Cleaning<br><a rel=\"noopener\" href=\"http://CRMcleaning.com\" target=\"_blank\" data-u-link-value=\"eyJuYW1lIjoid2ViIiwiYXR0cnMiOnsiaHJlZiI6Int7aHJlZn19IiwidGFyZ2V0Ijoie3t0YXJnZXR9fSJ9LCJ2YWx1ZXMiOnsiaHJlZiI6Imh0dHA6Ly9ncmVlbmZyb2djbGVhbmluZy5jb20iLCJ0YXJnZXQiOiJfYmxhbmsifX0=\">CRMcleaning.com</a></p>",
                                         "_languages": {}
                                     }
                                 }
@@ -3940,7 +3950,7 @@
                                         "containerPadding": "10px",
                                         "anchor": "",
                                         "fontSize": "15px",
-                                        "color": "#ecf0f1",
+                                        "color": "#18181b",
                                         "textAlign": "left",
                                         "lineHeight": "150%",
                                         "linkStyle": {
@@ -3969,7 +3979,7 @@
                                 }
                             ],
                             "values": {
-                                "backgroundColor": "#76b318",
+                                "backgroundColor": "#ffffff",
                                 "padding": "0px",
                                 "border": {},
                                 "borderRadius": "0px",
@@ -3995,11 +4005,11 @@
                                             "icons": [
                                                 {
                                                     "name": "Facebook",
-                                                    "url": "https://www.facebook.com/greenfroghousecleaning/"
+                                                    "url": "https://www.facebook.com/CRMhousecleaning/"
                                                 },
                                                 {
                                                     "name": "LinkedIn",
-                                                    "url": "https://www.instagram.com/greenfrogcleaning/"
+                                                    "url": "https://www.instagram.com/CRMcleaning/"
                                                 },
                                                 {
                                                     "name": "Yelp",
@@ -4052,13 +4062,13 @@
                                         "deletable": true,
                                         "hideable": true,
                                         "locked": false,
-                                        "text": "<p style=\"line-height: 130%;\"><span style=\"color: rgb(255, 255, 255); line-height: 18.2px;\">&copy; 2025 <a rel=\"noopener\" href=\"https://greenfrogcleaning.com/\" target=\"_blank\" style=\"color: rgb(255, 255, 255);\" data-u-link-value=\"eyJuYW1lIjoid2ViIiwiYXR0cnMiOnsiaHJlZiI6Int7aHJlZn19IiwidGFyZ2V0Ijoie3t0YXJnZXR9fSJ9LCJ2YWx1ZXMiOnsiaHJlZiI6Imh0dHBzOi8vZ3JlZW5mcm9nY2xlYW5pbmcuY29tLyIsInRhcmdldCI6Il9ibGFuayJ9fQ==\"><strong>Green Frog House Cleaning</strong></a> All Rights Reserved</span></p>",
+                                        "text": "<p style=\"line-height: 130%;\"><span style=\"color: rgb(24, 24, 27); line-height: 18.2px;\">&copy; 2025 <a rel=\"noopener\" href=\"https://CRMcleaning.com/\" target=\"_blank\" style=\"color: rgb(24, 24, 27);\" data-u-link-value=\"eyJuYW1lIjoid2ViIiwiYXR0cnMiOnsiaHJlZiI6Int7aHJlZn19IiwidGFyZ2V0Ijoie3t0YXJnZXR9fSJ9LCJ2YWx1ZXMiOnsiaHJlZiI6Imh0dHBzOi8vZ3JlZW5mcm9nY2xlYW5pbmcuY29tLyIsInRhcmdldCI6Il9ibGFuayJ9fQ==\"><strong>CRM</strong></a> All Rights Reserved</span></p>",
                                         "_languages": {}
                                     }
                                 }
                             ],
                             "values": {
-                                "backgroundColor": "#76b318",
+                                "backgroundColor": "#ffffff",
                                 "padding": "0px",
                                 "border": {},
                                 "borderRadius": "0px",
@@ -4190,8 +4200,8 @@
                                         "anchor": "",
                                         "src": {
                                             "url": "https://th.bing.com/th/id/OIG3.fOX5uS1eTrA0W465Krnz?w=270&h=270&c=6&r=0&o=5&cb=defcachec2&pid=ImgGn",
-                                            "width": 512,
-                                            "height": 120,
+                                            "width": 100,
+                                            "height": 100,
                                             "filename": "1752815630730-Logo.bd75d8af6c21c8a70441.png",
                                             "contentType": "image/png",
                                             "size": 43852,
@@ -4219,7 +4229,8 @@
                                         "deletable": true,
                                         "hideable": true,
                                         "locked": false,
-                                        "pending": false
+                                        "pending": false,
+                                        "width": "100px"
                                     }
                                 },
                                 {
@@ -4251,7 +4262,7 @@
                                         "deletable": true,
                                         "hideable": true,
                                         "locked": false,
-                                        "text": "<p style=\"line-height: 140%;\">Welcome to <strong>Green Frog House Cleaning</strong> - Your Partner in Cleanliness!</p>",
+                                        "text": "<p style=\"line-height: 140%;\">Welcome to <strong>CRM</strong> - Your Partner in CRM!</p>",
                                         "_languages": {}
                                     }
                                 },
@@ -4288,7 +4299,7 @@
                                         "deletable": true,
                                         "hideable": true,
                                         "locked": false,
-                                        "text": "<p style=\"line-height: 140%;\">Dear {{firstname}} {{lastname}},<br>Welcome to the Green Frog Family!&nbsp;</p>\n<p style=\"line-height: 140%;\">We are excited to help you keep your home sparkling clean. Whether it&rsquo;s a one-time clean or recurring service, we&rsquo;re here to make life easier for you.&nbsp;If you have any questions or want to book your first clean, feel free to reach out to us at 888-438-1781 or&nbsp;<a rel=\"noopener\" href=\"mailto:sales@greenfrogcleaning\" target=\"_blank\" data-u-link-value=\"eyJuYW1lIjoid2ViIiwiYXR0cnMiOnsiaHJlZiI6Int7aHJlZn19IiwidGFyZ2V0Ijoie3t0YXJnZXR9fSJ9LCJ2YWx1ZXMiOnsiaHJlZiI6Im1haWx0bzpzYWxlc0BncmVlbmZyb2djbGVhbmluZyIsInRhcmdldCI6Il9ibGFuayJ9fQ==\">sales@greenfrogcleaning.com</a><br>Thank you again for choosing Green Frog. We look forward to serving you!<br>Best Regards, Brian &amp; Jaime Owners, Green Frog Cleaning<br><a rel=\"noopener\" href=\"http://greenfrogcleaning.com\" target=\"_blank\" data-u-link-value=\"eyJuYW1lIjoid2ViIiwiYXR0cnMiOnsiaHJlZiI6Int7aHJlZn19IiwidGFyZ2V0Ijoie3t0YXJnZXR9fSJ9LCJ2YWx1ZXMiOnsiaHJlZiI6Imh0dHA6Ly9ncmVlbmZyb2djbGVhbmluZy5jb20iLCJ0YXJnZXQiOiJfYmxhbmsifX0=\">greenfrogcleaning.com</a></p>",
+                                        "text": "<p style=\"line-height: 140%;\">Dear {{firstname}} {{lastname}},<br>Welcome to the CRM Family!&nbsp;</p>\n<p style=\"line-height: 140%;\">We are excited to help you keep your home sparkling clean. Whether it&rsquo;s a one-time clean or recurring service, we&rsquo;re here to make life easier for you.&nbsp;If you have any questions or want to book your first clean, feel free to reach out to us at 888-438-1781 or&nbsp;<a rel=\"noopener\" href=\"mailto:sales@CRMcleaning\" target=\"_blank\" data-u-link-value=\"eyJuYW1lIjoid2ViIiwiYXR0cnMiOnsiaHJlZiI6Int7aHJlZn19IiwidGFyZ2V0Ijoie3t0YXJnZXR9fSJ9LCJ2YWx1ZXMiOnsiaHJlZiI6Im1haWx0bzpzYWxlc0BncmVlbmZyb2djbGVhbmluZyIsInRhcmdldCI6Il9ibGFuayJ9fQ==\">sales@CRMcleaning.com</a><br>Thank you again for choosing CRM. We look forward to serving you!<br>Best Regards, Brian &amp; Jaime Owners, CRM Cleaning<br><a rel=\"noopener\" href=\"http://CRMcleaning.com\" target=\"_blank\" data-u-link-value=\"eyJuYW1lIjoid2ViIiwiYXR0cnMiOnsiaHJlZiI6Int7aHJlZn19IiwidGFyZ2V0Ijoie3t0YXJnZXR9fSJ9LCJ2YWx1ZXMiOnsiaHJlZiI6Imh0dHA6Ly9ncmVlbmZyb2djbGVhbmluZy5jb20iLCJ0YXJnZXQiOiJfYmxhbmsifX0=\">CRMcleaning.com</a></p>",
                                         "_languages": {}
                                     }
                                 }
@@ -4356,7 +4367,7 @@
                                         "containerPadding": "10px",
                                         "anchor": "",
                                         "fontSize": "15px",
-                                        "color": "#ecf0f1",
+                                        "color": "#18181b",
                                         "textAlign": "left",
                                         "lineHeight": "150%",
                                         "linkStyle": {
@@ -4385,7 +4396,7 @@
                                 }
                             ],
                             "values": {
-                                "backgroundColor": "#76b318",
+                                "backgroundColor": "#ffffff",
                                 "padding": "0px",
                                 "border": {},
                                 "borderRadius": "0px",
@@ -4411,11 +4422,11 @@
                                             "icons": [
                                                 {
                                                     "name": "Facebook",
-                                                    "url": "https://www.facebook.com/greenfroghousecleaning/"
+                                                    "url": "https://www.facebook.com/CRMhousecleaning/"
                                                 },
                                                 {
                                                     "name": "LinkedIn",
-                                                    "url": "https://www.instagram.com/greenfrogcleaning/"
+                                                    "url": "https://www.instagram.com/CRMcleaning/"
                                                 },
                                                 {
                                                     "name": "Yelp",
@@ -4468,13 +4479,13 @@
                                         "deletable": true,
                                         "hideable": true,
                                         "locked": false,
-                                        "text": "<p style=\"line-height: 130%;\"><span style=\"color: rgb(255, 255, 255); line-height: 18.2px;\">&copy; 2025 <a rel=\"noopener\" href=\"https://greenfrogcleaning.com/\" target=\"_blank\" style=\"color: rgb(255, 255, 255);\" data-u-link-value=\"eyJuYW1lIjoid2ViIiwiYXR0cnMiOnsiaHJlZiI6Int7aHJlZn19IiwidGFyZ2V0Ijoie3t0YXJnZXR9fSJ9LCJ2YWx1ZXMiOnsiaHJlZiI6Imh0dHBzOi8vZ3JlZW5mcm9nY2xlYW5pbmcuY29tLyIsInRhcmdldCI6Il9ibGFuayJ9fQ==\"><strong>Green Frog House Cleaning</strong></a> All Rights Reserved</span></p>",
+                                        "text": "<p style=\"line-height: 130%;\"><span style=\"color: rgb(24, 24, 27); line-height: 18.2px;\">&copy; 2025 <a rel=\"noopener\" href=\"https://CRMcleaning.com/\" target=\"_blank\" style=\"color: rgb(24, 24, 27);\" data-u-link-value=\"eyJuYW1lIjoid2ViIiwiYXR0cnMiOnsiaHJlZiI6Int7aHJlZn19IiwidGFyZ2V0Ijoie3t0YXJnZXR9fSJ9LCJ2YWx1ZXMiOnsiaHJlZiI6Imh0dHBzOi8vZ3JlZW5mcm9nY2xlYW5pbmcuY29tLyIsInRhcmdldCI6Il9ibGFuayJ9fQ==\"><strong>CRM</strong></a> All Rights Reserved</span></p>",
                                         "_languages": {}
                                     }
                                 }
                             ],
                             "values": {
-                                "backgroundColor": "#76b318",
+                                "backgroundColor": "#ffffff",
                                 "padding": "0px",
                                 "border": {},
                                 "borderRadius": "0px",
@@ -4606,8 +4617,8 @@
                                         "anchor": "",
                                         "src": {
                                             "url": "https://th.bing.com/th/id/OIG3.fOX5uS1eTrA0W465Krnz?w=270&h=270&c=6&r=0&o=5&cb=defcachec2&pid=ImgGn",
-                                            "width": 512,
-                                            "height": 120,
+                                            "width": 100,
+                                            "height": 100,
                                             "filename": "1752815630730-Logo.bd75d8af6c21c8a70441.png",
                                             "contentType": "image/png",
                                             "size": 43852,
@@ -4635,7 +4646,8 @@
                                         "deletable": true,
                                         "hideable": true,
                                         "locked": false,
-                                        "pending": false
+                                        "pending": false,
+                                        "width": "100px"
                                     }
                                 },
                                 {
@@ -4667,7 +4679,7 @@
                                         "deletable": true,
                                         "hideable": true,
                                         "locked": false,
-                                        "text": "<p style=\"line-height: 140%;\">Welcome to <strong>Green Frog House Cleaning</strong> - Your Partner in Cleanliness!</p>",
+                                        "text": "<p style=\"line-height: 140%;\">Welcome to <strong>CRM</strong> - Your Partner in CRM!</p>",
                                         "_languages": {}
                                     }
                                 },
@@ -4704,7 +4716,7 @@
                                         "deletable": true,
                                         "hideable": true,
                                         "locked": false,
-                                        "text": "<p style=\"line-height: 140%;\">Dear {{firstname}} {{lastname}},<br>Welcome to the Green Frog Family!&nbsp;</p>\n<p style=\"line-height: 140%;\">We are excited to help you keep your home sparkling clean. Whether it&rsquo;s a one-time clean or recurring service, we&rsquo;re here to make life easier for you.&nbsp;If you have any questions or want to book your first clean, feel free to reach out to us at 888-438-1781 or&nbsp;<a rel=\"noopener\" href=\"mailto:sales@greenfrogcleaning\" target=\"_blank\" data-u-link-value=\"eyJuYW1lIjoid2ViIiwiYXR0cnMiOnsiaHJlZiI6Int7aHJlZn19IiwidGFyZ2V0Ijoie3t0YXJnZXR9fSJ9LCJ2YWx1ZXMiOnsiaHJlZiI6Im1haWx0bzpzYWxlc0BncmVlbmZyb2djbGVhbmluZyIsInRhcmdldCI6Il9ibGFuayJ9fQ==\">sales@greenfrogcleaning.com</a><br>Thank you again for choosing Green Frog. We look forward to serving you!<br>Best Regards, Brian &amp; Jaime Owners, Green Frog Cleaning<br><a rel=\"noopener\" href=\"http://greenfrogcleaning.com\" target=\"_blank\" data-u-link-value=\"eyJuYW1lIjoid2ViIiwiYXR0cnMiOnsiaHJlZiI6Int7aHJlZn19IiwidGFyZ2V0Ijoie3t0YXJnZXR9fSJ9LCJ2YWx1ZXMiOnsiaHJlZiI6Imh0dHA6Ly9ncmVlbmZyb2djbGVhbmluZy5jb20iLCJ0YXJnZXQiOiJfYmxhbmsifX0=\">greenfrogcleaning.com</a></p>",
+                                        "text": "<p style=\"line-height: 140%;\">Dear {{firstname}} {{lastname}},<br>Welcome to the CRM Family!&nbsp;</p>\n<p style=\"line-height: 140%;\">We are excited to help you keep your home sparkling clean. Whether it&rsquo;s a one-time clean or recurring service, we&rsquo;re here to make life easier for you.&nbsp;If you have any questions or want to book your first clean, feel free to reach out to us at 888-438-1781 or&nbsp;<a rel=\"noopener\" href=\"mailto:sales@CRMcleaning\" target=\"_blank\" data-u-link-value=\"eyJuYW1lIjoid2ViIiwiYXR0cnMiOnsiaHJlZiI6Int7aHJlZn19IiwidGFyZ2V0Ijoie3t0YXJnZXR9fSJ9LCJ2YWx1ZXMiOnsiaHJlZiI6Im1haWx0bzpzYWxlc0BncmVlbmZyb2djbGVhbmluZyIsInRhcmdldCI6Il9ibGFuayJ9fQ==\">sales@CRMcleaning.com</a><br>Thank you again for choosing CRM. We look forward to serving you!<br>Best Regards, Brian &amp; Jaime Owners, CRM Cleaning<br><a rel=\"noopener\" href=\"http://CRMcleaning.com\" target=\"_blank\" data-u-link-value=\"eyJuYW1lIjoid2ViIiwiYXR0cnMiOnsiaHJlZiI6Int7aHJlZn19IiwidGFyZ2V0Ijoie3t0YXJnZXR9fSJ9LCJ2YWx1ZXMiOnsiaHJlZiI6Imh0dHA6Ly9ncmVlbmZyb2djbGVhbmluZy5jb20iLCJ0YXJnZXQiOiJfYmxhbmsifX0=\">CRMcleaning.com</a></p>",
                                         "_languages": {}
                                     }
                                 }
@@ -4772,7 +4784,7 @@
                                         "containerPadding": "10px",
                                         "anchor": "",
                                         "fontSize": "15px",
-                                        "color": "#ecf0f1",
+                                        "color": "#18181b",
                                         "textAlign": "left",
                                         "lineHeight": "150%",
                                         "linkStyle": {
@@ -4801,7 +4813,7 @@
                                 }
                             ],
                             "values": {
-                                "backgroundColor": "#76b318",
+                                "backgroundColor": "#ffffff",
                                 "padding": "0px",
                                 "border": {},
                                 "borderRadius": "0px",
@@ -4827,11 +4839,11 @@
                                             "icons": [
                                                 {
                                                     "name": "Facebook",
-                                                    "url": "https://www.facebook.com/greenfroghousecleaning/"
+                                                    "url": "https://www.facebook.com/CRMhousecleaning/"
                                                 },
                                                 {
                                                     "name": "LinkedIn",
-                                                    "url": "https://www.instagram.com/greenfrogcleaning/"
+                                                    "url": "https://www.instagram.com/CRMcleaning/"
                                                 },
                                                 {
                                                     "name": "Yelp",
@@ -4884,13 +4896,13 @@
                                         "deletable": true,
                                         "hideable": true,
                                         "locked": false,
-                                        "text": "<p style=\"line-height: 130%;\"><span style=\"color: rgb(255, 255, 255); line-height: 18.2px;\">&copy; 2025 <a rel=\"noopener\" href=\"https://greenfrogcleaning.com/\" target=\"_blank\" style=\"color: rgb(255, 255, 255);\" data-u-link-value=\"eyJuYW1lIjoid2ViIiwiYXR0cnMiOnsiaHJlZiI6Int7aHJlZn19IiwidGFyZ2V0Ijoie3t0YXJnZXR9fSJ9LCJ2YWx1ZXMiOnsiaHJlZiI6Imh0dHBzOi8vZ3JlZW5mcm9nY2xlYW5pbmcuY29tLyIsInRhcmdldCI6Il9ibGFuayJ9fQ==\"><strong>Green Frog House Cleaning</strong></a> All Rights Reserved</span></p>",
+                                        "text": "<p style=\"line-height: 130%;\"><span style=\"color: rgb(24, 24, 27); line-height: 18.2px;\">&copy; 2025 <a rel=\"noopener\" href=\"https://CRMcleaning.com/\" target=\"_blank\" style=\"color: rgb(24, 24, 27);\" data-u-link-value=\"eyJuYW1lIjoid2ViIiwiYXR0cnMiOnsiaHJlZiI6Int7aHJlZn19IiwidGFyZ2V0Ijoie3t0YXJnZXR9fSJ9LCJ2YWx1ZXMiOnsiaHJlZiI6Imh0dHBzOi8vZ3JlZW5mcm9nY2xlYW5pbmcuY29tLyIsInRhcmdldCI6Il9ibGFuayJ9fQ==\"><strong>CRM</strong></a> All Rights Reserved</span></p>",
                                         "_languages": {}
                                     }
                                 }
                             ],
                             "values": {
-                                "backgroundColor": "#76b318",
+                                "backgroundColor": "#ffffff",
                                 "padding": "0px",
                                 "border": {},
                                 "borderRadius": "0px",
@@ -5022,8 +5034,8 @@
                                         "anchor": "",
                                         "src": {
                                             "url": "https://th.bing.com/th/id/OIG3.fOX5uS1eTrA0W465Krnz?w=270&h=270&c=6&r=0&o=5&cb=defcachec2&pid=ImgGn",
-                                            "width": 512,
-                                            "height": 120,
+                                            "width": 100,
+                                            "height": 100,
                                             "filename": "1752815630730-Logo.bd75d8af6c21c8a70441.png",
                                             "contentType": "image/png",
                                             "size": 43852,
@@ -5051,7 +5063,8 @@
                                         "deletable": true,
                                         "hideable": true,
                                         "locked": false,
-                                        "pending": false
+                                        "pending": false,
+                                        "width": "100px"
                                     }
                                 },
                                 {
@@ -5083,7 +5096,7 @@
                                         "deletable": true,
                                         "hideable": true,
                                         "locked": false,
-                                        "text": "<p style=\"line-height: 140%;\">Welcome to <strong>Green Frog House Cleaning</strong> - Your Partner in Cleanliness!</p>",
+                                        "text": "<p style=\"line-height: 140%;\">Welcome to <strong>CRM</strong> - Your Partner in CRM!</p>",
                                         "_languages": {}
                                     }
                                 },
@@ -5120,7 +5133,7 @@
                                         "deletable": true,
                                         "hideable": true,
                                         "locked": false,
-                                        "text": "<p style=\"line-height: 140%;\">Dear {{firstname}} {{lastname}},<br>Welcome to the Green Frog Family!&nbsp;</p>\n<p style=\"line-height: 140%;\">We are excited to help you keep your home sparkling clean. Whether it&rsquo;s a one-time clean or recurring service, we&rsquo;re here to make life easier for you.&nbsp;If you have any questions or want to book your first clean, feel free to reach out to us at 888-438-1781 or&nbsp;<a rel=\"noopener\" href=\"mailto:sales@greenfrogcleaning\" target=\"_blank\" data-u-link-value=\"eyJuYW1lIjoid2ViIiwiYXR0cnMiOnsiaHJlZiI6Int7aHJlZn19IiwidGFyZ2V0Ijoie3t0YXJnZXR9fSJ9LCJ2YWx1ZXMiOnsiaHJlZiI6Im1haWx0bzpzYWxlc0BncmVlbmZyb2djbGVhbmluZyIsInRhcmdldCI6Il9ibGFuayJ9fQ==\">sales@greenfrogcleaning.com</a><br>Thank you again for choosing Green Frog. We look forward to serving you!<br>Best Regards, Brian &amp; Jaime Owners, Green Frog Cleaning<br><a rel=\"noopener\" href=\"http://greenfrogcleaning.com\" target=\"_blank\" data-u-link-value=\"eyJuYW1lIjoid2ViIiwiYXR0cnMiOnsiaHJlZiI6Int7aHJlZn19IiwidGFyZ2V0Ijoie3t0YXJnZXR9fSJ9LCJ2YWx1ZXMiOnsiaHJlZiI6Imh0dHA6Ly9ncmVlbmZyb2djbGVhbmluZy5jb20iLCJ0YXJnZXQiOiJfYmxhbmsifX0=\">greenfrogcleaning.com</a></p>",
+                                        "text": "<p style=\"line-height: 140%;\">Dear {{firstname}} {{lastname}},<br>Welcome to the CRM Family!&nbsp;</p>\n<p style=\"line-height: 140%;\">We are excited to help you keep your home sparkling clean. Whether it&rsquo;s a one-time clean or recurring service, we&rsquo;re here to make life easier for you.&nbsp;If you have any questions or want to book your first clean, feel free to reach out to us at 888-438-1781 or&nbsp;<a rel=\"noopener\" href=\"mailto:sales@CRMcleaning\" target=\"_blank\" data-u-link-value=\"eyJuYW1lIjoid2ViIiwiYXR0cnMiOnsiaHJlZiI6Int7aHJlZn19IiwidGFyZ2V0Ijoie3t0YXJnZXR9fSJ9LCJ2YWx1ZXMiOnsiaHJlZiI6Im1haWx0bzpzYWxlc0BncmVlbmZyb2djbGVhbmluZyIsInRhcmdldCI6Il9ibGFuayJ9fQ==\">sales@CRMcleaning.com</a><br>Thank you again for choosing CRM. We look forward to serving you!<br>Best Regards, Brian &amp; Jaime Owners, CRM Cleaning<br><a rel=\"noopener\" href=\"http://CRMcleaning.com\" target=\"_blank\" data-u-link-value=\"eyJuYW1lIjoid2ViIiwiYXR0cnMiOnsiaHJlZiI6Int7aHJlZn19IiwidGFyZ2V0Ijoie3t0YXJnZXR9fSJ9LCJ2YWx1ZXMiOnsiaHJlZiI6Imh0dHA6Ly9ncmVlbmZyb2djbGVhbmluZy5jb20iLCJ0YXJnZXQiOiJfYmxhbmsifX0=\">CRMcleaning.com</a></p>",
                                         "_languages": {}
                                     }
                                 }
@@ -5188,7 +5201,7 @@
                                         "containerPadding": "10px",
                                         "anchor": "",
                                         "fontSize": "15px",
-                                        "color": "#ecf0f1",
+                                        "color": "#18181b",
                                         "textAlign": "left",
                                         "lineHeight": "150%",
                                         "linkStyle": {
@@ -5217,7 +5230,7 @@
                                 }
                             ],
                             "values": {
-                                "backgroundColor": "#76b318",
+                                "backgroundColor": "#ffffff",
                                 "padding": "0px",
                                 "border": {},
                                 "borderRadius": "0px",
@@ -5243,11 +5256,11 @@
                                             "icons": [
                                                 {
                                                     "name": "Facebook",
-                                                    "url": "https://www.facebook.com/greenfroghousecleaning/"
+                                                    "url": "https://www.facebook.com/CRMhousecleaning/"
                                                 },
                                                 {
                                                     "name": "LinkedIn",
-                                                    "url": "https://www.instagram.com/greenfrogcleaning/"
+                                                    "url": "https://www.instagram.com/CRMcleaning/"
                                                 },
                                                 {
                                                     "name": "Yelp",
@@ -5300,13 +5313,13 @@
                                         "deletable": true,
                                         "hideable": true,
                                         "locked": false,
-                                        "text": "<p style=\"line-height: 130%;\"><span style=\"color: rgb(255, 255, 255); line-height: 18.2px;\">&copy; 2025 <a rel=\"noopener\" href=\"https://greenfrogcleaning.com/\" target=\"_blank\" style=\"color: rgb(255, 255, 255);\" data-u-link-value=\"eyJuYW1lIjoid2ViIiwiYXR0cnMiOnsiaHJlZiI6Int7aHJlZn19IiwidGFyZ2V0Ijoie3t0YXJnZXR9fSJ9LCJ2YWx1ZXMiOnsiaHJlZiI6Imh0dHBzOi8vZ3JlZW5mcm9nY2xlYW5pbmcuY29tLyIsInRhcmdldCI6Il9ibGFuayJ9fQ==\"><strong>Green Frog House Cleaning</strong></a> All Rights Reserved</span></p>",
+                                        "text": "<p style=\"line-height: 130%;\"><span style=\"color: rgb(24, 24, 27); line-height: 18.2px;\">&copy; 2025 <a rel=\"noopener\" href=\"https://CRMcleaning.com/\" target=\"_blank\" style=\"color: rgb(24, 24, 27);\" data-u-link-value=\"eyJuYW1lIjoid2ViIiwiYXR0cnMiOnsiaHJlZiI6Int7aHJlZn19IiwidGFyZ2V0Ijoie3t0YXJnZXR9fSJ9LCJ2YWx1ZXMiOnsiaHJlZiI6Imh0dHBzOi8vZ3JlZW5mcm9nY2xlYW5pbmcuY29tLyIsInRhcmdldCI6Il9ibGFuayJ9fQ==\"><strong>CRM</strong></a> All Rights Reserved</span></p>",
                                         "_languages": {}
                                     }
                                 }
                             ],
                             "values": {
-                                "backgroundColor": "#76b318",
+                                "backgroundColor": "#ffffff",
                                 "padding": "0px",
                                 "border": {},
                                 "borderRadius": "0px",
@@ -5438,8 +5451,8 @@
                                         "anchor": "",
                                         "src": {
                                             "url": "https://th.bing.com/th/id/OIG3.fOX5uS1eTrA0W465Krnz?w=270&h=270&c=6&r=0&o=5&cb=defcachec2&pid=ImgGn",
-                                            "width": 512,
-                                            "height": 120,
+                                            "width": 100,
+                                            "height": 100,
                                             "filename": "1752815630730-Logo.bd75d8af6c21c8a70441.png",
                                             "contentType": "image/png",
                                             "size": 43852,
@@ -5467,7 +5480,8 @@
                                         "deletable": true,
                                         "hideable": true,
                                         "locked": false,
-                                        "pending": false
+                                        "pending": false,
+                                        "width": "100px"
                                     }
                                 },
                                 {
@@ -5499,7 +5513,7 @@
                                         "deletable": true,
                                         "hideable": true,
                                         "locked": false,
-                                        "text": "<p style=\"line-height: 140%;\">Welcome to <strong>Green Frog House Cleaning</strong> - Your Partner in Cleanliness!</p>",
+                                        "text": "<p style=\"line-height: 140%;\">Welcome to <strong>CRM</strong> - Your Partner in CRM!</p>",
                                         "_languages": {}
                                     }
                                 },
@@ -5536,7 +5550,7 @@
                                         "deletable": true,
                                         "hideable": true,
                                         "locked": false,
-                                        "text": "<p style=\"line-height: 140%;\">Dear {{firstname}} {{lastname}},<br>Welcome to the Green Frog Family!&nbsp;</p>\n<p style=\"line-height: 140%;\">We are excited to help you keep your home sparkling clean. Whether it&rsquo;s a one-time clean or recurring service, we&rsquo;re here to make life easier for you.&nbsp;If you have any questions or want to book your first clean, feel free to reach out to us at 888-438-1781 or&nbsp;<a rel=\"noopener\" href=\"mailto:sales@greenfrogcleaning\" target=\"_blank\" data-u-link-value=\"eyJuYW1lIjoid2ViIiwiYXR0cnMiOnsiaHJlZiI6Int7aHJlZn19IiwidGFyZ2V0Ijoie3t0YXJnZXR9fSJ9LCJ2YWx1ZXMiOnsiaHJlZiI6Im1haWx0bzpzYWxlc0BncmVlbmZyb2djbGVhbmluZyIsInRhcmdldCI6Il9ibGFuayJ9fQ==\">sales@greenfrogcleaning.com</a><br>Thank you again for choosing Green Frog. We look forward to serving you!<br>Best Regards, Brian &amp; Jaime Owners, Green Frog Cleaning<br><a rel=\"noopener\" href=\"http://greenfrogcleaning.com\" target=\"_blank\" data-u-link-value=\"eyJuYW1lIjoid2ViIiwiYXR0cnMiOnsiaHJlZiI6Int7aHJlZn19IiwidGFyZ2V0Ijoie3t0YXJnZXR9fSJ9LCJ2YWx1ZXMiOnsiaHJlZiI6Imh0dHA6Ly9ncmVlbmZyb2djbGVhbmluZy5jb20iLCJ0YXJnZXQiOiJfYmxhbmsifX0=\">greenfrogcleaning.com</a></p>",
+                                        "text": "<p style=\"line-height: 140%;\">Dear {{firstname}} {{lastname}},<br>Welcome to the CRM Family!&nbsp;</p>\n<p style=\"line-height: 140%;\">We are excited to help you keep your home sparkling clean. Whether it&rsquo;s a one-time clean or recurring service, we&rsquo;re here to make life easier for you.&nbsp;If you have any questions or want to book your first clean, feel free to reach out to us at 888-438-1781 or&nbsp;<a rel=\"noopener\" href=\"mailto:sales@CRMcleaning\" target=\"_blank\" data-u-link-value=\"eyJuYW1lIjoid2ViIiwiYXR0cnMiOnsiaHJlZiI6Int7aHJlZn19IiwidGFyZ2V0Ijoie3t0YXJnZXR9fSJ9LCJ2YWx1ZXMiOnsiaHJlZiI6Im1haWx0bzpzYWxlc0BncmVlbmZyb2djbGVhbmluZyIsInRhcmdldCI6Il9ibGFuayJ9fQ==\">sales@CRMcleaning.com</a><br>Thank you again for choosing CRM. We look forward to serving you!<br>Best Regards, Brian &amp; Jaime Owners, CRM Cleaning<br><a rel=\"noopener\" href=\"http://CRMcleaning.com\" target=\"_blank\" data-u-link-value=\"eyJuYW1lIjoid2ViIiwiYXR0cnMiOnsiaHJlZiI6Int7aHJlZn19IiwidGFyZ2V0Ijoie3t0YXJnZXR9fSJ9LCJ2YWx1ZXMiOnsiaHJlZiI6Imh0dHA6Ly9ncmVlbmZyb2djbGVhbmluZy5jb20iLCJ0YXJnZXQiOiJfYmxhbmsifX0=\">CRMcleaning.com</a></p>",
                                         "_languages": {}
                                     }
                                 }
@@ -5604,7 +5618,7 @@
                                         "containerPadding": "10px",
                                         "anchor": "",
                                         "fontSize": "15px",
-                                        "color": "#ecf0f1",
+                                        "color": "#18181b",
                                         "textAlign": "left",
                                         "lineHeight": "150%",
                                         "linkStyle": {
@@ -5633,7 +5647,7 @@
                                 }
                             ],
                             "values": {
-                                "backgroundColor": "#76b318",
+                                "backgroundColor": "#ffffff",
                                 "padding": "0px",
                                 "border": {},
                                 "borderRadius": "0px",
@@ -5659,11 +5673,11 @@
                                             "icons": [
                                                 {
                                                     "name": "Facebook",
-                                                    "url": "https://www.facebook.com/greenfroghousecleaning/"
+                                                    "url": "https://www.facebook.com/CRMhousecleaning/"
                                                 },
                                                 {
                                                     "name": "LinkedIn",
-                                                    "url": "https://www.instagram.com/greenfrogcleaning/"
+                                                    "url": "https://www.instagram.com/CRMcleaning/"
                                                 },
                                                 {
                                                     "name": "Yelp",
@@ -5716,13 +5730,13 @@
                                         "deletable": true,
                                         "hideable": true,
                                         "locked": false,
-                                        "text": "<p style=\"line-height: 130%;\"><span style=\"color: rgb(255, 255, 255); line-height: 18.2px;\">&copy; 2025 <a rel=\"noopener\" href=\"https://greenfrogcleaning.com/\" target=\"_blank\" style=\"color: rgb(255, 255, 255);\" data-u-link-value=\"eyJuYW1lIjoid2ViIiwiYXR0cnMiOnsiaHJlZiI6Int7aHJlZn19IiwidGFyZ2V0Ijoie3t0YXJnZXR9fSJ9LCJ2YWx1ZXMiOnsiaHJlZiI6Imh0dHBzOi8vZ3JlZW5mcm9nY2xlYW5pbmcuY29tLyIsInRhcmdldCI6Il9ibGFuayJ9fQ==\"><strong>Green Frog House Cleaning</strong></a> All Rights Reserved</span></p>",
+                                        "text": "<p style=\"line-height: 130%;\"><span style=\"color: rgb(24, 24, 27); line-height: 18.2px;\">&copy; 2025 <a rel=\"noopener\" href=\"https://CRMcleaning.com/\" target=\"_blank\" style=\"color: rgb(24, 24, 27);\" data-u-link-value=\"eyJuYW1lIjoid2ViIiwiYXR0cnMiOnsiaHJlZiI6Int7aHJlZn19IiwidGFyZ2V0Ijoie3t0YXJnZXR9fSJ9LCJ2YWx1ZXMiOnsiaHJlZiI6Imh0dHBzOi8vZ3JlZW5mcm9nY2xlYW5pbmcuY29tLyIsInRhcmdldCI6Il9ibGFuayJ9fQ==\"><strong>CRM</strong></a> All Rights Reserved</span></p>",
                                         "_languages": {}
                                     }
                                 }
                             ],
                             "values": {
-                                "backgroundColor": "#76b318",
+                                "backgroundColor": "#ffffff",
                                 "padding": "0px",
                                 "border": {},
                                 "borderRadius": "0px",
@@ -5854,8 +5868,8 @@
                                         "anchor": "",
                                         "src": {
                                             "url": "https://th.bing.com/th/id/OIG3.fOX5uS1eTrA0W465Krnz?w=270&h=270&c=6&r=0&o=5&cb=defcachec2&pid=ImgGn",
-                                            "width": 512,
-                                            "height": 120,
+                                            "width": 100,
+                                            "height": 100,
                                             "filename": "1752815630730-Logo.bd75d8af6c21c8a70441.png",
                                             "contentType": "image/png",
                                             "size": 43852,
@@ -5883,7 +5897,8 @@
                                         "deletable": true,
                                         "hideable": true,
                                         "locked": false,
-                                        "pending": false
+                                        "pending": false,
+                                        "width": "100px"
                                     }
                                 },
                                 {
@@ -5915,7 +5930,7 @@
                                         "deletable": true,
                                         "hideable": true,
                                         "locked": false,
-                                        "text": "<p style=\"line-height: 140%;\">Welcome to <strong>Green Frog House Cleaning</strong> - Your Partner in Cleanliness!</p>",
+                                        "text": "<p style=\"line-height: 140%;\">Welcome to <strong>CRM</strong> - Your Partner in CRM!</p>",
                                         "_languages": {}
                                     }
                                 },
@@ -5952,7 +5967,7 @@
                                         "deletable": true,
                                         "hideable": true,
                                         "locked": false,
-                                        "text": "<p style=\"line-height: 140%;\">Dear {{firstname}} {{lastname}},<br>Welcome to the Green Frog Family!&nbsp;</p>\n<p style=\"line-height: 140%;\">We are excited to help you keep your home sparkling clean. Whether it&rsquo;s a one-time clean or recurring service, we&rsquo;re here to make life easier for you.&nbsp;If you have any questions or want to book your first clean, feel free to reach out to us at 888-438-1781 or&nbsp;<a rel=\"noopener\" href=\"mailto:sales@greenfrogcleaning\" target=\"_blank\" data-u-link-value=\"eyJuYW1lIjoid2ViIiwiYXR0cnMiOnsiaHJlZiI6Int7aHJlZn19IiwidGFyZ2V0Ijoie3t0YXJnZXR9fSJ9LCJ2YWx1ZXMiOnsiaHJlZiI6Im1haWx0bzpzYWxlc0BncmVlbmZyb2djbGVhbmluZyIsInRhcmdldCI6Il9ibGFuayJ9fQ==\">sales@greenfrogcleaning.com</a><br>Thank you again for choosing Green Frog. We look forward to serving you!<br>Best Regards, Brian &amp; Jaime Owners, Green Frog Cleaning<br><a rel=\"noopener\" href=\"http://greenfrogcleaning.com\" target=\"_blank\" data-u-link-value=\"eyJuYW1lIjoid2ViIiwiYXR0cnMiOnsiaHJlZiI6Int7aHJlZn19IiwidGFyZ2V0Ijoie3t0YXJnZXR9fSJ9LCJ2YWx1ZXMiOnsiaHJlZiI6Imh0dHA6Ly9ncmVlbmZyb2djbGVhbmluZy5jb20iLCJ0YXJnZXQiOiJfYmxhbmsifX0=\">greenfrogcleaning.com</a></p>",
+                                        "text": "<p style=\"line-height: 140%;\">Dear {{firstname}} {{lastname}},<br>Welcome to the CRM Family!&nbsp;</p>\n<p style=\"line-height: 140%;\">We are excited to help you keep your home sparkling clean. Whether it&rsquo;s a one-time clean or recurring service, we&rsquo;re here to make life easier for you.&nbsp;If you have any questions or want to book your first clean, feel free to reach out to us at 888-438-1781 or&nbsp;<a rel=\"noopener\" href=\"mailto:sales@CRMcleaning\" target=\"_blank\" data-u-link-value=\"eyJuYW1lIjoid2ViIiwiYXR0cnMiOnsiaHJlZiI6Int7aHJlZn19IiwidGFyZ2V0Ijoie3t0YXJnZXR9fSJ9LCJ2YWx1ZXMiOnsiaHJlZiI6Im1haWx0bzpzYWxlc0BncmVlbmZyb2djbGVhbmluZyIsInRhcmdldCI6Il9ibGFuayJ9fQ==\">sales@CRMcleaning.com</a><br>Thank you again for choosing CRM. We look forward to serving you!<br>Best Regards, Brian &amp; Jaime Owners, CRM Cleaning<br><a rel=\"noopener\" href=\"http://CRMcleaning.com\" target=\"_blank\" data-u-link-value=\"eyJuYW1lIjoid2ViIiwiYXR0cnMiOnsiaHJlZiI6Int7aHJlZn19IiwidGFyZ2V0Ijoie3t0YXJnZXR9fSJ9LCJ2YWx1ZXMiOnsiaHJlZiI6Imh0dHA6Ly9ncmVlbmZyb2djbGVhbmluZy5jb20iLCJ0YXJnZXQiOiJfYmxhbmsifX0=\">CRMcleaning.com</a></p>",
                                         "_languages": {}
                                     }
                                 }
@@ -6020,7 +6035,7 @@
                                         "containerPadding": "10px",
                                         "anchor": "",
                                         "fontSize": "15px",
-                                        "color": "#ecf0f1",
+                                        "color": "#18181b",
                                         "textAlign": "left",
                                         "lineHeight": "150%",
                                         "linkStyle": {
@@ -6049,7 +6064,7 @@
                                 }
                             ],
                             "values": {
-                                "backgroundColor": "#76b318",
+                                "backgroundColor": "#ffffff",
                                 "padding": "0px",
                                 "border": {},
                                 "borderRadius": "0px",
@@ -6075,11 +6090,11 @@
                                             "icons": [
                                                 {
                                                     "name": "Facebook",
-                                                    "url": "https://www.facebook.com/greenfroghousecleaning/"
+                                                    "url": "https://www.facebook.com/CRMhousecleaning/"
                                                 },
                                                 {
                                                     "name": "LinkedIn",
-                                                    "url": "https://www.instagram.com/greenfrogcleaning/"
+                                                    "url": "https://www.instagram.com/CRMcleaning/"
                                                 },
                                                 {
                                                     "name": "Yelp",
@@ -6132,13 +6147,13 @@
                                         "deletable": true,
                                         "hideable": true,
                                         "locked": false,
-                                        "text": "<p style=\"line-height: 130%;\"><span style=\"color: rgb(255, 255, 255); line-height: 18.2px;\">&copy; 2025 <a rel=\"noopener\" href=\"https://greenfrogcleaning.com/\" target=\"_blank\" style=\"color: rgb(255, 255, 255);\" data-u-link-value=\"eyJuYW1lIjoid2ViIiwiYXR0cnMiOnsiaHJlZiI6Int7aHJlZn19IiwidGFyZ2V0Ijoie3t0YXJnZXR9fSJ9LCJ2YWx1ZXMiOnsiaHJlZiI6Imh0dHBzOi8vZ3JlZW5mcm9nY2xlYW5pbmcuY29tLyIsInRhcmdldCI6Il9ibGFuayJ9fQ==\"><strong>Green Frog House Cleaning</strong></a> All Rights Reserved</span></p>",
+                                        "text": "<p style=\"line-height: 130%;\"><span style=\"color: rgb(24, 24, 27); line-height: 18.2px;\">&copy; 2025 <a rel=\"noopener\" href=\"https://CRMcleaning.com/\" target=\"_blank\" style=\"color: rgb(24, 24, 27);\" data-u-link-value=\"eyJuYW1lIjoid2ViIiwiYXR0cnMiOnsiaHJlZiI6Int7aHJlZn19IiwidGFyZ2V0Ijoie3t0YXJnZXR9fSJ9LCJ2YWx1ZXMiOnsiaHJlZiI6Imh0dHBzOi8vZ3JlZW5mcm9nY2xlYW5pbmcuY29tLyIsInRhcmdldCI6Il9ibGFuayJ9fQ==\"><strong>CRM</strong></a> All Rights Reserved</span></p>",
                                         "_languages": {}
                                     }
                                 }
                             ],
                             "values": {
-                                "backgroundColor": "#76b318",
+                                "backgroundColor": "#ffffff",
                                 "padding": "0px",
                                 "border": {},
                                 "borderRadius": "0px",
@@ -6270,8 +6285,8 @@
                                         "anchor": "",
                                         "src": {
                                             "url": "https://th.bing.com/th/id/OIG3.fOX5uS1eTrA0W465Krnz?w=270&h=270&c=6&r=0&o=5&cb=defcachec2&pid=ImgGn",
-                                            "width": 512,
-                                            "height": 120,
+                                            "width": 100,
+                                            "height": 100,
                                             "filename": "1752815630730-Logo.bd75d8af6c21c8a70441.png",
                                             "contentType": "image/png",
                                             "size": 43852,
@@ -6299,7 +6314,8 @@
                                         "deletable": true,
                                         "hideable": true,
                                         "locked": false,
-                                        "pending": false
+                                        "pending": false,
+                                        "width": "100px"
                                     }
                                 },
                                 {
@@ -6331,7 +6347,7 @@
                                         "deletable": true,
                                         "hideable": true,
                                         "locked": false,
-                                        "text": "<p style=\"line-height: 140%;\">Welcome to <strong>Green Frog House Cleaning</strong> - Your Partner in Cleanliness!</p>",
+                                        "text": "<p style=\"line-height: 140%;\">Welcome to <strong>CRM</strong> - Your Partner in CRM!</p>",
                                         "_languages": {}
                                     }
                                 },
@@ -6368,7 +6384,7 @@
                                         "deletable": true,
                                         "hideable": true,
                                         "locked": false,
-                                        "text": "<p style=\"line-height: 140%;\">Dear {{firstname}} {{lastname}},<br>Welcome to the Green Frog Family!&nbsp;</p>\n<p style=\"line-height: 140%;\">We are excited to help you keep your home sparkling clean. Whether it&rsquo;s a one-time clean or recurring service, we&rsquo;re here to make life easier for you.&nbsp;If you have any questions or want to book your first clean, feel free to reach out to us at 888-438-1781 or&nbsp;<a rel=\"noopener\" href=\"mailto:sales@greenfrogcleaning\" target=\"_blank\" data-u-link-value=\"eyJuYW1lIjoid2ViIiwiYXR0cnMiOnsiaHJlZiI6Int7aHJlZn19IiwidGFyZ2V0Ijoie3t0YXJnZXR9fSJ9LCJ2YWx1ZXMiOnsiaHJlZiI6Im1haWx0bzpzYWxlc0BncmVlbmZyb2djbGVhbmluZyIsInRhcmdldCI6Il9ibGFuayJ9fQ==\">sales@greenfrogcleaning.com</a><br>Thank you again for choosing Green Frog. We look forward to serving you!<br>Best Regards, Brian &amp; Jaime Owners, Green Frog Cleaning<br><a rel=\"noopener\" href=\"http://greenfrogcleaning.com\" target=\"_blank\" data-u-link-value=\"eyJuYW1lIjoid2ViIiwiYXR0cnMiOnsiaHJlZiI6Int7aHJlZn19IiwidGFyZ2V0Ijoie3t0YXJnZXR9fSJ9LCJ2YWx1ZXMiOnsiaHJlZiI6Imh0dHA6Ly9ncmVlbmZyb2djbGVhbmluZy5jb20iLCJ0YXJnZXQiOiJfYmxhbmsifX0=\">greenfrogcleaning.com</a></p>",
+                                        "text": "<p style=\"line-height: 140%;\">Dear {{firstname}} {{lastname}},<br>Welcome to the CRM Family!&nbsp;</p>\n<p style=\"line-height: 140%;\">We are excited to help you keep your home sparkling clean. Whether it&rsquo;s a one-time clean or recurring service, we&rsquo;re here to make life easier for you.&nbsp;If you have any questions or want to book your first clean, feel free to reach out to us at 888-438-1781 or&nbsp;<a rel=\"noopener\" href=\"mailto:sales@CRMcleaning\" target=\"_blank\" data-u-link-value=\"eyJuYW1lIjoid2ViIiwiYXR0cnMiOnsiaHJlZiI6Int7aHJlZn19IiwidGFyZ2V0Ijoie3t0YXJnZXR9fSJ9LCJ2YWx1ZXMiOnsiaHJlZiI6Im1haWx0bzpzYWxlc0BncmVlbmZyb2djbGVhbmluZyIsInRhcmdldCI6Il9ibGFuayJ9fQ==\">sales@CRMcleaning.com</a><br>Thank you again for choosing CRM. We look forward to serving you!<br>Best Regards, Brian &amp; Jaime Owners, CRM Cleaning<br><a rel=\"noopener\" href=\"http://CRMcleaning.com\" target=\"_blank\" data-u-link-value=\"eyJuYW1lIjoid2ViIiwiYXR0cnMiOnsiaHJlZiI6Int7aHJlZn19IiwidGFyZ2V0Ijoie3t0YXJnZXR9fSJ9LCJ2YWx1ZXMiOnsiaHJlZiI6Imh0dHA6Ly9ncmVlbmZyb2djbGVhbmluZy5jb20iLCJ0YXJnZXQiOiJfYmxhbmsifX0=\">CRMcleaning.com</a></p>",
                                         "_languages": {}
                                     }
                                 }
@@ -6436,7 +6452,7 @@
                                         "containerPadding": "10px",
                                         "anchor": "",
                                         "fontSize": "15px",
-                                        "color": "#ecf0f1",
+                                        "color": "#18181b",
                                         "textAlign": "left",
                                         "lineHeight": "150%",
                                         "linkStyle": {
@@ -6465,7 +6481,7 @@
                                 }
                             ],
                             "values": {
-                                "backgroundColor": "#76b318",
+                                "backgroundColor": "#ffffff",
                                 "padding": "0px",
                                 "border": {},
                                 "borderRadius": "0px",
@@ -6491,11 +6507,11 @@
                                             "icons": [
                                                 {
                                                     "name": "Facebook",
-                                                    "url": "https://www.facebook.com/greenfroghousecleaning/"
+                                                    "url": "https://www.facebook.com/CRMhousecleaning/"
                                                 },
                                                 {
                                                     "name": "LinkedIn",
-                                                    "url": "https://www.instagram.com/greenfrogcleaning/"
+                                                    "url": "https://www.instagram.com/CRMcleaning/"
                                                 },
                                                 {
                                                     "name": "Yelp",
@@ -6548,13 +6564,13 @@
                                         "deletable": true,
                                         "hideable": true,
                                         "locked": false,
-                                        "text": "<p style=\"line-height: 130%;\"><span style=\"color: rgb(255, 255, 255); line-height: 18.2px;\">&copy; 2025 <a rel=\"noopener\" href=\"https://greenfrogcleaning.com/\" target=\"_blank\" style=\"color: rgb(255, 255, 255);\" data-u-link-value=\"eyJuYW1lIjoid2ViIiwiYXR0cnMiOnsiaHJlZiI6Int7aHJlZn19IiwidGFyZ2V0Ijoie3t0YXJnZXR9fSJ9LCJ2YWx1ZXMiOnsiaHJlZiI6Imh0dHBzOi8vZ3JlZW5mcm9nY2xlYW5pbmcuY29tLyIsInRhcmdldCI6Il9ibGFuayJ9fQ==\"><strong>Green Frog House Cleaning</strong></a> All Rights Reserved</span></p>",
+                                        "text": "<p style=\"line-height: 130%;\"><span style=\"color: rgb(24, 24, 27); line-height: 18.2px;\">&copy; 2025 <a rel=\"noopener\" href=\"https://CRMcleaning.com/\" target=\"_blank\" style=\"color: rgb(24, 24, 27);\" data-u-link-value=\"eyJuYW1lIjoid2ViIiwiYXR0cnMiOnsiaHJlZiI6Int7aHJlZn19IiwidGFyZ2V0Ijoie3t0YXJnZXR9fSJ9LCJ2YWx1ZXMiOnsiaHJlZiI6Imh0dHBzOi8vZ3JlZW5mcm9nY2xlYW5pbmcuY29tLyIsInRhcmdldCI6Il9ibGFuayJ9fQ==\"><strong>CRM</strong></a> All Rights Reserved</span></p>",
                                         "_languages": {}
                                     }
                                 }
                             ],
                             "values": {
-                                "backgroundColor": "#76b318",
+                                "backgroundColor": "#ffffff",
                                 "padding": "0px",
                                 "border": {},
                                 "borderRadius": "0px",
