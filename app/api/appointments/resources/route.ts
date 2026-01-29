@@ -75,30 +75,39 @@ export async function GET(req: NextRequest) {
         const bookings = await Booking.find({ companyId: user.companyId })
             .populate('contactId', 'firstName lastName email phone')
             .populate('serviceId', 'name')
-            .populate({
-                path: 'subServices.serviceId',
-                select: 'name'
-            })
-            .populate({
-                path: 'addons.serviceId',
-                select: 'name'
-            })
             .lean();
+
+        // Collect all unique service IDs from subServices and addons
+        const serviceIds = new Set<string>();
+        bookings.forEach((booking: any) => {
+            booking.subServices?.forEach((sub: any) => {
+                if (sub.serviceId) serviceIds.add(sub.serviceId.toString());
+            });
+            booking.addons?.forEach((addon: any) => {
+                if (addon.serviceId) serviceIds.add(addon.serviceId.toString());
+            });
+        });
+
+        // Fetch all services in one query
+        const services = await Service.find({ _id: { $in: Array.from(serviceIds) } }).select('_id name').lean();
+        const serviceMap = new Map(services.map((s: any) => [s._id.toString(), s.name]));
 
         const bookingEvents = bookings.map((booking: any) => {
             // Format address
             const addr = booking.shippingAddress;
             const formattedAddress = addr ? `${addr.street || ''}, ${addr.city || ''}, ${addr.state || ''} ${addr.zipCode || ''}` : '';
 
-            // Format units (sub-services)
-            const units = booking.subServices?.map((sub: any) =>
-                `${sub.serviceId?.name || 'Unknown'} (x${sub.quantity})`
-            ).join(', ') || '';
+            // Format units (sub-services) with service names from map
+            const units = booking.subServices?.map((sub: any) => {
+                const serviceName = serviceMap.get(sub.serviceId?.toString()) || 'Unknown';
+                return `${serviceName} (x${sub.quantity})`;
+            }).join(', ') || '';
 
-            // Format addons
-            const addons = booking.addons?.map((addon: any) =>
-                `${addon.serviceId?.name || 'Unknown'} (x${addon.quantity})`
-            ).join(', ') || '';
+            // Format addons with service names from map
+            const addons = booking.addons?.map((addon: any) => {
+                const serviceName = serviceMap.get(addon.serviceId?.toString()) || 'Unknown';
+                return `${serviceName} (x${addon.quantity})`;
+            }).join(', ') || '';
 
             return {
                 id: `booking-${booking._id}`,
