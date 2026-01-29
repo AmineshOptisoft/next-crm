@@ -28,6 +28,22 @@ export interface Company {
         currency: string;
     };
     profileCompleted?: boolean;
+    mailConfig?: {
+        provider: "smtp" | "gmail";
+        smtp?: {
+            host?: string;
+            port?: string;
+            username?: string;
+            password?: string;
+            fromEmail?: string;
+            fromName?: string;
+        };
+        gmail?: {
+            email?: string;
+            accessToken?: string;
+            expiryDate?: number;
+        };
+    };
 }
 
 export interface Promocode {

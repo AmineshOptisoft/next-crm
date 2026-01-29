@@ -1,0 +1,14 @@
+{
+    "web": {
+        "client_id": "689336639215-ebbah3bm91rl13v5lp4m3b0ncu2on28c.apps.googleusercontent.com",
+        "project_id": "durable-gizmo-485808-d5",
+        "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+        "token_uri": "https://oauth2.googleapis.com/token",
+        "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+        "client_secret": "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",
+        "redirect_uris": [
+            "http://localhost:3000/gmail/callback",
+            "http://localhost:4000/gmail/callback"
+        ]
+    }
+}
