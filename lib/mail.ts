@@ -3,16 +3,45 @@ import { google } from "googleapis";
 import { Company } from "@/app/models/Company";
 import EmailCampaign from "@/app/models/EmailCampaign";
 
-// Legacy transporter for backward compatibility
-const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST,
-  port: Number(process.env.SMTP_PORT),
-  secure: false,
-  auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS,
-  },
-});
+// Utility to get legacy transporter with current environment variables
+export function getLegacyTransporter() {
+  return nodemailer.createTransport({
+    host: process.env.SMTP_HOST,
+    port: Number(process.env.SMTP_PORT),
+    secure: Number(process.env.SMTP_PORT) === 465,
+    auth: {
+      user: process.env.SMTP_USER,
+      pass: process.env.SMTP_PASS,
+    },
+    tls: {
+      rejectUnauthorized: false
+    }
+  });
+}
+
+/**
+ * Personalize email content with user data
+ */
+export function personalizeEmail(html: string, user: any): string {
+  if (!html) return "";
+  if (!user) {
+    // Basic cleanup of common tags if no user provided
+    return html
+      .replace(/\{\{\s*(firstname|first_name)\s*\}\}/gi, "User")
+      .replace(/\{\{\s*(lastname|last_name)\s*\}\}/gi, "")
+      .replace(/\{\{\s*email\s*\}\}/gi, "");
+  }
+
+  return html
+    .replace(/\{\{\s*(firstname|first_name)\s*\}\}/gi, user.firstName || "")
+    .replace(/\{\{\s*(lastname|last_name)\s*\}\}/gi, user.lastName || "")
+    .replace(/\{\{\s*email\s*\}\}/gi, user.email || "")
+    .replace(/\{\{\s*phone\s*\}\}/gi, user.phoneNumber || "")
+    .replace(/\{\{\s*company\s*\}\}/gi, user.companyName || "")
+    .replace(/\{\{\s*service_name\s*\}\}/gi, user.serviceName || "")
+    .replace(/\{\{\s*price\s*\}\}/gi, user.price || "")
+    .replace(/\{\{\s*units\s*\}\}/gi, user.units || "");
+}
 
 /**
  * Get internal company ID from a campaign
@@ -24,55 +53,122 @@ async function getCompanyIdFromCampaign(campaignId: string): Promise<string> {
 }
 
 /**
- * Get mail transporter using campaignId
+ * Get mail transporter using companyId
  */
-export async function getMailTransporter(campaignId: string) {
-  const companyId = await getCompanyIdFromCampaign(campaignId);
+export async function getCompanyTransporter(companyId: string): Promise<any> {
   const company = await Company.findById(companyId);
 
   if (!company || !company.mailConfig) {
     throw new Error("Company mail configuration not found");
   }
 
-  const { provider, smtp, gmail } = company.mailConfig;
+  const { provider, smtp, gmail: gmailConfig } = company.mailConfig;
 
-  if (provider === "gmail" && gmail?.email) {
+  if (provider === "gmail" && gmailConfig?.email) {
     const clientId = process.env.GMAIL_CLIENT_ID || "689336639215-ebbah3bm91rl13v5lp4m3b0ncu2on28c.apps.googleusercontent.com";
     const clientSecret = process.env.GMAIL_CLIENT_SECRET || "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";
 
-    return nodemailer.createTransport({
-      service: "gmail",
-      auth: {
-        type: "OAuth2",
-        user: gmail.email,
-        clientId,
-        clientSecret,
-        refreshToken: gmail.refreshToken,
-        accessToken: gmail.accessToken,
+    if (!gmailConfig.refreshToken) {
+      throw new Error("Gmail disconnected: Refresh token missing. Please reconnect Google account in Settings.");
+    }
+
+    const oauth2Client = new google.auth.OAuth2(clientId, clientSecret);
+    oauth2Client.setCredentials({ refresh_token: gmailConfig.refreshToken });
+
+    // Helper to get fresh token and update DB
+    const getFreshToken = async () => {
+      const { token } = await oauth2Client.getAccessToken();
+      if (!token) throw new Error("Failed to generate access token");
+
+      if (token !== gmailConfig.accessToken) {
+        await Company.updateOne(
+          { _id: companyId },
+          {
+            $set: {
+              "mailConfig.gmail.accessToken": token,
+              "mailConfig.gmail.expiryDate": oauth2Client.credentials.expiry_date
+            }
+          }
+        );
+      }
+      return token;
+    };
+
+    return {
+      verify: async () => {
+        const gmail = google.gmail({ version: "v1", auth: oauth2Client });
+        await getFreshToken();
+        await gmail.users.getProfile({ userId: 'me' });
+        return true;
       },
-    } as any);
+      sendMail: async (options: { from: string, to: string, subject: string, html: string }) => {
+        const gmail = google.gmail({ version: "v1", auth: oauth2Client });
+        await getFreshToken();
+
+        // Prepare email content as per user request
+        const utf8Subject = `=?utf-8?B?${Buffer.from(options.subject).toString("base64")}?=`;
+        const messageParts = [
+          `From: ${options.from}`,
+          `To: ${options.to}`,
+          "Content-Type: text/html; charset=utf-8",
+          "MIME-Version: 1.0",
+          `Subject: ${utf8Subject}`,
+          "",
+          options.html,
+        ];
+        const message = messageParts.join("\n");
+
+        const encodedMessage = Buffer.from(message)
+          .toString("base64")
+          .replace(/\+/g, "-")
+          .replace(/\//g, "_")
+          .replace(/=+$/, "");
+
+        const res = await gmail.users.messages.send({
+          userId: "me",
+          requestBody: {
+            raw: encodedMessage,
+          },
+        });
+
+        return { messageId: res.data.id };
+      }
+    };
   }
 
   if (provider === "smtp" && smtp?.host) {
-    return nodemailer.createTransport({
-      host: smtp.host,
-      port: smtp.port || 587,
-      secure: smtp.port === 465,
-      auth: {
-        user: smtp.username,
-        pass: smtp.password,
-      },
-    });
+    const transporter = smtp.host.includes("gmail.com")
+      ? nodemailer.createTransport({
+        service: "gmail",
+        auth: { user: smtp.username, pass: smtp.password },
+        tls: { rejectUnauthorized: false }
+      })
+      : nodemailer.createTransport({
+        host: smtp.host,
+        port: smtp.port || 587,
+        secure: smtp.port === 465,
+        auth: { user: smtp.username, pass: smtp.password },
+        tls: { rejectUnauthorized: false }
+      });
+
+    return transporter;
   }
 
-  throw new Error("No active mail provider configured");
+  throw new Error("No active mail provider configured for this company. Please set up SMTP or Gmail in Settings.");
 }
 
 /**
- * Get FROM email using campaignId
+ * Get mail transporter using campaignId
  */
-export async function getFromEmail(campaignId: string): Promise<string> {
+export async function getMailTransporter(campaignId: string) {
   const companyId = await getCompanyIdFromCampaign(campaignId);
+  return getCompanyTransporter(companyId);
+}
+
+/**
+ * Get FROM email using companyId
+ */
+export async function getCompanyFromEmail(companyId: string): Promise<string> {
   const company = await Company.findById(companyId);
 
   if (!company || !company.mailConfig) {
@@ -93,10 +189,17 @@ export async function getFromEmail(campaignId: string): Promise<string> {
 }
 
 /**
- * Get FROM name using campaignId
+ * Get FROM email using campaignId
  */
-export async function getFromName(campaignId: string): Promise<string> {
+export async function getFromEmail(campaignId: string): Promise<string> {
   const companyId = await getCompanyIdFromCampaign(campaignId);
+  return getCompanyFromEmail(companyId);
+}
+
+/**
+ * Get FROM name using companyId
+ */
+export async function getCompanyFromName(companyId: string): Promise<string> {
   const company = await Company.findById(companyId);
 
   if (!company || !company.mailConfig) {
@@ -113,6 +216,40 @@ export async function getFromName(campaignId: string): Promise<string> {
 }
 
 /**
+ * Get FROM name using campaignId
+ */
+export async function getFromName(campaignId: string): Promise<string> {
+  const companyId = await getCompanyIdFromCampaign(campaignId);
+  return getCompanyFromName(companyId);
+}
+
+/**
+ * Universal mail sender function using companyId directly
+ */
+export async function sendMailWithCompanyProvider({
+  companyId,
+  to,
+  subject,
+  html,
+}: {
+  companyId: string;
+  to: string;
+  subject: string;
+  html: string;
+}) {
+  const mailTransporter = await getCompanyTransporter(companyId);
+  const fromEmail = await getCompanyFromEmail(companyId);
+  const fromName = await getCompanyFromName(companyId);
+
+  return await mailTransporter.sendMail({
+    from: `"${fromName}" <${fromEmail}>`,
+    to,
+    subject,
+    html,
+  });
+}
+
+/**
  * Universal mail sender function using campaignId
  */
 export async function sendMailWithCampaignProvider({
@@ -126,16 +263,8 @@ export async function sendMailWithCampaignProvider({
   subject: string;
   html: string;
 }) {
-  const mailTransporter = await getMailTransporter(campaignId);
-  const fromEmail = await getFromEmail(campaignId);
-  const fromName = await getFromName(campaignId);
-
-  return await mailTransporter.sendMail({
-    from: `"${fromName}" <${fromEmail}>`,
-    to,
-    subject,
-    html,
-  });
+  const companyId = await getCompanyIdFromCampaign(campaignId);
+  return sendMailWithCompanyProvider({ companyId, to, subject, html });
 }
 
 /**
@@ -152,6 +281,7 @@ export async function sendVerificationEmail(email: string, token: string) {
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL!;
   const verifyUrl = `${baseUrl}/verify?token=${token}&email=${encodeURIComponent(email)}`;
 
+  const transporter = getLegacyTransporter();
   await transporter.sendMail({
     from: process.env.EMAIL_FROM,
     to: email,
@@ -161,6 +291,7 @@ export async function sendVerificationEmail(email: string, token: string) {
 }
 
 export async function sendMail({ to, subject, html }: { to: string; subject: string; html: string }) {
+  const transporter = getLegacyTransporter();
   return await transporter.sendMail({
     from: process.env.EMAIL_FROM,
     to,

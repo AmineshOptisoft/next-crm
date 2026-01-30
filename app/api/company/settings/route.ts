@@ -53,23 +53,37 @@ export async function PUT(req: NextRequest) {
 
   await connectDB();
 
+  // Get current company to preserve fields and check completeness
+  const currentCompany = await Company.findById(user.companyId);
+  if (!currentCompany) {
+    return NextResponse.json({ error: "Company not found" }, { status: 404 });
+  }
+
+  // Merge current data with update data for completeness check
+  // This ensures that if we only update mailConfig, other fields like name/logo are still counted
+  const mergedData = {
+    ...currentCompany.toObject(),
+    ...body
+  };
+
   // Check if all required fields are present for profile completion
   const isProfileComplete = !!(
-    body.name &&
-    body.logo &&
-    body.industry &&
-    body.email &&
-    body.phone &&
-    body.address?.street &&
-    body.address?.city &&
-    body.address?.state &&
-    body.address?.country &&
-    body.address?.zipCode &&
-    body.address?.latitude &&
-    body.address?.longitude
+    mergedData.name &&
+    mergedData.logo &&
+    mergedData.industry &&
+    mergedData.email &&
+    mergedData.phone &&
+    mergedData.address?.street &&
+    mergedData.address?.city &&
+    mergedData.address?.state &&
+    mergedData.address?.country &&
+    mergedData.address?.zipCode &&
+    mergedData.address?.latitude &&
+    mergedData.address?.longitude
   );
 
   // Update company with profileCompleted status
+  // We use the body for the update but include the calculated profileCompleted
   const updateData = {
     ...body,
     profileCompleted: isProfileComplete,

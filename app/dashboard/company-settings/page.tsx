@@ -31,6 +31,7 @@ export default function CompanySettingsPage() {
     const [saving, setSaving] = useState(false);
     const [industries, setIndustries] = useState<Array<{ _id: string; name: string }>>([]);
     const [isRedirectDialogOpen, setIsRedirectDialogOpen] = useState(false);
+    const [selectedLogo, setSelectedLogo] = useState<File | null>(null);
 
     const [formData, setFormData] = useState({
         name: "",
@@ -113,10 +114,34 @@ export default function CompanySettingsPage() {
         setSaving(true);
 
         try {
+            let finalFormData = { ...formData };
+
+            // If a new logo was selected, upload it first
+            if (selectedLogo) {
+                const logoFormData = new FormData();
+                logoFormData.append("file", selectedLogo);
+
+                const uploadRes = await fetch("/api/company/upload-logo", {
+                    method: "POST",
+                    body: logoFormData,
+                });
+
+                if (uploadRes.ok) {
+                    const uploadData = await uploadRes.json();
+                    finalFormData.logo = uploadData.url;
+                    // Update current state too
+                    setFormData(prev => ({ ...prev, logo: uploadData.url }));
+                } else {
+                    console.error("Failed to upload company logo");
+                    // Continue anyway or handle error? Let's alert.
+                    alert("Failed to upload logo. Will try to save other settings.");
+                }
+            }
+
             const response = await fetch("/api/company/settings", {
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(formData),
+                body: JSON.stringify(finalFormData),
             });
 
             if (response.ok) {
@@ -185,6 +210,8 @@ export default function CompanySettingsPage() {
                         saving={saving}
                         handleSubmit={handleSubmit}
                         industries={industries}
+                        selectedLogo={selectedLogo}
+                        setSelectedLogo={setSelectedLogo}
                     />
                 </TabsContent>
 

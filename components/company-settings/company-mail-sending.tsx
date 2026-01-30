@@ -121,13 +121,21 @@ export function CompanyMailSending({ company }: CompanyMailSendingProps) {
     };
 
     const handleDisconnectGmail = async () => {
-        // Implementation for disconnect (clear mailConfig.gmail)
         if (!confirm("Are you sure you want to disconnect Gmail?")) return;
 
+        setIsSaving(true);
         try {
             const payload = {
                 mailConfig: {
-                    provider: "smtp", // Switch back to SMTP
+                    provider: "smtp",
+                    smtp: company?.mailConfig?.smtp || {
+                        host: "",
+                        port: 587,
+                        username: "",
+                        password: "",
+                        fromEmail: "",
+                        fromName: ""
+                    },
                     gmail: {
                         accessToken: null,
                         refreshToken: null,
@@ -135,17 +143,28 @@ export function CompanyMailSending({ company }: CompanyMailSendingProps) {
                     }
                 }
             };
+
             const res = await fetch("/api/company/settings", {
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(payload)
             });
+
             if (res.ok) {
-                toast.success("Gmail disconnected. Switched to SMTP.");
-                window.location.reload(); // Reload to reflect changes
+                toast.success("Gmail disconnected successfully");
+                // Use a short delay before reload to let the toast be seen
+                setTimeout(() => {
+                    window.location.reload();
+                }, 1000);
+            } else {
+                const data = await res.json();
+                toast.error(data.error || "Failed to disconnect Gmail");
             }
-        } catch (e) {
-            toast.error("Failed to disconnect");
+        } catch (error) {
+            console.error("Disconnect error:", error);
+            toast.error("An error occurred while disconnecting");
+        } finally {
+            setIsSaving(false);
         }
     };
 
@@ -179,8 +198,8 @@ export function CompanyMailSending({ company }: CompanyMailSendingProps) {
                             }`}
                     >
                         <div className={`w-4 h-4 shrink-0 rounded-full border flex items-center justify-center ${isGmailConnected && company?.mailConfig?.provider === "gmail"
-                                ? "border-zinc-300"
-                                : sendingMethod === "smtp" ? "border-cyan-500" : "border-zinc-400"
+                            ? "border-zinc-300"
+                            : sendingMethod === "smtp" ? "border-cyan-500" : "border-zinc-400"
                             }`}>
                             {sendingMethod === "smtp" && !(isGmailConnected && company?.mailConfig?.provider === "gmail") && (
                                 <div className="w-2 h-2 rounded-full bg-cyan-500" />
@@ -220,8 +239,8 @@ export function CompanyMailSending({ company }: CompanyMailSendingProps) {
                             }`}
                     >
                         <div className={`w-4 h-4 shrink-0 rounded-full border flex items-center justify-center ${company?.mailConfig?.provider === "smtp" && company?.mailConfig?.smtp?.host
-                                ? "border-zinc-300"
-                                : sendingMethod === "gmail" ? "border-cyan-500" : "border-zinc-400"
+                            ? "border-zinc-300"
+                            : sendingMethod === "gmail" ? "border-cyan-500" : "border-zinc-400"
                             }`}>
                             {sendingMethod === "gmail" && !(company?.mailConfig?.provider === "smtp" && company?.mailConfig?.smtp?.host) && (
                                 <div className="w-2 h-2 rounded-full bg-cyan-500" />
