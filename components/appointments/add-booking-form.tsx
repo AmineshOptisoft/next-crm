@@ -1,5 +1,7 @@
 "use client";
 
+import { toast } from "sonner";
+
 import { useEvents } from "@/context/events-context";
 import { Sheet, SheetContent, SheetHeader, SheetFooter, SheetDescription, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
@@ -58,6 +60,8 @@ export function AddBookingForm({ open, onOpenChange, initialData }: AddBookingFo
     const [contacts, setContacts] = useState<any[]>([]);
     const [services, setServices] = useState<any[]>([]);
     const [technicians, setTechnicians] = useState<any[]>([]);
+    const [allTechnicians, setAllTechnicians] = useState<any[]>([]); // Store all technicians
+    const [filteredTechnicians, setFilteredTechnicians] = useState<any[]>([]); // Filtered list
     const [selectedContact, setSelectedContact] = useState<any>(null);
     const [selectedService, setSelectedService] = useState<any>(null);
     const [selectedTechnicianIds, setSelectedTechnicianIds] = useState<string[]>([]);
@@ -138,8 +142,8 @@ export function AddBookingForm({ open, onOpenChange, initialData }: AddBookingFo
         try {
             const res = await fetch('/api/appointments/resources');
             const data = await res.json();
-            // Flatten the resources array from groups if necessary, or use resources directly depending on API structure
-            // The API returns resources: [{id, title, group}, ...]
+            // Store all technicians for filtering
+            setAllTechnicians(data.resources || []);
             setTechnicians(data.resources || []);
         } catch (error) {
             console.error("Failed to fetch technicians:", error);
@@ -193,6 +197,49 @@ export function AddBookingForm({ open, onOpenChange, initialData }: AddBookingFo
             }
         }
     }, [selectedService, subServiceQuantities, addonQuantities, bookingStart]);
+
+    // Filter technicians based on clicked technician's zone and selected service
+    useEffect(() => {
+        if (!selectedService || !bookingStart || !bookingEnd) {
+            setFilteredTechnicians([]);
+            return;
+        }
+
+        // Find the clicked technician's zone from initialData
+        const clickedTechnicianId = initialData?.technicianId;
+        const clickedTechnician = allTechnicians.find(t => t.id === clickedTechnicianId);
+        const targetZone = clickedTechnician?.group;
+
+        if (!targetZone) {
+            // If no zone found, show all technicians (fallback)
+            setFilteredTechnicians(allTechnicians);
+            return;
+        }
+
+        // Filter technicians who:
+        // 1. Are in the same zone as the clicked technician
+        // 2. Have the selected service assigned to them
+        const filtered = allTechnicians.filter(tech => {
+            // Check if technician is in the same service area (zone)
+            if (tech.group !== targetZone) {
+                return false;
+            }
+
+            // Check if technician has the selected service assigned
+            if (tech.services && Array.isArray(tech.services)) {
+                const hasService = tech.services.some((serviceId: any) =>
+                    serviceId.toString() === selectedService._id.toString()
+                );
+                if (!hasService) {
+                    return false;
+                }
+            }
+
+            return true;
+        });
+
+        setFilteredTechnicians(filtered);
+    }, [selectedService, bookingStart, bookingEnd, allTechnicians, initialData?.technicianId]);
 
     const fetchContacts = async () => {
         try {
@@ -329,46 +376,34 @@ export function AddBookingForm({ open, onOpenChange, initialData }: AddBookingFo
     const handleSubmit = async () => {
         try {
             let contactId = selectedContact?._id;
-            let createdContactId: string | null = null;
+            let newContactData = null;
 
-            // Create new contact if userType is "new"
+            // Prepare new contact data if userType is "new"
             if (userType === "new") {
                 // Validate required fields
                 if (!formData.email || !formData.password || !formData.firstName || !formData.lastName) {
-                    alert("Error: Please fill all required fields (Email, Password, First Name, Last Name)");
+                    toast.error("Please fill all required fields (Email, Password, First Name, Last Name)");
                     return;
                 }
 
-                const contactRes = await fetch('/api/contacts', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        email: formData.email,
-                        password: formData.password,
-                        firstName: formData.firstName,
-                        lastName: formData.lastName,
-                        phone: formData.phoneNumber,
-                        streetAddress: formData.address,
-                        city: formData.city,
-                        state: formData.state,
-                        zipCode: formData.zipCode,
-                        gender: formData.gender
-                    })
-                });
-
-                if (!contactRes.ok) {
-                    const errorData = await contactRes.json();
-                    throw new Error(errorData.error || "Failed to create contact. Please check if email already exists.");
-                }
-
-                const newContact = await contactRes.json();
-                contactId = newContact._id;
-                createdContactId = newContact._id;
+                newContactData = {
+                    email: formData.email,
+                    password: formData.password,
+                    firstName: formData.firstName,
+                    lastName: formData.lastName,
+                    phone: formData.phoneNumber,
+                    streetAddress: formData.address,
+                    city: formData.city,
+                    state: formData.state,
+                    zipCode: formData.zipCode,
+                    gender: formData.gender
+                };
             }
 
+
             // Validate booking data
-            if (!contactId || !selectedService) {
-                alert("Error: Please select a contact and service");
+            if ((!contactId && !newContactData) || !selectedService) {
+                toast.error("Please select a contact and service");
                 return;
             }
 
@@ -381,12 +416,12 @@ export function AddBookingForm({ open, onOpenChange, initialData }: AddBookingFo
                 .filter(([_, qty]) => qty > 0)
                 .map(([serviceId, quantity]) => ({ serviceId, quantity }));
 
-            // Create booking
-            // Create booking
+            // Create booking payload
             const bookingData = {
-                contactId,
-                technicianId: initialData?.technicianId, // Keep for backward compatibility/reference
-                technicianIds: selectedTechnicianIds, // Send multiple IDs
+                newContact: newContactData, // Send new contact data if applicable
+                contactId, // Will be null if new contact
+                technicianId: initialData?.technicianId,
+                technicianIds: selectedTechnicianIds,
                 serviceId: selectedService._id,
                 subServices,
                 addons,
@@ -424,31 +459,19 @@ export function AddBookingForm({ open, onOpenChange, initialData }: AddBookingFo
 
             if (!bookingRes.ok) {
                 const errorData = await bookingRes.json();
-
-                // If booking failed and we created a new contact, delete it (rollback)
-                if (createdContactId) {
-                    try {
-                        await fetch(`/api/contacts/${createdContactId}`, {
-                            method: 'DELETE'
-                        });
-                    } catch (deleteError) {
-                        console.error("Failed to rollback contact creation:", deleteError);
-                    }
-                }
-
                 throw new Error(errorData.error || "Failed to create booking");
             }
 
-            alert(bookingType === "once"
-                ? "✅ Booking created successfully!"
-                : "✅ Recurring bookings created successfully!");
+            toast.success(bookingType === "once"
+                ? "Booking created successfully!"
+                : "Recurring bookings created successfully!");
 
             onOpenChange(false);
             // Refresh calendar
             window.location.reload();
         } catch (error: any) {
             console.error("Booking creation error:", error);
-            alert("❌ Error: " + (error.message || "Failed to create booking. Please try again."));
+            toast.error(error.message || "Failed to create booking. Please try again.");
         }
     };
 
@@ -800,10 +823,11 @@ export function AddBookingForm({ open, onOpenChange, initialData }: AddBookingFo
                             <div className="space-y-3 pt-2">
                                 <Label className="text-base font-semibold">Technician(s)</Label>
                                 <MultiSelect
-                                    options={technicians.map(t => ({ label: t.title, value: t.id, group: t.group }))}
+                                    options={filteredTechnicians.map(t => ({ label: t.title, value: t.id, group: t.group }))}
                                     selected={selectedTechnicianIds}
                                     onChange={setSelectedTechnicianIds}
-                                    placeholder="Select technicians..."
+                                    placeholder={!selectedService ? "Select a service first..." : "Select technicians..."}
+                                    disabled={!selectedService}
                                 />
                             </div>
                         </div>

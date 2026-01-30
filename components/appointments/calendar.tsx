@@ -40,18 +40,20 @@ export default function Calendar() {
   const [events, setEvents] = useState([]);
 
   // Fetch data from real API
-  useEffect(() => {
-    async function fetchData() {
-      try {
-        const res = await fetch('/api/appointments/resources');
-        const data = await res.json();
-        setResources(data.resources);
-        setEvents(data.events);
-      } catch (error) {
-        console.error("Failed to fetch calendar data:", error);
-      }
+  const fetchCalendarData = async () => {
+    try {
+      const res = await fetch('/api/appointments/resources');
+      const data = await res.json();
+      setResources(data.resources);
+      setEvents(data.events);
+    } catch (error) {
+      console.error("Failed to fetch calendar data:", error);
     }
-    fetchData();
+  };
+
+  // Fetch data from real API
+  useEffect(() => {
+    fetchCalendarData();
   }, []);
 
   const handleEventClick = (info: EventClickArg) => {
@@ -60,6 +62,7 @@ export default function Calendar() {
     if (props?.type === "booking") {
       const appointment: AppointmentDetails = {
         id: info.event.id,
+        bookingId: props.bookingId,
         title: info.event.title,
         start: info.event.start!,
         end: info.event.end!,
@@ -202,6 +205,7 @@ export default function Calendar() {
         appointment={selectedAppointment}
         open={appointmentDetailsOpen}
         onOpenChange={setAppointmentDetailsOpen}
+        onUpdate={fetchCalendarData}
       />
 
       {/* New Booking Form */}

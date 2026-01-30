@@ -10,13 +10,16 @@ import {
 } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { CheckCircle, CreditCard, Pencil, Trash2, XCircle } from "lucide-react";
+import { CheckCircle, CreditCard, Pencil, Trash2, XCircle, FileText, DollarSign, Archive } from "lucide-react";
 import { EditBookingDetailsDialog } from "./edit-booking-details-dialog";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 
 type DisplayValue = string | number | null | undefined;
 
 export interface AppointmentDetails {
   id: string;
+  bookingId?: string;
   title: string;
   start: Date;
   end: Date;
@@ -65,16 +68,66 @@ interface AppointmentDetailsSheetProps {
   appointment?: AppointmentDetails;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onUpdate?: () => void;
 }
 
 export function AppointmentDetailsSheet({
   appointment,
   open,
   onOpenChange,
+  onUpdate,
 }: AppointmentDetailsSheetProps) {
   if (!appointment) return null;
 
   const [editBookingOpen, setEditBookingOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const router = useRouter();
+
+  const handleStatusUpdate = async (newStatus: string) => {
+    try {
+      setLoading(true);
+      const res = await fetch(`/api/bookings/${appointment.bookingId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: newStatus }),
+      });
+
+      if (!res.ok) throw new Error("Failed to update status");
+
+      toast.success(`Booking status updated to ${newStatus.replace("_", " ")}`);
+      onOpenChange(false);
+      onUpdate?.();
+      router.refresh();
+    } catch (error) {
+      console.error(error);
+      toast.error("Failed to update status");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!confirm("Are you sure you want to delete this booking?")) return;
+
+    try {
+      setLoading(true);
+      const res = await fetch(`/api/bookings/${appointment.bookingId}`, {
+        method: "DELETE",
+      });
+
+      if (!res.ok) throw new Error("Failed to delete booking");
+
+      toast.success("Booking deleted successfully");
+      onOpenChange(false);
+      onUpdate?.();
+      router.refresh();
+    } catch (error) {
+      console.error(error);
+      toast.error("Failed to delete booking");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const renderValue = (value: DisplayValue) => {
     if (value === null || value === undefined || value === "") return "-";
@@ -191,22 +244,154 @@ export function AppointmentDetailsSheet({
 
         <div className="mt-auto p-4 border-t bg-muted/30">
           <div className="flex flex-wrap gap-2 justify-end">
-            <Button variant="default" className="min-w-[120px]">
-              <CreditCard className="h-4 w-4 mr-2" />
-              Bill client
-            </Button>
-            <Button variant="secondary" className="min-w-[120px]">
-              <CheckCircle className="h-4 w-4 mr-2" />
-              Complete
-            </Button>
-            <Button variant="outline" className="min-w-[120px]">
-              <XCircle className="h-4 w-4 mr-2" />
-              Unconfirm
-            </Button>
-            <Button variant="destructive" className="min-w-[120px]">
-              <Trash2 className="h-4 w-4 mr-2" />
-              Delete
-            </Button>
+            {/* Unconfirmed State */}
+            {appointment.bookingStatus === "unconfirmed" && (
+              <>
+                <Button
+                  variant="default"
+                  className="min-w-[120px] bg-green-600 hover:bg-green-700"
+                  onClick={() => handleStatusUpdate("confirmed")}
+                  disabled={loading}
+                >
+                  <CheckCircle className="h-4 w-4 mr-2" />
+                  Confirm
+                </Button>
+                <Button
+                  variant="destructive"
+                  className="min-w-[120px]"
+                  onClick={() => handleStatusUpdate("rejected")}
+                  disabled={loading}
+                >
+                  <XCircle className="h-4 w-4 mr-2" />
+                  Reject
+                </Button>
+              </>
+            )}
+
+            {/* Confirmed / Scheduled State */}
+            {(appointment.bookingStatus === "confirmed" || appointment.bookingStatus === "scheduled") && (
+              <>
+                <Button
+                  variant="secondary"
+                  className="min-w-[120px]"
+                  onClick={() => handleStatusUpdate("completed")}
+                  disabled={loading}
+                >
+                  <CheckCircle className="h-4 w-4 mr-2" />
+                  Complete
+                </Button>
+                <Button
+                  variant="destructive"
+                  className="min-w-[120px]"
+                  onClick={() => handleStatusUpdate("cancelled")}
+                  disabled={loading}
+                >
+                  <XCircle className="h-4 w-4 mr-2" />
+                  Cancel
+                </Button>
+                {/* Keeping 'Bill Client' as an option if it's the next step in some workflows, or maybe hiding it if user wants strictly Complete/Cancel? 
+                    User said "jab confirmed hoga tab cancel aur complete ke button dikhenge". I'll strictly follow that preference for now, but keeping Invoice maybe useful. 
+                    I'll hide "Bill Client" to strictly follow the "Cancel and Complete" instruction unless user asks for it. 
+                    Actually, "invoice_sent" is a status. If I remove the button, they can't get there. 
+                    But the user explicitly asked for "Cancel and Complete". I'll add them. I will keep "Bill Client" as a secondary or remove if it contradicts. 
+                    Let's assume "Cancel" and "Complete" are the primary actions they want to see. 
+                    "Bill client" transitions to "invoice_sent". If I remove it, that flow breaks. 
+                    I'll add Cancel and Complete. I'll leave Bill Client but maybe less prominent or just leave it. 
+                    Wait, `unconfirmed` -> `confirmed` -> `invoice_sent` was the previous flow.
+                    Now user says: `confirmed` -> `cancel` OR `complete`.
+                    Maybe they are simplifying the flow? 
+                    I will provide Cancel, Complete, and Invoice (as it was there). But prioritize Cancel/Complete visuals.
+                */}
+                <Button
+                  variant="outline"
+                  className="min-w-[120px]"
+                  onClick={() => handleStatusUpdate("invoice_sent")}
+                  disabled={loading}
+                >
+                  <FileText className="h-4 w-4 mr-2" />
+                  Bill client
+                </Button>
+              </>
+            )}
+
+            {/* Completed State */}
+            {appointment.bookingStatus === "completed" && (
+              <Button
+                variant="outline"
+                className="min-w-[120px]"
+                onClick={() => handleStatusUpdate("confirmed")} // Reopen? or just show label
+                disabled={loading}
+              >
+                <XCircle className="h-4 w-4 mr-2" />
+                Re-open
+              </Button>
+            )}
+
+            {/* Cancelled State */}
+            {(appointment.bookingStatus === "cancelled" || appointment.bookingStatus === "rejected") && (
+              <Button
+                variant="destructive"
+                className="min-w-[120px]"
+                onClick={handleDelete}
+                disabled={loading}
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                Delete Permanently
+              </Button>
+            )}
+
+            {/* Invoice Sent State */}
+            {appointment.bookingStatus === "invoice_sent" && (
+              <>
+                <Button
+                  variant="default"
+                  className="min-w-[120px] bg-green-600 hover:bg-green-700"
+                  onClick={() => handleStatusUpdate("paid")}
+                  disabled={loading}
+                >
+                  <DollarSign className="h-4 w-4 mr-2" />
+                  Payment Confirmed
+                </Button>
+                <Button
+                  variant="outline"
+                  className="min-w-[120px]"
+                  onClick={() => handleStatusUpdate("confirmed")}
+                  disabled={loading}
+                >
+                  <XCircle className="h-4 w-4 mr-2" />
+                  Undo Invoice
+                </Button>
+              </>
+            )}
+
+            {/* Paid State */}
+            {appointment.bookingStatus === "paid" && (
+              <>
+                <Button
+                  variant="default"
+                  className="min-w-[120px] bg-gray-600 hover:bg-gray-700"
+                  onClick={() => handleStatusUpdate("closed")}
+                  disabled={loading}
+                >
+                  <Archive className="h-4 w-4 mr-2" />
+                  Close Booking
+                </Button>
+              </>
+            )}
+
+            {/* Closed State */}
+            {appointment.bookingStatus === "closed" && (
+              <Button
+                variant="destructive"
+                className="min-w-[120px]"
+                onClick={handleDelete}
+                disabled={loading}
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                Delete Permanently
+              </Button>
+            )}
+
           </div>
         </div>
       </SheetContent>

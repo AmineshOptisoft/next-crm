@@ -27,7 +27,7 @@ export async function GET(req: NextRequest) {
             companyId: user.companyId,
             role: "company_user",
             isTechnicianActive: true
-        }).select('firstName lastName zone availability');
+        }).select('firstName lastName zone availability services');
         console.log("Technicians found:", technicians.length, technicians.map(t => ({ name: `${t.firstName} ${t.lastName}`, zone: t.zone })));
 
         // Fetch master availability
@@ -58,7 +58,8 @@ export async function GET(req: NextRequest) {
                 resources.push({
                     id: tech._id.toString(),
                     title: `${tech.firstName} ${tech.lastName}`,
-                    group: area.name
+                    group: area.name,
+                    services: tech.services || [] // Include assigned services
                 });
 
                 // Generate availability blocks for this technician
@@ -115,7 +116,20 @@ export async function GET(req: NextRequest) {
                 title: `${booking.contactId?.firstName || ''} ${booking.contactId?.lastName || ''} - ${booking.serviceId?.name || 'Service'}`,
                 start: new Date(booking.startDateTime),
                 end: new Date(booking.endDateTime),
-                backgroundColor: "#eab308", // Yellow color
+                backgroundColor: (() => {
+                    switch (booking.status) {
+                        case 'unconfirmed': return '#ea580c'; // Orange
+                        case 'confirmed':
+                        case 'scheduled': return '#eab308'; // Yellow
+                        case 'invoice_sent': return '#2563eb'; // Blue
+                        case 'paid': return '#16a34a'; // Green
+                        case 'closed': return '#4b5563'; // Gray
+                        case 'rejected':
+                        case 'cancelled': return '#dc2626'; // Red
+                        case 'completed': return '#10b981'; // Teal
+                        default: return '#eab308';
+                    }
+                })(),
                 borderColor: "#ca8a04",
                 textColor: "#000000",
                 type: "booking",

@@ -3,11 +3,20 @@ import { getCurrentUser } from "@/lib/auth";
 import { connectDB } from "@/lib/db";
 import { Booking } from "@/app/models/Booking";
 import { Service } from "@/app/models/Service";
+import { User } from "@/app/models/User";
+import mongoose from "mongoose";
+import bcrypt from "bcryptjs";
 import { v4 as uuidv4 } from "uuid";
+
+// Helper to generate unique Order ID
+function generateOrderId() {
+    return `ORD-${Date.now()}-${Math.floor(Math.random() * 10000).toString().padStart(4, '0')}`;
+}
 
 // POST - Create booking(s)
 // POST - Create booking(s)
 export async function POST(req: NextRequest) {
+    let session;
     try {
         const user = await getCurrentUser();
         if (!user || !user.companyId) {
@@ -15,12 +24,15 @@ export async function POST(req: NextRequest) {
         }
 
         await connectDB();
+        session = await mongoose.startSession();
+        session.startTransaction();
 
         const body = await req.json();
         const {
-            contactId,
-            technicianId, // Legacy support (single ID)
-            technicianIds = [], // New support (array of IDs)
+            newContact, // Optional: New contact details
+            contactId: existingContactId,
+            technicianId,
+            technicianIds = [],
             serviceId,
             subServices = [],
             addons = [],
@@ -34,7 +46,40 @@ export async function POST(req: NextRequest) {
             pricing
         } = body;
 
-        // Determine list of technicians to book
+        // --- 1. Handle Contact Creation (if needed) ---
+        let finalContactId = existingContactId;
+
+        if (newContact) {
+            // Check if email already exists
+            const existingUser = await User.findOne({ email: newContact.email }).session(session);
+            if (existingUser) {
+                await session.abortTransaction();
+                session.endSession();
+                return NextResponse.json({ error: "User with this email already exists." }, { status: 400 });
+            }
+
+            // Create new contact
+            const createdContact = await User.create([{
+                firstName: newContact.firstName,
+                lastName: newContact.lastName,
+                email: newContact.email,
+                passwordHash: await bcrypt.hash(newContact.password, 10), // Hash password
+                phoneNumber: newContact.phone,
+                role: "contact",
+                companyId: user.companyId,
+                address: newContact.streetAddress, // Assuming mapped from form
+                city: newContact.city,
+                state: newContact.state,
+                zipCode: newContact.zipCode,
+                contactStatus: "new lead",
+                ownerId: user.userId,
+                // Add any other mapped fields here
+            }], { session });
+
+            finalContactId = createdContact[0]._id;
+        }
+
+        // --- 2. Determines Technicians ---
         let techIdsToProcess: string[] = [];
         if (technicianIds && technicianIds.length > 0) {
             techIdsToProcess = technicianIds;
@@ -43,25 +88,24 @@ export async function POST(req: NextRequest) {
         }
 
         // Validate required fields
-        if (!contactId || techIdsToProcess.length === 0 || !serviceId || !startDateTime || !endDateTime) {
+        if (!finalContactId || techIdsToProcess.length === 0 || !serviceId || !startDateTime || !endDateTime) {
+            await session.abortTransaction();
+            session.endSession();
             return NextResponse.json(
                 { error: "Missing required fields" },
                 { status: 400 }
             );
         }
 
-        // Generate a unique Group ID for this batch of bookings
-        // This ID will be shared across ALL bookings created in this request (single or recurring)
-        // enabling us to track them together.
+        // Generate a unique Group ID
         const bookingGroupId = uuidv4();
-
         let allCreatedBookings: any[] = [];
 
         // Loop through each technician and create bookings
         for (const techId of techIdsToProcess) {
             if (bookingType === "once") {
-                const booking = await Booking.create({
-                    contactId,
+                const booking = await Booking.create([{
+                    contactId: finalContactId,
                     technicianId: techId,
                     serviceId,
                     subServices,
@@ -72,14 +116,16 @@ export async function POST(req: NextRequest) {
                     shippingAddress,
                     notes,
                     pricing,
-                    recurringGroupId: bookingGroupId, // Use the shared group ID
-                    companyId: user.companyId
-                });
-                allCreatedBookings.push(booking);
+                    orderId: generateOrderId(),
+                    recurringGroupId: bookingGroupId,
+                    companyId: user.companyId,
+                    status: "unconfirmed"
+                }], { session });
+                allCreatedBookings.push(booking[0]);
             }
             else if (bookingType === "recurring") {
-                const bookings = generateRecurringBookings({
-                    contactId,
+                const bookingsData = generateRecurringBookings({
+                    contactId: finalContactId,
                     technicianId: techId,
                     serviceId,
                     subServices,
@@ -91,14 +137,17 @@ export async function POST(req: NextRequest) {
                     shippingAddress,
                     notes,
                     pricing,
-                    recurringGroupId: bookingGroupId, // Use the shared group ID
+                    recurringGroupId: bookingGroupId,
                     companyId: user.companyId
                 });
 
-                const created = await Booking.insertMany(bookings);
+                const created = await Booking.insertMany(bookingsData, { session });
                 allCreatedBookings.push(...created);
             }
         }
+
+        await session.commitTransaction();
+        session.endSession();
 
         return NextResponse.json({
             message: `Created ${allCreatedBookings.length} bookings for ${techIdsToProcess.length} technicians`,
@@ -108,9 +157,13 @@ export async function POST(req: NextRequest) {
         }, { status: 201 });
 
     } catch (error: any) {
+        if (session) {
+            await session.abortTransaction();
+            session.endSession();
+        }
         console.error("Error creating booking:", error);
         return NextResponse.json(
-            { error: "Failed to create booking" },
+            { error: "Failed to create booking", details: error.message },
             { status: 500 }
         );
     }
@@ -170,6 +223,7 @@ function generateRecurringBookings(data: any) {
                     shippingAddress,
                     notes,
                     pricing,
+                    orderId: generateOrderId(),
                     recurringGroupId,
                     companyId
                 });
@@ -205,6 +259,7 @@ function generateRecurringBookings(data: any) {
                     shippingAddress,
                     notes,
                     pricing,
+                    orderId: generateOrderId(),
                     recurringGroupId,
                     companyId
                 });
@@ -236,6 +291,7 @@ function generateRecurringBookings(data: any) {
                 shippingAddress,
                 notes,
                 pricing,
+                orderId: generateOrderId(),
                 recurringGroupId,
                 companyId
             });

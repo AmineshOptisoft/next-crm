@@ -57,6 +57,11 @@ export interface IBooking extends Document {
 }
 
 const BookingSchema = new Schema({
+    orderId: {
+        type: String,
+        unique: true,
+        required: true
+    },
     contactId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "User",
@@ -170,8 +175,12 @@ const BookingSchema = new Schema({
 
     status: {
         type: String,
-        enum: ["scheduled", "in_progress", "completed", "cancelled", "no_show"],
-        default: "scheduled"
+        enum: [
+            "unconfirmed", "confirmed", "rejected",
+            "invoice_sent", "paid", "closed", "deleted",
+            "scheduled", "in_progress", "completed", "cancelled", "no_show" // Keeping old ones for compatibility
+        ],
+        default: "unconfirmed" // New default
     },
 
     recurringGroupId: String,

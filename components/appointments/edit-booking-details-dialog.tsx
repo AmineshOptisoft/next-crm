@@ -103,89 +103,174 @@ export function EditBookingDetailsDialog({
   onOpenChange,
   appointment,
 }: EditBookingDetailsDialogProps) {
-  const initial = useMemo(() => {
-    const units = typeof appointment?.units === "string" ? parseUnits(appointment.units) : {};
-    return {
-      service: String(appointment?.service ?? ""),
-      bedrooms: units.bedrooms ?? 0,
-      bathrooms: units.bathrooms ?? 0,
-      fridgeCleaning: 0,
-      ovenCleaning: 0,
-      billedAmount: String(appointment?.bookingPrice ?? ""),
-      discount: "0",
-      billedHours: String(appointment?.billedHours ?? ""),
-      clientName: String(appointment?.customerName ?? ""),
-      clientEmail: String(appointment?.customerEmail ?? ""),
-      clientAddress: String(appointment?.customerAddress ?? ""),
-      appointmentCity: "",
-      appointmentState: "",
-      appointmentZip: "",
-      appointmentNotes: String(appointment?.notes ?? ""),
-      startDate: appointment?.start ? toDateInputValue(appointment.start) : "",
-      startTime: appointment?.start ? toTimeInputValue(appointment.start) : "",
-      endDate: appointment?.end ? toDateInputValue(appointment.end) : "",
-      endTime: appointment?.end ? toTimeInputValue(appointment.end) : "",
-      lat: "",
-      long: "",
-      assignedStaff: String(appointment?.assignedStaff ?? ""),
-    };
-  }, [appointment]);
+  const [loading, setLoading] = useState(false);
+  const [fetching, setFetching] = useState(false);
 
-  const [service, setService] = useState(initial.service);
-  const [bedrooms, setBedrooms] = useState(initial.bedrooms);
-  const [bathrooms, setBathrooms] = useState(initial.bathrooms);
-  const [fridgeCleaning, setFridgeCleaning] = useState(initial.fridgeCleaning);
-  const [ovenCleaning, setOvenCleaning] = useState(initial.ovenCleaning);
-  const [billedAmount, setBilledAmount] = useState(initial.billedAmount);
-  const [discount, setDiscount] = useState(initial.discount);
-  const [billedHours, setBilledHours] = useState(initial.billedHours);
-  const [clientName, setClientName] = useState(initial.clientName);
-  const [clientEmail, setClientEmail] = useState(initial.clientEmail);
-  const [clientAddress, setClientAddress] = useState(initial.clientAddress);
-  const [appointmentCity, setAppointmentCity] = useState(initial.appointmentCity);
-  const [appointmentState, setAppointmentState] = useState(initial.appointmentState);
-  const [appointmentZip, setAppointmentZip] = useState(initial.appointmentZip);
-  const [appointmentNotes, setAppointmentNotes] = useState(initial.appointmentNotes);
-  const [startDate, setStartDate] = useState(initial.startDate);
-  const [startTime, setStartTime] = useState(initial.startTime);
-  const [endDate, setEndDate] = useState(initial.endDate);
-  const [endTime, setEndTime] = useState(initial.endTime);
-  const [lat, setLat] = useState(initial.lat);
-  const [long, setLong] = useState(initial.long);
-  const [assignedStaff, setAssignedStaff] = useState(initial.assignedStaff);
+  // Data State
+  const [allServices, setAllServices] = useState<any[]>([]);
+  const [bookingDetails, setBookingDetails] = useState<any>(null);
 
+  // Form State
+  const [serviceId, setServiceId] = useState<string>("");
+  const [subServiceQuantities, setSubServiceQuantities] = useState<Record<string, number>>({});
+  const [addonQuantities, setAddonQuantities] = useState<Record<string, number>>({});
+
+  // Pricing State
+  const [billedAmount, setBilledAmount] = useState("");
+  const [discount, setDiscount] = useState("0");
+  const [billedHours, setBilledHours] = useState("");
+
+  // Client & Address State
+  const [clientName, setClientName] = useState("");
+  const [clientEmail, setClientEmail] = useState("");
+  const [addressData, setAddressData] = useState({
+    street: "",
+    city: "",
+    state: "",
+    zipCode: ""
+  });
+
+  // Appointment State
+  const [appointmentNotes, setAppointmentNotes] = useState("");
+  const [startDate, setStartDate] = useState("");
+  const [startTime, setStartTime] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const [endTime, setEndTime] = useState("");
+  const [assignedStaff, setAssignedStaff] = useState("");
+
+  // Fetch Services & Booking Data
   useEffect(() => {
-    if (!open) return;
-    setService(initial.service);
-    setBedrooms(initial.bedrooms);
-    setBathrooms(initial.bathrooms);
-    setFridgeCleaning(initial.fridgeCleaning);
-    setOvenCleaning(initial.ovenCleaning);
-    setBilledAmount(initial.billedAmount);
-    setDiscount(initial.discount);
-    setBilledHours(initial.billedHours);
-    setClientName(initial.clientName);
-    setClientEmail(initial.clientEmail);
-    setClientAddress(initial.clientAddress);
-    setAppointmentCity(initial.appointmentCity);
-    setAppointmentState(initial.appointmentState);
-    setAppointmentZip(initial.appointmentZip);
-    setAppointmentNotes(initial.appointmentNotes);
-    setStartDate(initial.startDate);
-    setStartTime(initial.startTime);
-    setEndDate(initial.endDate);
-    setEndTime(initial.endTime);
-    setLat(initial.lat);
-    setLong(initial.long);
-    setAssignedStaff(initial.assignedStaff);
-  }, [initial, open]);
+    if (open && appointment?.bookingId) {
+      setFetching(true);
+      Promise.all([
+        fetch('/api/services').then(res => res.json()),
+        fetch(`/api/bookings/${appointment.bookingId}`).then(res => res.json())
+      ]).then(([servicesData, bookingData]) => {
+        setAllServices(servicesData);
+        setBookingDetails(bookingData);
 
-  const discountAmount = useMemo(() => {
-    const amt = Number(String(billedAmount).replace(/[^0-9.]/g, ""));
-    const dis = Number(discount);
-    if (Number.isNaN(amt) || Number.isNaN(dis)) return "";
-    return String(Math.max(0, amt - dis));
-  }, [billedAmount, discount]);
+        // Populate Form
+        setServiceId(bookingData.serviceId?._id || bookingData.serviceId || "");
+
+        // Map SubServices
+        const subs: Record<string, number> = {};
+        bookingData.subServices?.forEach((s: any) => {
+          const sId = s.serviceId?._id || s.serviceId;
+          subs[sId] = s.quantity;
+        });
+        setSubServiceQuantities(subs);
+
+        // Map Addons
+        const adds: Record<string, number> = {};
+        bookingData.addons?.forEach((a: any) => {
+          const aId = a.serviceId?._id || a.serviceId;
+          adds[aId] = a.quantity;
+        });
+        setAddonQuantities(adds);
+
+        // Other fields
+        setBilledAmount(String(bookingData.pricing?.finalAmount ?? ""));
+        setDiscount(String(bookingData.pricing?.discount ?? "0"));
+        setBilledHours(String(bookingData.pricing?.billedHours ?? ""));
+
+        setClientName(bookingData.contactId?.firstName ? `${bookingData.contactId.firstName} ${bookingData.contactId.lastName}` : "");
+        setClientEmail(bookingData.contactId?.email || "");
+
+        setAddressData({
+          street: bookingData.shippingAddress?.street || "",
+          city: bookingData.shippingAddress?.city || "",
+          state: bookingData.shippingAddress?.state || "",
+          zipCode: bookingData.shippingAddress?.zipCode || ""
+        });
+
+        setAppointmentNotes(bookingData.notes || "");
+
+        if (bookingData.startDateTime) {
+          const start = new Date(bookingData.startDateTime);
+          setStartDate(toDateInputValue(start));
+          setStartTime(toTimeInputValue(start));
+        }
+        if (bookingData.endDateTime) {
+          const end = new Date(bookingData.endDateTime);
+          setEndDate(toDateInputValue(end));
+          setEndTime(toTimeInputValue(end));
+        }
+
+        // Assigned Staff (Technician)
+        // Assuming single technician for now, or comma separated if multiple
+        const techName = bookingData.technicianId ? `${bookingData.technicianId.firstName} ${bookingData.technicianId.lastName}` : "";
+        setAssignedStaff(techName);
+
+      }).catch(err => {
+        console.error("Failed to load data", err);
+      }).finally(() => {
+        setFetching(false);
+      });
+    }
+  }, [open, appointment?.bookingId]);
+
+  // Derived properties for UI
+  const availableSubServices = useMemo(() => {
+    if (!serviceId) return [];
+    return allServices.filter(s => s.parentId === serviceId && s.category === "sub" && s.status === "active");
+  }, [allServices, serviceId]);
+
+  const availableAddons = useMemo(() => {
+    if (!serviceId) return [];
+    return allServices.filter(s => s.parentId === serviceId && s.category === "addon" && s.status === "active");
+  }, [allServices, serviceId]);
+
+  const selectedService = useMemo(() => {
+    return allServices.find(s => s._id === serviceId);
+  }, [allServices, serviceId]);
+
+
+  const handleSubmit = async () => {
+    try {
+      setLoading(true);
+      // prepare payload
+      const payload = {
+        serviceId, // Usually doesn't change provided options, but we keep it
+        subServices: Object.entries(subServiceQuantities)
+          .filter(([_, qty]) => qty > 0)
+          .map(([sId, qty]) => ({ serviceId: sId, quantity: qty })),
+        addons: Object.entries(addonQuantities)
+          .filter(([_, qty]) => qty > 0)
+          .map(([sId, qty]) => ({ serviceId: sId, quantity: qty })),
+        notes: appointmentNotes,
+        startDateTime: new Date(`${startDate}T${startTime}`),
+        endDateTime: new Date(`${endDate}T${endTime}`),
+        shippingAddress: addressData,
+        pricing: {
+          // We might need to handle pricing logic properly here if we want auto-calculation.
+          // For now, preserving edited values.
+          finalAmount: Number(billedAmount),
+          discount: Number(discount),
+          billedHours: Number(billedHours)
+        }
+      };
+
+      const res = await fetch(`/api/bookings/${appointment?.bookingId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      if (!res.ok) throw new Error("Failed to update booking");
+
+      onOpenChange(false);
+      // Trigger refresh if needed
+      window.location.reload();
+
+    } catch (error) {
+      console.error(error);
+      alert("Failed to update booking");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (!open) return null;
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -196,142 +281,148 @@ export function EditBookingDetailsDialog({
           </SheetHeader>
         </div>
 
-        <div className="max-h-[80vh] overflow-y-auto p-4 space-y-4 custom-scrollbar">
-          <div className="text-sm">
-            <span className="text-muted-foreground">Service</span>
-            <span className="text-muted-foreground"> : </span>
-            <span className="font-medium">{service || "-"}</span>
-          </div>
+        {fetching ? (
+          <div className="p-8 text-center">Loading details...</div>
+        ) : (
+          <div className="max-h-[80vh] overflow-y-auto p-4 space-y-4 custom-scrollbar">
+            <div className="text-sm">
+              <span className="text-muted-foreground">Service</span>
+              <span className="text-muted-foreground"> : </span>
+              <span className="font-medium">{selectedService?.name || "-"}</span>
+            </div>
 
-          <div className="space-y-3">
-            <div className="text-base font-semibold text-primary mb-2">Sub Services</div>
-            <StepperRow label="Bedrooms" value={bedrooms} onChange={setBedrooms} />
-            <StepperRow label="Bathrooms" value={bathrooms} onChange={setBathrooms} />
-          </div>
+            {/* Dynamic Sub Services */}
+            {availableSubServices.length > 0 && (
+              <div className="space-y-3">
+                <div className="text-base font-semibold text-primary mb-2">Sub Services</div>
+                {availableSubServices.map(sub => (
+                  <StepperRow
+                    key={sub._id}
+                    label={sub.name}
+                    value={subServiceQuantities[sub._id] || 0}
+                    onChange={(val) => setSubServiceQuantities(prev => ({ ...prev, [sub._id]: val }))}
+                  />
+                ))}
+              </div>
+            )}
 
-          <div className="space-y-3">
-            <div className="text-base font-semibold text-primary mb-2">Addons</div>
-            <StepperRow label="Fridge Cleaning" value={fridgeCleaning} onChange={setFridgeCleaning} />
-            <StepperRow label="Oven Cleaning" value={ovenCleaning} onChange={setOvenCleaning} />
-          </div>
+            {/* Dynamic Addons */}
+            {availableAddons.length > 0 && (
+              <div className="space-y-3">
+                <div className="text-base font-semibold text-primary mb-2">Addons</div>
+                {availableAddons.map(addon => (
+                  <StepperRow
+                    key={addon._id}
+                    label={addon.name}
+                    value={addonQuantities[addon._id] || 0}
+                    onChange={(val) => setAddonQuantities(prev => ({ ...prev, [addon._id]: val }))}
+                  />
+                ))}
+              </div>
+            )}
 
-          <div className="space-y-4">
-            <div className="text-base font-semibold text-foreground">Estimated Price & Duration</div>
+            <div className="space-y-4">
+              <div className="text-base font-semibold text-foreground">Estimated Price & Duration</div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Change Billed Amount</Label>
+                  <Input value={billedAmount} onChange={(e) => setBilledAmount(e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Change Discount</Label>
+                  <Input value={discount} onChange={(e) => setDiscount(e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Discount Amount</Label>
+                  <Input value={Math.max(0, Number(billedAmount) - Number(discount))} readOnly className="bg-muted" />
+                </div>
+                <div className="space-y-2">
+                  <Label>Change Billed Hours</Label>
+                  <Input value={billedHours} onChange={(e) => setBilledHours(e.target.value)} placeholder="03:30" />
+                </div>
+              </div>
+            </div>
+
+            <Separator />
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>Change Billed Amount</Label>
-                <Input value={billedAmount} onChange={(e) => setBilledAmount(e.target.value)} />
+                <Label>Client Name</Label>
+                <Input value={clientName} readOnly className="bg-muted" />
               </div>
               <div className="space-y-2">
-                <Label>Change Discount</Label>
-                <Input value={discount} onChange={(e) => setDiscount(e.target.value)} />
+                <Label>Client Email</Label>
+                <Input value={clientEmail} readOnly className="bg-muted" />
               </div>
-              <div className="space-y-2">
-                <Label>Discount Amount</Label>
-                <Input value={discountAmount} readOnly className="bg-muted" />
-              </div>
-              <div className="space-y-2">
-                <Label>Change Billed Hours</Label>
-                <Input value={billedHours} onChange={(e) => setBilledHours(e.target.value)} placeholder="03:30" />
-              </div>
-            </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2 md:col-span-2">
+                <Label>Client Address</Label>
+                <Textarea
+                  value={addressData.street}
+                  onChange={(e) => setAddressData({ ...addressData, street: e.target.value })}
+                  className="min-h-[80px]"
+                />
+              </div>
+
               <div className="space-y-2">
-                <Label>Estimated Billed Amount...</Label>
-                <Input value={String(appointment?.estimatedBilledAmount ?? "")} readOnly className="bg-muted" />
+                <Label>Appointment City</Label>
+                <Input
+                  value={addressData.city}
+                  onChange={(e) => setAddressData({ ...addressData, city: e.target.value })}
+                />
               </div>
               <div className="space-y-2">
-                <Label>Estimated Billed Hours==</Label>
-                <Input value={String(appointment?.estimatedBilledHours ?? "")} readOnly className="bg-muted" />
+                <Label>Appointment State</Label>
+                <Input
+                  value={addressData.state}
+                  onChange={(e) => setAddressData({ ...addressData, state: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Appointment Zip</Label>
+                <Input
+                  value={addressData.zipCode}
+                  onChange={(e) => setAddressData({ ...addressData, zipCode: e.target.value })}
+                />
+              </div>
+
+              <div className="space-y-2 md:col-span-2">
+                <Label>Assign Appointment to Staff</Label>
+                <Input value={assignedStaff} readOnly className="bg-muted" placeholder="Technician" />
+              </div>
+
+              <div className="space-y-2 md:col-span-2">
+                <Label>Appointment Notes</Label>
+                <Textarea value={appointmentNotes} onChange={(e) => setAppointmentNotes(e.target.value)} className="min-h-[80px]" />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Start Date</Label>
+                <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <Label>Start Time</Label>
+                <Input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <Label>End Date</Label>
+                <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <Label>End Time</Label>
+                <Input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} />
               </div>
             </div>
           </div>
-
-          <Separator />
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>Client Name</Label>
-              <Input value={clientName} onChange={(e) => setClientName(e.target.value)} />
-            </div>
-            <div className="space-y-2">
-              <Label>Client Email</Label>
-              <Input value={clientEmail} onChange={(e) => setClientEmail(e.target.value)} />
-            </div>
-
-            <div className="space-y-2 md:col-span-2">
-              <Label>Client Address</Label>
-              <Textarea value={clientAddress} onChange={(e) => setClientAddress(e.target.value)} className="min-h-[80px]" />
-            </div>
-
-            <div className="space-y-2">
-              <Label>Appointment City</Label>
-              <Input value={appointmentCity} onChange={(e) => setAppointmentCity(e.target.value)} />
-            </div>
-            <div className="space-y-2">
-              <Label>Appointment State</Label>
-              <Select value={appointmentState} onValueChange={setAppointmentState}>
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select state" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Alabama">Alabama</SelectItem>
-                  <SelectItem value="California">California</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Appointment Zip</Label>
-              <Input value={appointmentZip} onChange={(e) => setAppointmentZip(e.target.value)} />
-            </div>
-
-            <div className="space-y-2 md:col-span-2">
-              <Label>Assign Appointment to Staff</Label>
-              <Input value={assignedStaff} onChange={(e) => setAssignedStaff(e.target.value)} placeholder="Staff name" />
-            </div>
-
-            <div className="space-y-2 md:col-span-2">
-              <Label>Appointment Notes</Label>
-              <Textarea value={appointmentNotes} onChange={(e) => setAppointmentNotes(e.target.value)} className="min-h-[80px]" />
-            </div>
-
-            <div className="space-y-2">
-              <Label>Start Date</Label>
-              <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
-            </div>
-            <div className="space-y-2">
-              <Label>Start Time</Label>
-              <Input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} />
-            </div>
-            <div className="space-y-2">
-              <Label>End Date</Label>
-              <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
-            </div>
-            <div className="space-y-2">
-              <Label>End Time</Label>
-              <Input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} />
-            </div>
-
-            <div className="space-y-2">
-              <Label>Lat</Label>
-              <Input value={lat} onChange={(e) => setLat(e.target.value)} />
-            </div>
-            <div className="space-y-2">
-              <Label>Long</Label>
-              <Input value={long} onChange={(e) => setLong(e.target.value)} />
-            </div>
-          </div>
-        </div>
+        )}
 
         <SheetFooter className="flex flex-row items-center justify-end border-t">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={loading}>
             Cancel
           </Button>
-          <Button onClick={() => onOpenChange(false)}>Update</Button>
-          <Button variant="default" onClick={() => onOpenChange(false)}>
-            Update all recurring
+          <Button onClick={handleSubmit} disabled={loading}>
+            {loading ? "Updating..." : "Update"}
           </Button>
         </SheetFooter>
       </SheetContent>
