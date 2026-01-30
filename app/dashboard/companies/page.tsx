@@ -125,7 +125,7 @@ export default function CompaniesPage() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 md:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Companies</CardTitle>
@@ -176,87 +176,89 @@ export default function CompaniesPage() {
         </div>
       ) : (
         <div className="rounded-lg border">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Company Name</TableHead>
-                <TableHead>Admin</TableHead>
-                <TableHead>Plan</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Created</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {companies.length === 0 ? (
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
                 <TableRow>
-                  <TableCell colSpan={6} className="py-12 text-center">
-                    <div className="flex flex-col items-center gap-2">
-                      <Building2 className="h-12 w-12 text-muted-foreground" />
-                      <p className="text-muted-foreground">
-                        No companies found.
-                      </p>
-                    </div>
-                  </TableCell>
+                  <TableHead>Company Name</TableHead>
+                  <TableHead>Admin</TableHead>
+                  <TableHead>Plan</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Created</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
-              ) : (
-                companies.map((company) => (
-                  <TableRow key={company._id}>
-                    <TableCell>
-                      <div>
-                        <div className="font-medium">{company.name}</div>
-                        {company.industry && (
-                          <div className="text-sm text-muted-foreground">
-                            {company.industry}
-                          </div>
-                        )}
+              </TableHeader>
+              <TableBody>
+                {companies.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={6} className="py-12 text-center">
+                      <div className="flex flex-col items-center gap-2">
+                        <Building2 className="h-12 w-12 text-muted-foreground" />
+                        <p className="text-muted-foreground">
+                          No companies found.
+                        </p>
                       </div>
                     </TableCell>
-                    <TableCell>
-                      {company.adminId ? (
-                        <div>
-                          <div className="font-medium">
-                            {company.adminId.firstName} {company.adminId.lastName}
-                          </div>
-                          <div className="text-sm text-muted-foreground">
-                            {company.adminId.email}
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="text-sm text-muted-foreground">
-                          N/A
-                        </div>
-                      )}
-                    </TableCell>
-                    <TableCell>{getPlanBadge(company.plan)}</TableCell>
-                    <TableCell>
-                      {company.isActive ? (
-                        <Badge variant="default" className="text-xs">
-                          Active
-                        </Badge>
-                      ) : (
-                        <Badge variant="destructive" className="text-xs">
-                          Inactive
-                        </Badge>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {new Date(company.createdAt).toLocaleDateString()}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => setViewCompany(company)}
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                    </TableCell>
                   </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
+                ) : (
+                  companies.map((company) => (
+                    <TableRow key={company._id}>
+                      <TableCell>
+                        <div>
+                          <div className="font-medium">{company.name}</div>
+                          {company.industry && (
+                            <div className="text-sm text-muted-foreground">
+                              {company.industry}
+                            </div>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        {company.adminId ? (
+                          <div>
+                            <div className="font-medium">
+                              {company.adminId.firstName} {company.adminId.lastName}
+                            </div>
+                            <div className="text-sm text-muted-foreground">
+                              {company.adminId.email}
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="text-sm text-muted-foreground">
+                            N/A
+                          </div>
+                        )}
+                      </TableCell>
+                      <TableCell>{getPlanBadge(company.plan)}</TableCell>
+                      <TableCell>
+                        {company.isActive ? (
+                          <Badge variant="default" className="text-xs">
+                            Active
+                          </Badge>
+                        ) : (
+                          <Badge variant="destructive" className="text-xs">
+                            Inactive
+                          </Badge>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {new Date(company.createdAt).toLocaleDateString()}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => setViewCompany(company)}
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
         </div>
       )}
 
@@ -269,7 +271,7 @@ export default function CompaniesPage() {
           </DialogHeader>
           {viewCompany && (
             <div className="space-y-6">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <h3 className="font-semibold mb-2">Company Information</h3>
                   <div className="space-y-2 text-sm">
@@ -337,7 +339,7 @@ export default function CompaniesPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <h3 className="font-semibold mb-2">Subscription</h3>
                   <div className="space-y-2 text-sm">

@@ -22,15 +22,16 @@ export function ProductivityChart({ data }: ProductivityChartProps) {
               color: "hsl(var(--chart-1))",
             },
           }}
-          className="h-[300px]"
+          className="h-[300px] w-full"
         >
-          <BarChart data={data}>
+          <BarChart data={data} accessibilityLayer margin={{ top: 20, right: 0, left: 0, bottom: 0 }}>
             <XAxis
               dataKey="month"
               stroke="#888888"
               fontSize={12}
               tickLine={false}
               axisLine={false}
+              tickMargin={10}
             />
             <YAxis
               stroke="#888888"
@@ -38,8 +39,9 @@ export function ProductivityChart({ data }: ProductivityChartProps) {
               tickLine={false}
               axisLine={false}
               tickFormatter={(value) => `$${value}`}
+              width={50}
             />
-            <ChartTooltip content={<ChartTooltipContent />} />
+            <ChartTooltip cursor={false} content={<ChartTooltipContent indicator="dashed" />} />
             <Bar
               dataKey="value"
               fill="currentColor"

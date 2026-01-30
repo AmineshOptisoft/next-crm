@@ -93,7 +93,7 @@ export function CompanyAvailability() {
 
     if (loading) {
         return (
-            <Card>
+            <Card className="py-4">
                 <CardContent className="p-6">
                     <div className="text-center text-muted-foreground">Loading...</div>
                 </CardContent>
@@ -102,7 +102,7 @@ export function CompanyAvailability() {
     }
 
     return (
-        <Card>
+        <Card className="py-4">
             <CardHeader>
                 <CardTitle>Master Availability</CardTitle>
                 <CardDescription>

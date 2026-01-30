@@ -298,7 +298,7 @@ export default function TasksPage() {
                     }
                   />
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="assignedTo">Assign To</Label>
                     <Select
@@ -334,7 +334,7 @@ export default function TasksPage() {
                     />
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="status">Status</Label>
                     <Select
@@ -399,84 +399,86 @@ export default function TasksPage() {
         </div>
       ) : (
         <div className="rounded-lg border">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Title</TableHead>
-                <TableHead>Assigned To</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Priority</TableHead>
-                <TableHead>Due Date</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {tasks.length === 0 ? (
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
                 <TableRow>
-                  <TableCell colSpan={6} className="py-12 text-center">
-                    <p className="text-muted-foreground">
-                      No tasks found. Add your first task to get started.
-                    </p>
-                  </TableCell>
+                  <TableHead>Title</TableHead>
+                  <TableHead>Assigned To</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Priority</TableHead>
+                  <TableHead>Due Date</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
-              ) : (
-                tasks.map((task) => (
-                  <TableRow key={task._id}>
-                    <TableCell className="font-medium">
-                      {task.title}
-                    </TableCell>
-                    <TableCell>
-                      {task.assignedTo
-                        ? `${task.assignedTo.firstName} ${task.assignedTo.lastName}`
-                        : "Unassigned"}
-                    </TableCell>
-                    <TableCell>{getStatusBadge(task.status)}</TableCell>
-                    <TableCell>{getPriorityBadge(task.priority)}</TableCell>
-                    <TableCell>
-                      {task.dueDate
-                        ? new Date(task.dueDate).toLocaleDateString()
-                        : "-"}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleComplete(task)}
-                          title={
-                            task.status === "completed"
-                              ? "Mark as incomplete"
-                              : "Mark as complete"
-                          }
-                        >
-                          <CheckCircle
-                            className={`h-4 w-4 ${
-                              task.status === "completed" ? "fill-current" : ""
-                            }`}
-                          />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleEdit(task)}
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleDelete(task._id)}
-                          disabled={deletingId === task._id}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
+              </TableHeader>
+              <TableBody>
+                {tasks.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={6} className="py-12 text-center">
+                      <p className="text-muted-foreground">
+                        No tasks found. Add your first task to get started.
+                      </p>
                     </TableCell>
                   </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
+                ) : (
+                  tasks.map((task) => (
+                    <TableRow key={task._id}>
+                      <TableCell className="font-medium">
+                        {task.title}
+                      </TableCell>
+                      <TableCell>
+                        {task.assignedTo
+                          ? `${task.assignedTo.firstName} ${task.assignedTo.lastName}`
+                          : "Unassigned"}
+                      </TableCell>
+                      <TableCell>{getStatusBadge(task.status)}</TableCell>
+                      <TableCell>{getPriorityBadge(task.priority)}</TableCell>
+                      <TableCell>
+                        {task.dueDate
+                          ? new Date(task.dueDate).toLocaleDateString()
+                          : "-"}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-2">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleComplete(task)}
+                            title={
+                              task.status === "completed"
+                                ? "Mark as incomplete"
+                                : "Mark as complete"
+                            }
+                          >
+                            <CheckCircle
+                              className={`h-4 w-4 ${
+                                task.status === "completed" ? "fill-current" : ""
+                              }`}
+                            />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleEdit(task)}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleDelete(task._id)}
+                            disabled={deletingId === task._id}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
         </div>
       )}
     </div>

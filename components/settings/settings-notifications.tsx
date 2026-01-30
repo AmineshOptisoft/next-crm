@@ -11,7 +11,7 @@ export function SettingsNotifications() {
   const [weeklySummary, setWeeklySummary] = useState(false);
 
   return (
-    <Card>
+    <Card className="py-4">
       <CardHeader>
         <CardTitle>Notifications</CardTitle>
         <CardDescription>

@@ -54,7 +54,7 @@ export function UserReviews({ reviews, onSave }: UserReviewsProps) {
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 sm:gap-0">
           <h3 className="text-lg font-medium">Customer Reviews</h3>
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
               <DialogTrigger asChild>

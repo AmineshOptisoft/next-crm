@@ -149,22 +149,24 @@ export default async function DashboardPage() {
     <div className="flex flex-col space-y-6">
       {/* Top header with user info and search */}
 
-      <div className="flex items-center justify-between px-6">
-        <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-        <Button>
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Dashboard</h1>
+        <Button className="w-full sm:w-auto">
           <Download className="mr-2 h-4 w-4" />
           Download
         </Button>
       </div>
 
-      <div className="px-6">
+      <div className="">
         <Tabs defaultValue="overview" className="space-y-4">
-          <TabsList>
-            <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="analytics">Analytics</TabsTrigger>
-            <TabsTrigger value="reports">Reports</TabsTrigger>
-            <TabsTrigger value="notifications">Notifications</TabsTrigger>
-          </TabsList>
+          <div className="overflow-x-auto pb-2">
+            <TabsList>
+              <TabsTrigger value="overview">Overview</TabsTrigger>
+              <TabsTrigger value="analytics">Analytics</TabsTrigger>
+              <TabsTrigger value="reports">Reports</TabsTrigger>
+              <TabsTrigger value="notifications">Notifications</TabsTrigger>
+            </TabsList>
+          </div>
 
           <TabsContent value="overview" className="space-y-4">
             <StatsCards
@@ -172,11 +174,11 @@ export default async function DashboardPage() {
               leavesStats={stats.leaves}
             />
 
-            <div className="grid gap-4 md:grid-cols-7">
-              <div className="md:col-span-4">
+            <div className="grid gap-4 grid-cols-1 md:grid-cols-7">
+              <div className="col-span-1 md:col-span-4">
                 <ProductivityChart data={stats.productivity} />
               </div>
-              <div className="md:col-span-3">
+              <div className="col-span-1 md:col-span-3">
                 <EmployeeList employees={stats.employees.recent} />
               </div>
             </div>

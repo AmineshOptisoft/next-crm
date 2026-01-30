@@ -150,7 +150,7 @@ export function CompanyProfile({ formData, setFormData, saving, handleSubmit, in
                 }}
                 strategy="afterInteractive"
             />
-            <Card>
+            <Card className="py-4">
                 <CardHeader>
                     <CardTitle>Company Profile</CardTitle>
                     <CardDescription>

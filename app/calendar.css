@@ -128,3 +128,34 @@ td.fc-daygrid-day.fc-day.fc-day-today {
 td.fc-daygrid-day.fc-day {
   pointer-events: none !important;
 }
+
+/* Responsive Calendar Styles */
+@media (max-width: 768px) {
+  .fc-header-toolbar {
+    flex-wrap: wrap !important;
+    gap: 1rem !important;
+    justify-content: center !important;
+    flex-direction: column !important;
+  }
+  
+  .fc-toolbar-chunk {
+    display: flex !important;
+    justify-content: center !important;
+    width: 100% !important;
+    margin-bottom: 0.5rem !important;
+  }
+
+  .fc-toolbar-title {
+    font-size: 1.5rem !important;
+    text-align: center !important;
+  }
+
+  .fc-button-group {
+    width: 100% !important;
+    justify-content: center !important;
+    display: flex !important;
+  }
+
+  /* Make the resource area (left side) wider/scrollable or legible on mobile */
+  /* Often specifically targeting the resource area is hard because it's inline style, but let's try globally for the view */
+}

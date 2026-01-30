@@ -490,7 +490,7 @@ export default function ContactsPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 ">
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Contacts</h1>
         <p className="text-muted-foreground">
@@ -498,7 +498,7 @@ export default function ContactsPage() {
         </p>
       </div>
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full md:w-[40%]">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full">
         <Card>
           <CardContent className="flex items-center justify-between p-6">
             <div><p className="text-sm font-medium text-muted-foreground">users_with_stax</p><h2 className="text-2xl font-bold">{stats.withStax}</h2></div>
@@ -528,20 +528,21 @@ export default function ContactsPage() {
           </DropdownMenuContent>
         </DropdownMenu>
 
-        <div className="flex items-center gap-2 w-full md:w-auto flex-wrap">
-          <Button variant="outline" onClick={exportCSV}>
+        <div className="flex flex-col md:flex-row items-stretch md:items-center gap-2 w-full md:w-auto">
+          <Button variant="outline" onClick={exportCSV} className="w-full md:w-auto">
             <Download className="mr-2 h-4 w-4" /> Export CSV
           </Button>
-          <Button onClick={() => { resetForm(); setIsSheetOpen(true); }}>
+          <Button onClick={() => { resetForm(); setIsSheetOpen(true); }} className="w-full md:w-auto">
             <Plus className="mr-2 h-4 w-4" /> Add New Client
           </Button>
-          <Button variant="outline" onClick={() => setIsFilterModalOpen(true)}>
+          <Button variant="outline" onClick={() => setIsFilterModalOpen(true)} className="w-full md:w-auto">
             <Filter className="mr-2 h-4 w-4" /> Filter
           </Button>
         </div>
       </div>
 
-      <DataTable
+      <div className="overflow-x-auto">
+        <DataTable
         columns={[
           {
             accessorKey: "idx",
@@ -660,6 +661,7 @@ export default function ContactsPage() {
         searchPlaceholder="Keywords..."
         onFilterChange={(val) => setFilterData({ ...filterData, name: val })}
       />
+      </div>
 
       {/* Filter Modal */}
       <Dialog open={isFilterModalOpen} onOpenChange={setIsFilterModalOpen}>
@@ -721,7 +723,7 @@ export default function ContactsPage() {
             </div>
 
             {/* Last Appointment Date Range */}
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Last appointment</Label>
                 <Input
@@ -743,7 +745,7 @@ export default function ContactsPage() {
             </div>
 
             {/* Next Appointment Date Range */}
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Next appointment</Label>
                 <Input
@@ -855,7 +857,7 @@ export default function ContactsPage() {
             <form id="contact-form" onSubmit={handleSubmit} className="space-y-6">
               {/* Image Upload Section */}
 
-              <div className="flex flex-row gap-4">
+              <div className="flex flex-col md:flex-row gap-4">
                 {/* Drag & Drop Image Upload Area */}
                 <div
                   className="w-32 h-32 rounded-lg border-2 border-dashed border-muted-foreground/25 flex items-center justify-center bg-muted/50 hover:bg-muted transition cursor-pointer"
@@ -902,7 +904,7 @@ export default function ContactsPage() {
                     ref={fileInputRef}
                     type="file"
                     accept="image/*"
-                    className="block w-75 border border-muted-foreground/50 rounded-md p-2 "
+                    className="block w-full border border-muted-foreground/50 rounded-md p-2 "
                     onChange={handleFileChange}
                   />
 
@@ -949,7 +951,7 @@ export default function ContactsPage() {
                 </Select>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Zone</Label>
                   <Select value={formData.zoneName} onValueChange={v => setFormData({ ...formData, zoneName: v })}>
@@ -974,14 +976,14 @@ export default function ContactsPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2"><Label>Bathrooms</Label><Input value={formData.bathrooms} onChange={e => setFormData({ ...formData, bathrooms: e.target.value })} /></div>
                 <div className="space-y-2"><Label>Bedrooms</Label><Input value={formData.bedrooms} onChange={e => setFormData({ ...formData, bedrooms: e.target.value })} /></div>
               </div>
 
               <div className="space-y-2"><Label>Street Address</Label><Input value={formData.streetAddress} onChange={e => setFormData({ ...formData, streetAddress: e.target.value })} /></div>
 
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="space-y-2"><Label>State</Label>
                   <Select value={formData.state} onValueChange={v => setFormData({ ...formData, state: v })}>
                     <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>

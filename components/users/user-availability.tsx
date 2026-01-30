@@ -147,8 +147,8 @@ export function UserAvailability({ availability, onChange, onSave, loading }: Us
           const filteredTimeSlots = getFilteredTimeSlots(slot.day);
 
           return (
-            <div key={slot.day} className="flex items-center justify-between border rounded-md p-4 bg-background">
-              <div className="w-32 font-medium">{slot.day}</div>
+            <div key={slot.day} className="flex flex-col sm:flex-row items-center justify-between gap-4 border rounded-md p-4 bg-background">
+              <div className="w-full sm:w-32 font-medium text-center sm:text-left">{slot.day}</div>
 
               <Switch
                 checked={slot.isOpen}
@@ -156,7 +156,7 @@ export function UserAvailability({ availability, onChange, onSave, loading }: Us
                 disabled={!dayAllowed}
               />
 
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap justify-center items-center gap-2">
                 <Select
                   value={slot.startTime}
                   onValueChange={(val) => updateSchedule(index, "startTime", val)}

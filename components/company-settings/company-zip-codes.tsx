@@ -140,7 +140,7 @@ export function CompanyZipCodes() {
     );
 
     return (
-        <Card>
+        <Card className="py-4">
             <CardHeader className="flex flex-row items-center justify-between">
                 <div className="space-y-1.5">
                     <CardTitle>Zip Codes</CardTitle>
