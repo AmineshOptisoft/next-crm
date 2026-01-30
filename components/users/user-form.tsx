@@ -113,6 +113,8 @@ export function UserForm({ user, onSave, loading }: UserFormProps) {
     const [availableServices, setAvailableServices] = useState<{ _id: string; name: string }[]>([]);
     const [serviceAreas, setServiceAreas] = useState<{ _id: string; name: string }[]>([]);
     const [openServiceCombobox, setOpenServiceCombobox] = useState(false);
+    const [selectedFile, setSelectedFile] = useState<File | null>(null);
+    const [isUploading, setIsUploading] = useState(false);
 
     useEffect(() => {
         const fetchRoles = async () => {
@@ -202,9 +204,38 @@ export function UserForm({ user, onSave, loading }: UserFormProps) {
         );
     };
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        onSave(formData);
+
+        let currentData = { ...formData };
+
+        if (selectedFile) {
+            setIsUploading(true);
+            try {
+                const uploadData = new FormData();
+                uploadData.append("file", selectedFile);
+
+                const userId = user._id || formData._id;
+
+                if (userId) {
+                    const res = await fetch(`/api/users/${userId}/upload-avatar`, {
+                        method: "POST",
+                        body: uploadData,
+                    });
+
+                    if (res.ok) {
+                        const resData = await res.json();
+                        currentData.avatarUrl = resData.url;
+                    }
+                }
+            } catch (error) {
+                console.error("Failed to upload image:", error);
+            } finally {
+                setIsUploading(false);
+            }
+        }
+
+        onSave(currentData);
     };
 
     return (
@@ -280,14 +311,16 @@ export function UserForm({ user, onSave, loading }: UserFormProps) {
                                                 id="avatar-upload"
                                                 type="file"
                                                 accept="image/png,image/jpeg,image/jpg"
+                                                disabled={loading || isUploading}
                                                 onChange={(e) => {
                                                     if (e.target.files?.[0]) {
                                                         const file = e.target.files[0];
-                                                        if (file.size <= 5 * 1024 * 1024) {
-                                                            handleChange("avatarUrl", URL.createObjectURL(file));
-                                                        } else {
+                                                        if (file.size > 5 * 1024 * 1024) {
                                                             alert("File size must be less than 5MB");
+                                                            return;
                                                         }
+                                                        setSelectedFile(file);
+                                                        handleChange("avatarUrl", URL.createObjectURL(file));
                                                     }
                                                 }}
                                             />
@@ -670,9 +703,9 @@ export function UserForm({ user, onSave, loading }: UserFormProps) {
                                 </div>
 
                                 <div className="mt-8 flex justify-end">
-                                    <Button type="submit" disabled={loading} className="w-32">
-                                        {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                        {loading ? "Saving..." : "Save"}
+                                    <Button type="submit" disabled={loading || isUploading} className="w-32">
+                                        {(loading || isUploading) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                        {loading || isUploading ? "Saving..." : "Save"}
                                     </Button>
                                 </div>
                             </form>

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
 import EmailCampaign from "@/app/models/EmailCampaign";
 import { getCurrentUser } from "@/lib/auth";
-import { sendMail } from "@/lib/mail";
+import { sendMailWithCampaignProvider } from "@/lib/mail";
 
 export async function POST(
     req: NextRequest,
@@ -35,15 +35,18 @@ export async function POST(
 
         let html = campaign.html;
 
-        // Simple merge tag replacement
-        if (testData) {
-            Object.keys(testData).forEach(key => {
-                const regex = new RegExp(`{{${key}}}`, "g");
-                html = html.replace(regex, testData[key]);
-            });
-        }
+        // Personalization
+        const { personalizeEmail } = await import("@/lib/mail");
+        html = personalizeEmail(campaign.html, {
+            ...testData,
+            firstName: testData.firstname,
+            lastName: testData.lastname,
+            phoneNumber: testData.phone,
+            companyName: testData.company
+        });
 
-        await sendMail({
+        await sendMailWithCampaignProvider({
+            campaignId: id,
             to: testEmail,
             subject: `[TEST] ${campaign.subject}`,
             html: html

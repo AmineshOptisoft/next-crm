@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Input } from "@/components/ui/input";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useTheme } from "next-themes";
 import UnlayerEmailEditor, { EditorRef, EmailEditorProps } from 'react-email-editor';
 import { toast } from "sonner";
 import templates from "@/lib/greenfrog_templates_unlayer_format.json";
@@ -23,6 +24,7 @@ interface EmailEditorComponentProps {
 function EmailEditorInner({ initialData, mode = "add" }: EmailEditorComponentProps) {
     const router = useRouter();
     const searchParams = useSearchParams();
+    const { resolvedTheme } = useTheme();
     const emailEditorRef = useRef<EditorRef>(null);
     const [viewMode, setViewMode] = useState<"desktop" | "mobile">("desktop");
     const [emailSubject, setEmailSubject] = useState(initialData?.subject || searchParams.get('subject') || "");
@@ -212,7 +214,7 @@ function EmailEditorInner({ initialData, mode = "add" }: EmailEditorComponentPro
                     style={{ height: "100%", minHeight: "calc(100vh - 200px)" }}
                     options={{
                         appearance: {
-                            theme: 'modern_light',
+                            theme: resolvedTheme === 'dark' ? 'modern_dark' : 'modern_light',
                         },
                         mergeTags: {
                             booking_date: { name: 'booking_date', value: '{{booking_date}}' },

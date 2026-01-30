@@ -33,11 +33,11 @@ export async function POST(req: NextRequest) {
         // 2. Loop through emails and send
         for (const targetEmail of emails) {
             try {
-                // Merge tags (Default values for manual send)
-                let emailHtml = campaign.html;
-                emailHtml = emailHtml.replace(/\{\{firstname\}\}/gi, "User");
-                emailHtml = emailHtml.replace(/\{\{lastname\}\}/gi, "");
-                emailHtml = emailHtml.replace(/\{\{email\}\}/gi, targetEmail);
+                // Personalize content
+                const { User } = await import("@/app/models/User");
+                const { personalizeEmail } = await import("@/lib/mail");
+                const recipientUser = await User.findOne({ email: targetEmail, companyId: campaign.companyId });
+                const emailHtml = personalizeEmail(campaign.html, recipientUser);
 
                 await sendMailWithCampaignProvider({
                     campaignId: campaign._id.toString(),

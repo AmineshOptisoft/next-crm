@@ -3,6 +3,7 @@ import { connectDB } from "@/lib/db";
 import EmailCampaign from "@/app/models/EmailCampaign";
 import ReminderLog from "@/app/models/ReminderLog";
 import { User } from "@/app/models/User";
+import { personalizeEmail } from "@/lib/mail";
 
 /**
  * Calculate the time difference in the specified unit
@@ -81,12 +82,7 @@ async function processReminders() {
                             try {
                                 console.log(`[Reminder Cron] ✉️  SENDING: [${reminder.label}] From: ${fromEmail} To: ${contact.email}`);
 
-                                let emailHtml = campaign.html;
-                                emailHtml = emailHtml.replace(/\{\{firstname\}\}/gi, contact.firstName || '');
-                                emailHtml = emailHtml.replace(/\{\{lastname\}\}/gi, contact.lastName || '');
-                                emailHtml = emailHtml.replace(/\{\{email\}\}/gi, contact.email || '');
-                                emailHtml = emailHtml.replace(/\{\{phone\}\}/gi, contact.phoneNumber || '');
-                                emailHtml = emailHtml.replace(/\{\{company\}\}/gi, contact.companyName || '');
+                                let emailHtml = personalizeEmail(campaign.html, contact);
 
                                 await sendMailWithCampaignProvider({
                                     campaignId: campaign._id.toString(),

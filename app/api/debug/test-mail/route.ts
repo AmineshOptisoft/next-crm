@@ -15,13 +15,14 @@ export async function GET() {
         }
 
         const provider = company.mailConfig.provider;
-        const fromEmail = await getFromEmail(company._id.toString());
-
+        const { getCompanyFromEmail } = await import("@/lib/mail");
+        const fromEmail = await getCompanyFromEmail(company._id.toString());
         let status = "Testing...";
         let error = null;
 
         try {
-            const transporter = await getMailTransporter(company._id.toString());
+            const { getCompanyTransporter } = await import("@/lib/mail");
+            const transporter = await getCompanyTransporter(company._id.toString());
             await transporter.verify();
             status = "✅ Connection Successful!";
         } catch (err: any) {
