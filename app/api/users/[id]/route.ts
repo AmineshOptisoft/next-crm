@@ -76,6 +76,11 @@ export async function PUT(
     delete body.password;
   }
 
+  // Sanitize customRoleId
+  if (body.customRoleId === "") {
+    body.customRoleId = null;
+  }
+
   const updatedUser = await User.findByIdAndUpdate(
     id,
     { $set: body },

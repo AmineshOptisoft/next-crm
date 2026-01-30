@@ -17,7 +17,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { X, Upload, Check, ChevronsUpDown } from "lucide-react";
+import { X, Upload, Check, ChevronsUpDown, Loader2 } from "lucide-react";
 import {
     Command,
     CommandEmpty,
@@ -38,6 +38,7 @@ import { UserAvailability } from "./user-availability";
 import { UserOffTime } from "./user-off-time";
 import { UserSecurity } from "./user-security";
 import { UserReviews } from "./user-reviews";
+import { Country, State, City } from "country-state-city";
 
 // Define a frontend interface that matches the API response
 export interface UserData {
@@ -112,6 +113,8 @@ export function UserForm({ user, onSave, loading }: UserFormProps) {
     const [availableServices, setAvailableServices] = useState<{ _id: string; name: string }[]>([]);
     const [serviceAreas, setServiceAreas] = useState<{ _id: string; name: string }[]>([]);
     const [openServiceCombobox, setOpenServiceCombobox] = useState(false);
+    const [selectedFile, setSelectedFile] = useState<File | null>(null);
+    const [isUploading, setIsUploading] = useState(false);
 
     useEffect(() => {
         const fetchRoles = async () => {
@@ -159,6 +162,17 @@ export function UserForm({ user, onSave, loading }: UserFormProps) {
     // Local state for zip codes area to handle text input
     const [zipCodesText, setZipCodesText] = useState(user.workingZipCodes?.join(", ") || "");
 
+    // Cascading Location Logic
+    const countries = Country.getAllCountries();
+    const selectedCountry = countries.find((c) => c.name === formData.country);
+    const countryCode = selectedCountry?.isoCode;
+
+    const states = countryCode ? State.getStatesOfCountry(countryCode) : [];
+    const selectedState = states.find((s) => s.name === formData.state);
+    const stateCode = selectedState?.isoCode;
+
+    const cities = (countryCode && stateCode) ? City.getCitiesOfState(countryCode, stateCode) : [];
+
     const handleChange = (field: keyof UserData, value: any) => {
         setFormData((prev) => ({ ...prev, [field]: value }));
     };
@@ -190,9 +204,38 @@ export function UserForm({ user, onSave, loading }: UserFormProps) {
         );
     };
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        onSave(formData);
+
+        let currentData = { ...formData };
+
+        if (selectedFile) {
+            setIsUploading(true);
+            try {
+                const uploadData = new FormData();
+                uploadData.append("file", selectedFile);
+
+                const userId = user._id || formData._id;
+
+                if (userId) {
+                    const res = await fetch(`/api/users/${userId}/upload-avatar`, {
+                        method: "POST",
+                        body: uploadData,
+                    });
+
+                    if (res.ok) {
+                        const resData = await res.json();
+                        currentData.avatarUrl = resData.url;
+                    }
+                }
+            } catch (error) {
+                console.error("Failed to upload image:", error);
+            } finally {
+                setIsUploading(false);
+            }
+        }
+
+        onSave(currentData);
     };
 
     return (
@@ -205,7 +248,7 @@ export function UserForm({ user, onSave, loading }: UserFormProps) {
             </div>
 
             <Tabs defaultValue="details" className="space-y-6">
-                <TabsList>
+                <TabsList className="w-full justify-start overflow-x-auto h-auto sm:flex-nowrap">
                     <TabsTrigger value="details">Technician Details</TabsTrigger>
                     <TabsTrigger value="bookings">Technician Bookings</TabsTrigger>
                     <TabsTrigger value="availability">Technician Availability</TabsTrigger>
@@ -215,9 +258,9 @@ export function UserForm({ user, onSave, loading }: UserFormProps) {
                 </TabsList>
 
                 <TabsContent value="details">
-                    <Card>
+                    <Card className="py-4">
                         <CardHeader>
-                            <div className="flex justify-between items-center">
+                            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 sm:gap-0">
                                 <div className="flex flex-col gap-2">
                                     <CardTitle>Technician Details</CardTitle>
                                     <CardDescription>
@@ -238,7 +281,7 @@ export function UserForm({ user, onSave, loading }: UserFormProps) {
                                 {/* Upload Image - Company Logo */}
                                 <div className="space-y-2 mb-6 flex flex-col gap-2">
                                     <h3 className="font-semibold">Image</h3>
-                                    <div className="flex items-center gap-6">
+                                    <div className="flex flex-col md:flex-row items-start md:items-center gap-6">
                                         {formData.avatarUrl ? (
                                             <div className="relative">
                                                 <img
@@ -268,14 +311,16 @@ export function UserForm({ user, onSave, loading }: UserFormProps) {
                                                 id="avatar-upload"
                                                 type="file"
                                                 accept="image/png,image/jpeg,image/jpg"
+                                                disabled={loading || isUploading}
                                                 onChange={(e) => {
                                                     if (e.target.files?.[0]) {
                                                         const file = e.target.files[0];
-                                                        if (file.size <= 5 * 1024 * 1024) {
-                                                            handleChange("avatarUrl", URL.createObjectURL(file));
-                                                        } else {
+                                                        if (file.size > 5 * 1024 * 1024) {
                                                             alert("File size must be less than 5MB");
+                                                            return;
                                                         }
+                                                        setSelectedFile(file);
+                                                        handleChange("avatarUrl", URL.createObjectURL(file));
                                                     }
                                                 }}
                                             />
@@ -283,7 +328,7 @@ export function UserForm({ user, onSave, loading }: UserFormProps) {
                                     </div>
                                 </div>
                                 {/* Name & Email */}
-                                <div className="grid grid-cols-2 gap-6">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                     <div className="space-y-2">
                                         <Label htmlFor="firstName">First Name</Label>
                                         <Input
@@ -347,31 +392,70 @@ export function UserForm({ user, onSave, loading }: UserFormProps) {
                                 </div>
 
                                 {/* State, City, Zip, Country */}
-                                <div className="grid grid-cols-2 gap-6 mt-4">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
 
                                     <div className="space-y-2">
                                         <Label htmlFor="country">Country</Label>
-                                        <Input
-                                            id="country"
+                                        <Select
                                             value={formData.country || ""}
-                                            onChange={(e) => handleChange("country", e.target.value)}
-                                        />
+                                            onValueChange={(val) => {
+                                                handleChange("country", val);
+                                                handleChange("state", "");
+                                                handleChange("city", "");
+                                            }}
+                                        >
+                                            <SelectTrigger id="country" className="w-full">
+                                                <SelectValue placeholder="Select Country" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {countries.map((country) => (
+                                                    <SelectItem key={country.isoCode} value={country.name}>
+                                                        {country.name}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
                                     </div>
                                     <div className="space-y-2">
                                         <Label htmlFor="state">State</Label>
-                                        <Input
-                                            id="state"
+                                        <Select
                                             value={formData.state || ""}
-                                            onChange={(e) => handleChange("state", e.target.value)}
-                                        />
+                                            onValueChange={(val) => {
+                                                handleChange("state", val);
+                                                handleChange("city", "");
+                                            }}
+                                            disabled={!countryCode}
+                                        >
+                                            <SelectTrigger id="state" className="w-full">
+                                                <SelectValue placeholder="Select State" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {states.map((state) => (
+                                                    <SelectItem key={state.isoCode} value={state.name}>
+                                                        {state.name}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
                                     </div>
                                     <div className="space-y-2">
                                         <Label htmlFor="city">City</Label>
-                                        <Input
-                                            id="city"
+                                        <Select
                                             value={formData.city || ""}
-                                            onChange={(e) => handleChange("city", e.target.value)}
-                                        />
+                                            onValueChange={(val) => handleChange("city", val)}
+                                            disabled={!stateCode}
+                                        >
+                                            <SelectTrigger id="city" className="w-full">
+                                                <SelectValue placeholder="Select City" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {cities.map((city) => (
+                                                    <SelectItem key={city.name} value={city.name}>
+                                                        {city.name}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
                                     </div>
 
                                     <div className="space-y-2">
@@ -386,7 +470,7 @@ export function UserForm({ user, onSave, loading }: UserFormProps) {
                                 </div>
 
                                 {/* Services & Gender */}
-                                <div className="grid grid-cols-2 gap-6 mt-4">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
                                     <div className="space-y-2">
                                         <Label>Services</Label>
                                         <Popover open={openServiceCombobox} onOpenChange={setOpenServiceCombobox}>
@@ -397,7 +481,7 @@ export function UserForm({ user, onSave, loading }: UserFormProps) {
                                                     className="flex h-auto min-h-[40px] w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"
                                                     onClick={() => setOpenServiceCombobox(!openServiceCombobox)}
                                                 >
-                                                    <div className="flex flex-wrap gap-1">
+                                                    <div className="flex flex-wrap gap-1 ">
                                                         {formData.services && formData.services.length > 0 ? (
                                                             formData.services.map((serviceId) => {
                                                                 const service = availableServices.find((s) => s._id === serviceId);
@@ -522,7 +606,7 @@ export function UserForm({ user, onSave, loading }: UserFormProps) {
                                 <div className="mt-4 pt-6">
                                     <h3 className="text-lg font-medium mb-4">Working Area</h3>
 
-                                    <div className="grid grid-cols-2 gap-6">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                         <div className="space-y-2">
                                             <Label>Zone</Label>
                                             <Select
@@ -619,8 +703,9 @@ export function UserForm({ user, onSave, loading }: UserFormProps) {
                                 </div>
 
                                 <div className="mt-8 flex justify-end">
-                                    <Button type="submit" disabled={loading} className="w-32">
-                                        {loading ? "Saving..." : "Save"}
+                                    <Button type="submit" disabled={loading || isUploading} className="w-32">
+                                        {(loading || isUploading) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                        {loading || isUploading ? "Saving..." : "Save"}
                                     </Button>
                                 </div>
                             </form>
@@ -629,7 +714,7 @@ export function UserForm({ user, onSave, loading }: UserFormProps) {
                 </TabsContent>
 
                 <TabsContent value="bookings">
-                    <Card>
+                    <Card className="py-4">
                         <CardHeader>
                             <CardTitle>Bookings</CardTitle>
                             <CardDescription>View and manage technician bookings</CardDescription>
@@ -641,7 +726,7 @@ export function UserForm({ user, onSave, loading }: UserFormProps) {
                 </TabsContent>
 
                 <TabsContent value="availability">
-                    <Card>
+                    <Card className="py-4">
                         <CardHeader>
                             <CardTitle>Availability</CardTitle>
                             <CardDescription>Manage weekly working hours</CardDescription>
@@ -651,15 +736,16 @@ export function UserForm({ user, onSave, loading }: UserFormProps) {
                                 availability={formData.availability}
                                 onChange={(newSchedule) => handleChange("availability", newSchedule)}
                                 onSave={() => onSave(formData)}
+                                loading={loading}
                             />
                         </CardContent>
                     </Card>
                 </TabsContent>
 
                 <TabsContent value="offtime">
-                    <Card>
+                    <Card className="py-4">
                         <CardHeader>
-                            <div className="flex justify-between items-center">
+                            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 sm:gap-0">
 
                                 <div className="flex flex-col gap-2">
                                     <CardTitle>Off Time</CardTitle>
@@ -676,7 +762,7 @@ export function UserForm({ user, onSave, loading }: UserFormProps) {
                 </TabsContent>
 
                 <TabsContent value="security">
-                    <Card>
+                    <Card className="py-4">
                         <CardHeader>
                             <CardTitle>Security</CardTitle>
                             <CardDescription>Update password and security settings</CardDescription>
@@ -688,7 +774,7 @@ export function UserForm({ user, onSave, loading }: UserFormProps) {
                 </TabsContent>
 
                 <TabsContent value="review">
-                    <Card>
+                    <Card className="py-4">
                         <CardHeader>
                             <CardTitle>Reviews</CardTitle>
                             <CardDescription>Customer reviews and ratings</CardDescription>

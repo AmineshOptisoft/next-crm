@@ -29,8 +29,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Pencil, Trash2, Users, UserCheck, UserX } from "lucide-react";
+import { Plus, Pencil, Trash2, Users, UserCheck, UserX, Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { toast } from "sonner";
 
 interface User {
   _id: string;
@@ -58,6 +59,10 @@ export default function UsersPage() {
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [idToDelete, setIdToDelete] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
@@ -99,6 +104,7 @@ export default function UsersPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsSaving(true);
     try {
       const url = editingUser ? `/api/users/${editingUser._id}` : "/api/users";
       const method = editingUser ? "PUT" : "POST";
@@ -125,32 +131,47 @@ export default function UsersPage() {
         fetchUsers();
         setIsDialogOpen(false);
         resetForm();
+        toast.success(editingUser ? "User updated successfully" : "User added successfully");
       } else {
         const error = await response.json();
-        alert(error.error || "Failed to save user");
+        toast.error(error.error || `Failed to ${editingUser ? "update" : "add"} user`);
       }
     } catch (error) {
       console.error("Error saving user:", error);
-      alert("Failed to save user");
+      toast.error(`Failed to ${editingUser ? "update" : "add"} user`);
+    } finally {
+      setIsSaving(false);
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm("Are you sure you want to deactivate this user?")) return;
+  const handleDelete = (id: string) => {
+    setIdToDelete(id);
+    setIsDeleteDialogOpen(true);
+  };
 
+  const confirmDelete = async () => {
+    if (!idToDelete) return;
+
+    setDeletingId(idToDelete);
     try {
-      const response = await fetch(`/api/users/${id}`, {
+      const response = await fetch(`/api/users/${idToDelete}`, {
         method: "DELETE",
       });
 
       if (response.ok) {
         fetchUsers();
+        toast.success("User deactivated successfully");
+        setIsDeleteDialogOpen(false);
       } else {
         const error = await response.json();
-        alert(error.error || "Failed to deactivate user");
+        toast.error(error.error || "Failed to deactivate user");
       }
     } catch (error) {
       console.error("Error deactivating user:", error);
+      toast.error("Failed to deactivate user");
+    } finally {
+      setDeletingId(null);
+      if (!idToDelete) setIdToDelete(null);
     }
   };
 
@@ -288,7 +309,7 @@ export default function UsersPage() {
                     <SelectTrigger>
                       <SelectValue placeholder="Select a role (optional)" />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent position="popper" sideOffset={5} className="z-[100]">
                       <SelectItem value="none">No Role</SelectItem>
                       {roles.map((role) => (
                         <SelectItem key={role._id} value={role._id}>
@@ -310,7 +331,8 @@ export default function UsersPage() {
                 >
                   Cancel
                 </Button>
-                <Button type="submit">
+                <Button type="submit" disabled={isSaving}>
+                  {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   {editingUser ? "Update User" : "Add User"}
                 </Button>
               </DialogFooter>
@@ -396,6 +418,7 @@ export default function UsersPage() {
                             <Button
                               variant="ghost"
                               size="icon"
+                              
                               onClick={() => handleEdit(user)}
                             >
                               <Pencil className="h-4 w-4" />
@@ -404,6 +427,7 @@ export default function UsersPage() {
                               variant="ghost"
                               size="icon"
                               onClick={() => handleDelete(user._id)}
+                              disabled={deletingId === user._id}
                             >
                               <Trash2 className="h-4 w-4" />
                             </Button>
@@ -423,6 +447,45 @@ export default function UsersPage() {
           </Table>
         </div>
       )}
+
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Deactivate User</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to deactivate this user? They will no longer be able to log in.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setIsDeleteDialogOpen(false);
+                setIdToDelete(null);
+              }}
+              disabled={deletingId !== null}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={confirmDelete}
+              disabled={deletingId !== null}
+            >
+              {deletingId ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Deactivating...
+                </>
+              ) : (
+                "Deactivate"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

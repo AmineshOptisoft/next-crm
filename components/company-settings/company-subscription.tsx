@@ -14,7 +14,7 @@ export function CompanySubscription({ company }: CompanySubscriptionProps) {
     if (!company) return null;
 
     return (
-        <Card>
+        <Card className="py-4">
             <CardHeader>
                 <CardTitle>Subscription & Limits</CardTitle>
                 <CardDescription>

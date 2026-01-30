@@ -112,7 +112,7 @@ export function SettingsAccount() {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      <Card>
+      <Card className="py-4">
         <CardHeader>
           <CardTitle>Account</CardTitle>
           <CardDescription>

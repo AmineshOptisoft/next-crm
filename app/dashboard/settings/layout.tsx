@@ -65,7 +65,7 @@ function SidebarNav() {
 
 export default function SettingsLayout({ children }: { children: ReactNode }) {
   return (
-    <div className="flex flex-1 flex-col space-y-0 px-6 py-4 lg:px-8">
+    <div className="flex flex-1 flex-col space-y-0 md:px-6 md:py-4 lg:px-8">
       <div className="space-y-0.5">
         <h1 className="text-2xl font-bold tracking-tight md:text-3xl">
           Settings

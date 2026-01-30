@@ -27,7 +27,7 @@ export async function GET(req: NextRequest) {
             companyId: user.companyId,
             role: "company_user",
             isTechnicianActive: true
-        }).select('firstName lastName zone availability');
+        }).select('firstName lastName zone availability services');
         console.log("Technicians found:", technicians.length, technicians.map(t => ({ name: `${t.firstName} ${t.lastName}`, zone: t.zone })));
 
         // Fetch master availability
@@ -58,7 +58,8 @@ export async function GET(req: NextRequest) {
                 resources.push({
                     id: tech._id.toString(),
                     title: `${tech.firstName} ${tech.lastName}`,
-                    group: area.name
+                    group: area.name,
+                    services: tech.services || [] // Include assigned services
                 });
 
                 // Generate availability blocks for this technician
@@ -74,35 +75,85 @@ export async function GET(req: NextRequest) {
         // Fetch bookings and add them as yellow events
         const bookings = await Booking.find({ companyId: user.companyId })
             .populate('contactId', 'firstName lastName email phone')
-            // .populate('serviceId', 'name')
-            // .populate({
-            //     path: "serviceId",
-            //     model: "services",
-            //     select: "name"
-            // })
+            .populate('serviceId', 'name')
             .lean();
 
-        const bookingEvents = bookings.map((booking: any) => ({
-            id: `booking-${booking._id}`,
-            resourceId: booking.technicianId?.toString(),
-            title: `${booking.contactId?.firstName || ''} ${booking.contactId?.lastName || ''} - ${booking.serviceId?.name || 'Service'}`,
-            start: new Date(booking.appointmentDate),
-            end: new Date(booking.appointmentEndDate || booking.appointmentDate),
-            backgroundColor: "#eab308", // Yellow color
-            borderColor: "#ca8a04",
-            textColor: "#000000",
-            type: "booking",
-            extendedProps: {
-                bookingId: booking._id,
-                contactName: `${booking.contactId?.firstName || ''} ${booking.contactId?.lastName || ''}`,
-                contactEmail: booking.contactId?.email,
-                contactPhone: booking.contactId?.phone,
-                serviceName: booking.serviceId?.name,
-                status: booking.status,
-                estimatedPrice: booking.estimatedPrice,
-                discount: booking.discount
-            }
-        }));
+        // Collect all unique service IDs from subServices and addons
+        const serviceIds = new Set<string>();
+        bookings.forEach((booking: any) => {
+            booking.subServices?.forEach((sub: any) => {
+                if (sub.serviceId) serviceIds.add(sub.serviceId.toString());
+            });
+            booking.addons?.forEach((addon: any) => {
+                if (addon.serviceId) serviceIds.add(addon.serviceId.toString());
+            });
+        });
+
+        // Fetch all services in one query
+        const services = await Service.find({ _id: { $in: Array.from(serviceIds) } }).select('_id name').lean();
+        const serviceMap = new Map(services.map((s: any) => [s._id.toString(), s.name]));
+
+        const bookingEvents = bookings.map((booking: any) => {
+            // Format address
+            const addr = booking.shippingAddress;
+            const formattedAddress = addr ? `${addr.street || ''}, ${addr.city || ''}, ${addr.state || ''} ${addr.zipCode || ''}` : '';
+
+            // Format units (sub-services) with service names from map
+            const units = booking.subServices?.map((sub: any) => {
+                const serviceName = serviceMap.get(sub.serviceId?.toString()) || 'Unknown';
+                return `${serviceName} (x${sub.quantity})`;
+            }).join(', ') || '';
+
+            // Format addons with service names from map
+            const addons = booking.addons?.map((addon: any) => {
+                const serviceName = serviceMap.get(addon.serviceId?.toString()) || 'Unknown';
+                return `${serviceName} (x${addon.quantity})`;
+            }).join(', ') || '';
+
+            return {
+                id: `booking-${booking._id}`,
+                resourceId: booking.technicianId?.toString(),
+                title: `${booking.contactId?.firstName || ''} ${booking.contactId?.lastName || ''} - ${booking.serviceId?.name || 'Service'}`,
+                start: new Date(booking.startDateTime),
+                end: new Date(booking.endDateTime),
+                backgroundColor: (() => {
+                    switch (booking.status) {
+                        case 'unconfirmed': return '#ea580c'; // Orange
+                        case 'confirmed':
+                        case 'scheduled': return '#eab308'; // Yellow
+                        case 'invoice_sent': return '#2563eb'; // Blue
+                        case 'paid': return '#16a34a'; // Green
+                        case 'closed': return '#4b5563'; // Gray
+                        case 'rejected':
+                        case 'cancelled': return '#dc2626'; // Red
+                        case 'completed': return '#10b981'; // Teal
+                        default: return '#eab308';
+                    }
+                })(),
+                borderColor: "#ca8a04",
+                textColor: "#000000",
+                type: "booking",
+                extendedProps: {
+                    bookingId: booking._id,
+                    bookingStatus: booking.status,
+                    service: booking.serviceId?.name,
+                    units: units,
+                    addons: addons,
+                    notes: booking.notes,
+                    bookingPrice: booking.pricing?.finalAmount ? `$${booking.pricing.finalAmount.toFixed(2)}` : '-',
+                    bookingDiscount: booking.pricing?.discount ? `$${booking.pricing.discount}` : '-',
+
+                    customerName: `${booking.contactId?.firstName || ''} ${booking.contactId?.lastName || ''}`,
+                    customerEmail: booking.contactId?.email,
+                    customerPhone: booking.contactId?.phone,
+                    customerAddress: formattedAddress,
+
+                    // Maps to Calendar.tsx mapping
+                    status: booking.status
+                }
+            };
+        });
+
 
         return NextResponse.json({
             resources,

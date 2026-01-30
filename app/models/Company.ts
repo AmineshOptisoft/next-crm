@@ -66,6 +66,25 @@ const CompanySchema = new Schema(
         endTime: { type: String, default: "06:00 PM" },
       },
     ],
+
+    // Mail Configuration
+    mailConfig: {
+      provider: { type: String, enum: ["smtp", "gmail"], default: "smtp" },
+      smtp: {
+        host: { type: String },
+        port: { type: Number },
+        username: { type: String },
+        password: { type: String },
+        fromEmail: { type: String },
+        fromName: { type: String },
+      },
+      gmail: {
+        accessToken: { type: String },
+        refreshToken: { type: String },
+        expiryDate: { type: Number },
+        email: { type: String },
+      }
+    },
   },
   {
     timestamps: true,

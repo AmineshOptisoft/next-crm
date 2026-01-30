@@ -28,7 +28,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Pencil, Trash2 } from "lucide-react";
+import { Plus, Pencil, Trash2, Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 
@@ -57,6 +57,8 @@ export default function DealsPage() {
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingDeal, setEditingDeal] = useState<DealType | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     title: "",
     value: "",
@@ -141,6 +143,7 @@ export default function DealsPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    setIsSaving(true);
 
     const url = editingDeal ? `/api/deals/${editingDeal._id}` : "/api/deals";
     const method = editingDeal ? "PUT" : "POST";
@@ -181,10 +184,13 @@ export default function DealsPage() {
     } catch (e) {
       console.error("Error saving deal:", e);
       toast.error("Failed to save deal");
+    } finally {
+      setIsSaving(false);
     }
   }
 
   async function handleDelete(id: string) {
+    setDeletingId(id);
     toast.promise(
       fetch(`/api/deals/${id}`, { method: "DELETE" }).then(async (res) => {
         if (!res.ok) {
@@ -193,7 +199,7 @@ export default function DealsPage() {
         }
         await fetchAll();
         return res;
-      }),
+      }).finally(() => setDeletingId(null)),
       {
         loading: "Deleting deal...",
         success: "Deal deleted successfully",
@@ -241,7 +247,7 @@ export default function DealsPage() {
                     }
                   />
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="value">Value *</Label>
                     <Input
@@ -276,7 +282,7 @@ export default function DealsPage() {
                     </Select>
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="contactId">Contact</Label>
                     <Select
@@ -324,7 +330,8 @@ export default function DealsPage() {
                 >
                   Cancel
                 </Button>
-                <Button type="submit">
+                <Button type="submit" disabled={isSaving}>
+                  {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   {editingDeal ? "Update" : "Create"}
                 </Button>
               </DialogFooter>
@@ -339,64 +346,67 @@ export default function DealsPage() {
         </div>
       ) : (
         <div className="rounded-md border bg-card">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Title</TableHead>
-                <TableHead>Value</TableHead>
-                <TableHead>Stage</TableHead>
-                <TableHead>Contact</TableHead>
-                <TableHead>Close Date</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {deals.length === 0 ? (
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
                 <TableRow>
-                  <TableCell
-                    colSpan={6}
-                    className="py-12 text-center text-muted-foreground"
-                  >
-                    No deals yet. Create your first deal to get started.
-                  </TableCell>
+                  <TableHead>Title</TableHead>
+                  <TableHead>Value</TableHead>
+                  <TableHead>Stage</TableHead>
+                  <TableHead>Contact</TableHead>
+                  <TableHead>Close Date</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
-              ) : (
-                deals.map((deal) => (
-                  <TableRow key={deal._id}>
-                    <TableCell className="font-medium">{deal.title}</TableCell>
-                    <TableCell>${deal.value.toLocaleString()}</TableCell>
-                    <TableCell>{getStageBadge(deal.stage)}</TableCell>
-                    <TableCell>
-                      {deal.contactId?.name || "No contact"}
-                    </TableCell>
-                    <TableCell>
-                      {deal.closeDate
-                        ? new Date(deal.closeDate).toLocaleDateString()
-                        : "-"}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleEdit(deal)}
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleDelete(deal._id)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
+              </TableHeader>
+              <TableBody>
+                {deals.length === 0 ? (
+                  <TableRow>
+                    <TableCell
+                      colSpan={6}
+                      className="py-12 text-center text-muted-foreground"
+                    >
+                      No deals yet. Create your first deal to get started.
                     </TableCell>
                   </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
+                ) : (
+                  deals.map((deal) => (
+                    <TableRow key={deal._id}>
+                      <TableCell className="font-medium">{deal.title}</TableCell>
+                      <TableCell>${deal.value.toLocaleString()}</TableCell>
+                      <TableCell>{getStageBadge(deal.stage)}</TableCell>
+                      <TableCell>
+                        {deal.contactId?.name || "No contact"}
+                      </TableCell>
+                      <TableCell>
+                        {deal.closeDate
+                          ? new Date(deal.closeDate).toLocaleDateString()
+                          : "-"}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-2">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleEdit(deal)}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleDelete(deal._id)}
+                            disabled={deletingId === deal._id}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
         </div>
       )}
     </div>

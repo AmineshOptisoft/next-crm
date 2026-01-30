@@ -240,9 +240,9 @@ const menuItems = {
       ),
     },
     {
-      title: "Analytics",
-      href: "/dashboard/analytics",
-      module: "analytics",
+      title: "Email Builder",
+      href: "/dashboard/email-builder",
+      module: "email-builder",
       icon: (
         <svg
           xmlns="http://www.w3.org/2000/svg"
@@ -255,9 +255,10 @@ const menuItems = {
           strokeLinecap="round"
           strokeLinejoin="round"
         >
-          <line x1="12" y1="20" x2="12" y2="10" />
-          <line x1="18" y1="20" x2="18" y2="4" />
-          <line x1="6" y1="20" x2="6" y2="16" />
+          <path d="M21.2 8.4c.5.5.8 1.2.8 2v10c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c.8 0 1.5.3 2 .8l5.2 5.6Z" />
+          <path d="M16 2v4c0 1.1.9 2 2 2h4" />
+          <path d="M9 13h6" />
+          <path d="M9 17h3" />
         </svg>
       ),
     },

@@ -157,20 +157,30 @@ export function Topbar() {
         </div>
 
         {/* Center: search that opens command palette */}
-        <button
-          type="button"
-          onClick={() => setOpenCmd(true)}
-          className="flex flex-1 justify-center px-4"
-        >
-          <div className="relative flex h-9 w-full max-w-md items-center rounded-md border bg-muted text-sm text-muted-foreground px-3 pl-8 pr-14">
+        {/* Center: search that opens command palette */}
+        <div className="flex flex-1 justify-end md:justify-center px-2 md:px-4">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="md:hidden h-9 w-9"
+            onClick={() => setOpenCmd(true)}
+          >
+            <Search className="h-4 w-4 text-muted-foreground" />
+          </Button>
+
+          <button
+            type="button"
+            onClick={() => setOpenCmd(true)}
+            className="hidden md:flex relative h-9 w-full max-w-md items-center rounded-md border bg-muted text-sm text-muted-foreground px-3 pl-8 pr-14 hover:bg-accent/50"
+          >
             <Search className="pointer-events-none absolute left-3 h-4 w-4 text-muted-foreground" />
             <span className="truncate text-left">Search</span>
             <span className="pointer-events-none absolute right-2 inline-flex items-center gap-1 rounded border bg-background px-1.5 py-0.5 font-mono text-[10px] font-medium text-muted-foreground">
               <Kbd className="h-4">⌘</Kbd>
               <Kbd className="h-4">K</Kbd>
             </span>
-          </div>
-        </button>
+          </button>
+        </div>
 
         {/* Right: theme, settings, user menu */}
         <div className="flex items-center gap-3">

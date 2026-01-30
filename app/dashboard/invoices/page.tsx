@@ -280,7 +280,7 @@ export default function InvoicesPage() {
                       <SelectTrigger>
                         <SelectValue placeholder="Select customer" />
                       </SelectTrigger>
-                      <SelectContent>
+                      <SelectContent position="popper" sideOffset={5} className="z-[100]">
                         {contacts.map((contact) => (
                           <SelectItem key={contact._id} value={contact._id}>
                             {contact.name}

@@ -20,6 +20,15 @@ import {
     SheetFooter,
     SheetClose
 } from "@/components/ui/sheet";
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+    DialogTrigger,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -89,6 +98,10 @@ export default function ServicesPage() {
     const [isUploading, setIsUploading] = useState(false);
     const [isDragging, setIsDragging] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
+    const [deletingId, setDeletingId] = useState<string | null>(null);
+    const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+    const [serviceToDelete, setServiceToDelete] = useState<string | null>(null);
+    const [idToDelete, setIdToDelete] = useState<string | null>(null);
 
     async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
         const file = e.target.files?.[0];
@@ -273,19 +286,29 @@ export default function ServicesPage() {
         }
     }
 
-    async function handleDelete(id: string) {
-        if (!confirm("Are you sure you want to delete this service?")) return;
+    function handleDelete(id: string) {
+        setIdToDelete(id);
+        setIsDeleteDialogOpen(true);
+    }
+
+    async function confirmDelete() {
+        if (!idToDelete) return;
+        setDeletingId(idToDelete);
         try {
-            const res = await fetch(`/api/services/${id}`, { method: "DELETE" });
+            const res = await fetch(`/api/services/${idToDelete}`, { method: "DELETE" });
             if (res.ok) {
                 toast.success("Service deleted");
                 fetchServices();
+                setIsDeleteDialogOpen(false);
             } else {
                 toast.error("Failed to delete service");
             }
         } catch (error) {
             console.error(error);
             toast.error("Error deleting service");
+        } finally {
+            setDeletingId(null);
+            if (!idToDelete) setIdToDelete(null);
         }
     }
 
@@ -602,6 +625,7 @@ export default function ServicesPage() {
                                     <TableHead>SERVICE PERCENTAGE</TableHead>
                                     <TableHead>BASE PRICE</TableHead>
                                     <TableHead>HOURLY RATE</TableHead>
+                                    <TableHead>ESTIMATED TIME</TableHead>
                                     <TableHead>STATUS</TableHead>
                                     <TableHead className="text-right">ACTION</TableHead>
                                 </TableRow>
@@ -650,6 +674,9 @@ export default function ServicesPage() {
                                                 {service.category === "main" ? "--" : `$${service.hourlyRate || 0}/hr`}
                                             </TableCell>
                                             <TableCell>
+                                                {service.category === "main" ? "--" : `${service.estimatedTime || 0} min`}
+                                            </TableCell>
+                                            <TableCell>
                                                 <div className="flex items-center gap-2">
                                                     <Switch
                                                         checked={service.status === "active"}
@@ -676,6 +703,7 @@ export default function ServicesPage() {
                                                         size="icon"
                                                         onClick={() => handleDelete(service._id)}
                                                         className="hover:bg-red-50 hover:text-red-600 transition-colors"
+                                                        disabled={deletingId === service._id}
                                                     >
                                                         <Trash2 className="h-4 w-4" />
                                                     </Button>
@@ -689,7 +717,45 @@ export default function ServicesPage() {
                     </div>
                 )
             }
-        </div >
+            {/* Delete Confirmation Dialog */}
+
+            <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Delete Service</DialogTitle>
+                        <DialogDescription>
+                            Are you sure you want to delete this service? This action cannot be undone.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter>
+                        <Button
+                            variant="outline"
+                            onClick={() => {
+                                setIsDeleteDialogOpen(false);
+                                setIdToDelete(null);
+                            }}
+                            disabled={deletingId !== null}
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            variant="destructive"
+                            onClick={confirmDelete}
+                            disabled={deletingId !== null}
+                        >
+                            {deletingId ? (
+                                <>
+                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                    Deleting...
+                                </>
+                            ) : (
+                                "Delete"
+                            )}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+        </div>
     );
 }
 

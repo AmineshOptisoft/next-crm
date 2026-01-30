@@ -12,7 +12,7 @@ export function SettingsAppearance() {
   const { compact, setCompact } = useLayoutPreferences();
 
   return (
-    <Card>
+    <Card className="py-4">
       <CardHeader>
         <CardTitle>Appearance</CardTitle>
         <CardDescription>

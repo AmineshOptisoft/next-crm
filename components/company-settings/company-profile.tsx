@@ -14,7 +14,8 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Building2, Save, Upload, MapPin, X } from "lucide-react";
+import { Building2, Save, Upload, MapPin, X, Loader2 } from "lucide-react";
+
 
 interface CompanyProfileProps {
     formData: any;
@@ -22,9 +23,11 @@ interface CompanyProfileProps {
     saving: boolean;
     handleSubmit: (e: React.FormEvent) => void;
     industries: Array<{ _id: string; name: string }>;
+    selectedLogo: File | null;
+    setSelectedLogo: (file: File | null) => void;
 }
 
-export function CompanyProfile({ formData, setFormData, saving, handleSubmit, industries }: CompanyProfileProps) {
+export function CompanyProfile({ formData, setFormData, saving, handleSubmit, industries, selectedLogo, setSelectedLogo }: CompanyProfileProps) {
     // Google Maps initialization
     const mapRef = useRef<HTMLDivElement>(null);
     const mapInstanceRef = useRef<google.maps.Map | null>(null);
@@ -125,15 +128,13 @@ export function CompanyProfile({ formData, setFormData, saving, handleSubmit, in
                 alert("File size must be less than 5MB");
                 return;
             }
-            const reader = new FileReader();
-            reader.onloadend = () => {
-                setFormData({ ...formData, logo: reader.result as string });
-            };
-            reader.readAsDataURL(file);
+            setSelectedLogo(file);
+            setFormData({ ...formData, logo: URL.createObjectURL(file) });
         }
     };
 
     const handleRemoveLogo = () => {
+        setSelectedLogo(null);
         setFormData({ ...formData, logo: "" });
     };
 
@@ -149,7 +150,7 @@ export function CompanyProfile({ formData, setFormData, saving, handleSubmit, in
                 }}
                 strategy="afterInteractive"
             />
-            <Card>
+            <Card className="py-4">
                 <CardHeader>
                     <CardTitle>Company Profile</CardTitle>
                     <CardDescription>
@@ -417,7 +418,11 @@ export function CompanyProfile({ formData, setFormData, saving, handleSubmit, in
 
                     <div className="flex justify-end">
                         <Button type="submit" disabled={saving}>
-                            <Save className="mr-2 h-4 w-4" />
+                            {saving ? (
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            ) : (
+                                <Save className="mr-2 h-4 w-4" />
+                            )}
                             {saving ? "Saving..." : "Save Changes"}
                         </Button>
                     </div>

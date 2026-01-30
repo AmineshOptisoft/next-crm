@@ -55,7 +55,8 @@ import {
   Upload,
   Image as ImageIcon,
   Building2,
-  X
+  X,
+  Loader2,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
@@ -86,6 +87,7 @@ interface ContactType {
   createdAt: string;
   avatarUrl?: string;
   address?: string;
+  role?: string;
 }
 
 export default function ContactsPage() {
@@ -98,6 +100,11 @@ export default function ContactsPage() {
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   // Filter Modal state
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
+  // Delete Dialog state
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [contactToDelete, setContactToDelete] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
 
   const [editingContact, setEditingContact] = useState<ContactType | null>(null);
   const [fileToUpload, setFileToUpload] = useState<File | null>(null);
@@ -288,13 +295,21 @@ export default function ContactsPage() {
       companyId: contact.companyId || "",
       serviceDefaults: (contact as any).serviceDefaults || {},
       zoneName: contact.zoneName || "",
-      fsrAssigned: contact.fsrAssigned || "",
+      fsrAssigned: (() => {
+        const assignedName = contact.fsrAssigned;
+        if (!assignedName) return "";
+        // Try to find user by name to get ID
+        const user = usersList.find(u => `${u.firstName} ${u.lastName}` === assignedName);
+        return user ? user._id : assignedName;
+      })(),
       role: contact?.role || "contact"
     });
     setPreviewUrl(contact.avatarUrl || null);
     setFileToUpload(null);
     setIsSheetOpen(true);
   }
+
+
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -303,26 +318,28 @@ export default function ContactsPage() {
       return;
     }
 
-    let imageUrl = editingContact?.avatarUrl || "";
-    if (fileToUpload) {
-      const uploaded = await uploadImage(fileToUpload);
-      if (uploaded) imageUrl = uploaded;
-      else toast.error("Image upload failed, continuing without new image");
-    }
-
-    const url = editingContact ? `/api/contacts/${editingContact._id}` : "/api/contacts";
-    const method = editingContact ? "PUT" : "POST";
-
-    const submitData: any = {
-      ...formData,
-      image: imageUrl
-    };
-
-    // Cleanup
-    if (currentUser?.role !== "super_admin") delete submitData.companyId;
-    delete submitData.confirmPassword;
+    setIsSaving(true);
 
     try {
+      let imageUrl = editingContact?.avatarUrl || "";
+      if (fileToUpload) {
+        const uploaded = await uploadImage(fileToUpload);
+        if (uploaded) imageUrl = uploaded;
+        else toast.error("Image upload failed, continuing without new image");
+      }
+
+      const url = editingContact ? `/api/contacts/${editingContact._id}` : "/api/contacts";
+      const method = editingContact ? "PUT" : "POST";
+
+      const submitData: any = {
+        ...formData,
+        image: imageUrl
+      };
+
+      // Cleanup
+      if (currentUser?.role !== "super_admin") delete submitData.companyId;
+      delete submitData.confirmPassword;
+
       const res = await fetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
@@ -340,17 +357,29 @@ export default function ContactsPage() {
       }
     } catch (e) {
       toast.error("Operation failed");
+    } finally {
+      setIsSaving(false);
     }
   }
 
-  async function handleDelete(id: string) {
-    if (!confirm("Are you sure?")) return;
+  function openDeleteDialog(id: string) {
+    setContactToDelete(id);
+    setIsDeleteDialogOpen(true);
+  }
+
+  async function handleDelete() {
+    if (!contactToDelete) return;
+    setDeletingId(contactToDelete);
     try {
-      await fetch(`/api/contacts/${id}`, { method: "DELETE" });
+      await fetch(`/api/contacts/${contactToDelete}`, { method: "DELETE" });
       toast.success("Deleted successfully");
       fetchContacts();
+      setIsDeleteDialogOpen(false);
     } catch (e) {
       toast.error("Failed to delete");
+    } finally {
+      setDeletingId(null);
+      setContactToDelete(null);
     }
   }
 
@@ -461,7 +490,7 @@ export default function ContactsPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 ">
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Contacts</h1>
         <p className="text-muted-foreground">
@@ -469,7 +498,7 @@ export default function ContactsPage() {
         </p>
       </div>
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full md:w-[40%]">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full">
         <Card>
           <CardContent className="flex items-center justify-between p-6">
             <div><p className="text-sm font-medium text-muted-foreground">users_with_stax</p><h2 className="text-2xl font-bold">{stats.withStax}</h2></div>
@@ -499,20 +528,21 @@ export default function ContactsPage() {
           </DropdownMenuContent>
         </DropdownMenu>
 
-        <div className="flex items-center gap-2 w-full md:w-auto flex-wrap">
-          <Button variant="outline" onClick={exportCSV}>
+        <div className="flex flex-col md:flex-row items-stretch md:items-center gap-2 w-full md:w-auto">
+          <Button variant="outline" onClick={exportCSV} className="w-full md:w-auto">
             <Download className="mr-2 h-4 w-4" /> Export CSV
           </Button>
-          <Button onClick={() => { resetForm(); setIsSheetOpen(true); }}>
+          <Button onClick={() => { resetForm(); setIsSheetOpen(true); }} className="w-full md:w-auto">
             <Plus className="mr-2 h-4 w-4" /> Add New Client
           </Button>
-          <Button variant="outline" onClick={() => setIsFilterModalOpen(true)}>
+          <Button variant="outline" onClick={() => setIsFilterModalOpen(true)} className="w-full md:w-auto">
             <Filter className="mr-2 h-4 w-4" /> Filter
           </Button>
         </div>
       </div>
 
-      <DataTable
+      <div className="overflow-x-auto">
+        <DataTable
         columns={[
           {
             accessorKey: "idx",
@@ -551,7 +581,14 @@ export default function ContactsPage() {
           {
             accessorKey: "fsrAssigned",
             header: "FSR Assigned",
-            cell: ({ row }: { row: any }) => (visibleColumns.fsrAssigned ? (row.getValue("fsrAssigned") || "-") : null),
+            cell: ({ row }: { row: any }) => {
+              if (!visibleColumns.fsrAssigned) return null;
+              const val = row.getValue("fsrAssigned");
+              // Check if val is an ID (find in usersList)
+              const user = usersList.find(u => u._id === val);
+              if (user) return `${user.firstName} ${user.lastName}`;
+              return val || "-";
+            },
           },
           {
             accessorKey: "lastAppointment",
@@ -604,8 +641,12 @@ export default function ContactsPage() {
                   <Button size="icon" variant="ghost" onClick={() => router.push(`/dashboard/contacts/${contact._id}`)}>
                     <Pencil className="h-4 w-4" />
                   </Button>
-                  <Button size="icon" variant="ghost" className="text-destructive hover:text-destructive" onClick={() => handleDelete(contact._id)}>
-                    <Trash2 className="h-4 w-4" />
+                  <Button size="icon" variant="ghost" className="text-destructive hover:text-destructive" onClick={() => openDeleteDialog(contact._id)} disabled={deletingId === contact._id}>
+                    {deletingId === contact._id ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Trash2 className="h-4 w-4" />
+                    )}
                   </Button>
                 </div>
               );
@@ -620,6 +661,7 @@ export default function ContactsPage() {
         searchPlaceholder="Keywords..."
         onFilterChange={(val) => setFilterData({ ...filterData, name: val })}
       />
+      </div>
 
       {/* Filter Modal */}
       <Dialog open={isFilterModalOpen} onOpenChange={setIsFilterModalOpen}>
@@ -681,7 +723,7 @@ export default function ContactsPage() {
             </div>
 
             {/* Last Appointment Date Range */}
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Last appointment</Label>
                 <Input
@@ -703,7 +745,7 @@ export default function ContactsPage() {
             </div>
 
             {/* Next Appointment Date Range */}
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Next appointment</Label>
                 <Input
@@ -815,7 +857,7 @@ export default function ContactsPage() {
             <form id="contact-form" onSubmit={handleSubmit} className="space-y-6">
               {/* Image Upload Section */}
 
-              <div className="flex flex-row gap-4">
+              <div className="flex flex-col md:flex-row gap-4">
                 {/* Drag & Drop Image Upload Area */}
                 <div
                   className="w-32 h-32 rounded-lg border-2 border-dashed border-muted-foreground/25 flex items-center justify-center bg-muted/50 hover:bg-muted transition cursor-pointer"
@@ -862,7 +904,7 @@ export default function ContactsPage() {
                     ref={fileInputRef}
                     type="file"
                     accept="image/*"
-                    className="block w-75 border border-muted-foreground/50 rounded-md p-2 "
+                    className="block w-full border border-muted-foreground/50 rounded-md p-2 "
                     onChange={handleFileChange}
                   />
 
@@ -909,7 +951,7 @@ export default function ContactsPage() {
                 </Select>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Zone</Label>
                   <Select value={formData.zoneName} onValueChange={v => setFormData({ ...formData, zoneName: v })}>
@@ -925,7 +967,7 @@ export default function ContactsPage() {
                     <SelectTrigger><SelectValue placeholder="Select FSR" /></SelectTrigger>
                     <SelectContent>
                       {usersList.map(u => (
-                        <SelectItem key={u._id} value={`${u.firstName} ${u.lastName}`}>
+                        <SelectItem key={u._id} value={u._id}>
                           {u.firstName} {u.lastName}
                         </SelectItem>
                       ))}
@@ -934,14 +976,14 @@ export default function ContactsPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2"><Label>Bathrooms</Label><Input value={formData.bathrooms} onChange={e => setFormData({ ...formData, bathrooms: e.target.value })} /></div>
                 <div className="space-y-2"><Label>Bedrooms</Label><Input value={formData.bedrooms} onChange={e => setFormData({ ...formData, bedrooms: e.target.value })} /></div>
               </div>
 
               <div className="space-y-2"><Label>Street Address</Label><Input value={formData.streetAddress} onChange={e => setFormData({ ...formData, streetAddress: e.target.value })} /></div>
 
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="space-y-2"><Label>State</Label>
                   <Select value={formData.state} onValueChange={v => setFormData({ ...formData, state: v })}>
                     <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
@@ -979,10 +1021,51 @@ export default function ContactsPage() {
 
           <SheetFooter className="p-4 border-t gap-2 flex flex-row justify-end ">
             <Button variant="outline" onClick={() => setIsSheetOpen(false)}>Cancel</Button>
-            <Button onClick={handleSubmit}>Save Changes</Button>
+            <Button onClick={handleSubmit} disabled={isSaving}>
+              {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Save Changes
+            </Button>
           </SheetFooter>
         </SheetContent>
       </Sheet>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Contact</DialogTitle>
+          </DialogHeader>
+          <p className="text-muted-foreground">
+            Are you sure you want to delete this contact? This action cannot be undone.
+          </p>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setIsDeleteDialogOpen(false);
+                setContactToDelete(null);
+              }}
+              disabled={deletingId !== null}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDelete}
+              disabled={deletingId !== null}
+            >
+              {deletingId ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                "Delete"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

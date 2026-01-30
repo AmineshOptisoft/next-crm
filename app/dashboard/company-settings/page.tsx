@@ -11,7 +11,18 @@ import { CompanyPromocodes } from "@/components/company-settings/company-promoco
 import { CompanyServiceAreas } from "@/components/company-settings/company-service-areas";
 import { CompanyZipCodes } from "@/components/company-settings/company-zip-codes";
 import { CompanyAvailability } from "@/components/company-settings/company-availability";
+import { CompanyMailSending } from "@/components/company-settings/company-mail-sending";
 import { Company } from "@/components/company-settings/types";
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { CheckCircle2 } from "lucide-react";
 
 export default function CompanySettingsPage() {
     const router = useRouter();
@@ -19,6 +30,8 @@ export default function CompanySettingsPage() {
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [industries, setIndustries] = useState<Array<{ _id: string; name: string }>>([]);
+    const [isRedirectDialogOpen, setIsRedirectDialogOpen] = useState(false);
+    const [selectedLogo, setSelectedLogo] = useState<File | null>(null);
 
     const [formData, setFormData] = useState({
         name: "",
@@ -101,10 +114,34 @@ export default function CompanySettingsPage() {
         setSaving(true);
 
         try {
+            let finalFormData = { ...formData };
+
+            // If a new logo was selected, upload it first
+            if (selectedLogo) {
+                const logoFormData = new FormData();
+                logoFormData.append("file", selectedLogo);
+
+                const uploadRes = await fetch("/api/company/upload-logo", {
+                    method: "POST",
+                    body: logoFormData,
+                });
+
+                if (uploadRes.ok) {
+                    const uploadData = await uploadRes.json();
+                    finalFormData.logo = uploadData.url;
+                    // Update current state too
+                    setFormData(prev => ({ ...prev, logo: uploadData.url }));
+                } else {
+                    console.error("Failed to upload company logo");
+                    // Continue anyway or handle error? Let's alert.
+                    alert("Failed to upload logo. Will try to save other settings.");
+                }
+            }
+
             const response = await fetch("/api/company/settings", {
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(formData),
+                body: JSON.stringify(finalFormData),
             });
 
             if (response.ok) {
@@ -114,12 +151,8 @@ export default function CompanySettingsPage() {
 
                 // Check if profile is complete
                 if (updated.profileCompleted === true) {
-                    alert("🎉 Company profile completed successfully! Redirecting to dashboard...");
-
-                    // Immediate redirect with page reload
+                    setIsRedirectDialogOpen(true);
                     setSaving(false);
-                    window.location.href = "/dashboard";
-                    return; // Stop execution
                 } else {
                     alert("Settings updated, but profile not complete yet. Please fill all required fields.");
                 }
@@ -134,6 +167,10 @@ export default function CompanySettingsPage() {
         } finally {
             setSaving(false);
         }
+    };
+
+    const handleRedirect = () => {
+        window.location.href = "/dashboard";
     };
 
     if (loading) {
@@ -163,6 +200,7 @@ export default function CompanySettingsPage() {
                     <TabsTrigger value="promocodes">Promocodes</TabsTrigger>
                     <TabsTrigger value="service-areas">Service Areas</TabsTrigger>
                     <TabsTrigger value="zip-codes">Zip Codes</TabsTrigger>
+                    <TabsTrigger value="mail-sending">Mail Sending</TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="profile">
@@ -172,6 +210,8 @@ export default function CompanySettingsPage() {
                         saving={saving}
                         handleSubmit={handleSubmit}
                         industries={industries}
+                        selectedLogo={selectedLogo}
+                        setSelectedLogo={setSelectedLogo}
                     />
                 </TabsContent>
 
@@ -207,7 +247,31 @@ export default function CompanySettingsPage() {
                 <TabsContent value="zip-codes">
                     <CompanyZipCodes />
                 </TabsContent>
+
+                <TabsContent value="mail-sending">
+                    <CompanyMailSending company={company} />
+                </TabsContent>
             </Tabs>
+
+
+            <Dialog open={isRedirectDialogOpen} onOpenChange={setIsRedirectDialogOpen}>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <div className="flex items-center gap-2">
+                            <CheckCircle2 className="h-6 w-6 text-green-500" />
+                            <DialogTitle>Setup Complete!</DialogTitle>
+                        </div>
+                        <DialogDescription className="pt-2">
+                            🎉 Company profile completed successfully! You are now ready to access your dashboard.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter className="sm:justify-end">
+                        <Button onClick={handleRedirect} className="w-full sm:w-auto">
+                            Go to Dashboard
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }

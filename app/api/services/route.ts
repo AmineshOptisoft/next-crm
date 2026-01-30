@@ -42,7 +42,8 @@ export async function POST(req: NextRequest) {
         status,
         parentId,
         subServices,
-        category
+        category,
+        estimatedTime
     } = body;
 
     if (!name) {
@@ -74,7 +75,8 @@ export async function POST(req: NextRequest) {
         status: status || "active",
         parentId: parentId || null,
         subServices: subServices || [],
-        category: category || "main"
+        category: category || "main",
+        estimatedTime: estimatedTime || 0
     });
 
     // Create folder structure for service assets

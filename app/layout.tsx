@@ -1,7 +1,7 @@
 import { ThemeProvider } from "@/components/theme-provider";
 import "./globals.css";
 import type { Metadata } from "next";
-import { Toaster } from "sonner";
+import { Toaster } from "@/components/ui/sonner";
 
 export const metadata: Metadata = {
   title: "CRM Admin",
@@ -18,7 +18,7 @@ export default function RootLayout({
       <body className="min-h-screen bg-background text-foreground antialiased">
         <ThemeProvider defaultTheme="system">
           {children}
-          <Toaster position="top-right" richColors />
+          <Toaster position="top-right" />
         </ThemeProvider>
       </body>
     </html>

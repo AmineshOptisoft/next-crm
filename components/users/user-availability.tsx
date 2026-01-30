@@ -12,7 +12,8 @@ import {
 } from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Info } from "lucide-react";
+import { Info, Loader2 } from "lucide-react";
+import { toast } from "sonner";
 
 const DAYS = [
   "Monday",
@@ -42,9 +43,10 @@ interface UserAvailabilityProps {
   availability?: DaySchedule[];
   onChange?: (schedule: DaySchedule[]) => void;
   onSave?: () => void;
+  loading?: boolean;
 }
 
-export function UserAvailability({ availability, onChange, onSave }: UserAvailabilityProps) {
+export function UserAvailability({ availability, onChange, onSave, loading }: UserAvailabilityProps) {
   const [schedule, setSchedule] = useState<DaySchedule[]>(
     availability && availability.length > 0 ? availability : DAYS.map(day => ({
       day,
@@ -111,7 +113,7 @@ export function UserAvailability({ availability, onChange, onSave }: UserAvailab
 
     // Prevent enabling days that are closed in master
     if (field === "isOpen" && value === true && !isDayAllowed(day)) {
-      alert(`${day} is not available in the company's master schedule.`);
+      toast.error(`${day} is not available in the company's master schedule.`);
       return;
     }
 
@@ -145,8 +147,8 @@ export function UserAvailability({ availability, onChange, onSave }: UserAvailab
           const filteredTimeSlots = getFilteredTimeSlots(slot.day);
 
           return (
-            <div key={slot.day} className="flex items-center justify-between border rounded-md p-4 bg-background">
-              <div className="w-32 font-medium">{slot.day}</div>
+            <div key={slot.day} className="flex flex-col sm:flex-row items-center justify-between gap-4 border rounded-md p-4 bg-background">
+              <div className="w-full sm:w-32 font-medium text-center sm:text-left">{slot.day}</div>
 
               <Switch
                 checked={slot.isOpen}
@@ -154,7 +156,7 @@ export function UserAvailability({ availability, onChange, onSave }: UserAvailab
                 disabled={!dayAllowed}
               />
 
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap justify-center items-center gap-2">
                 <Select
                   value={slot.startTime}
                   onValueChange={(val) => updateSchedule(index, "startTime", val)}
@@ -187,7 +189,8 @@ export function UserAvailability({ availability, onChange, onSave }: UserAvailab
       </div>
 
       <div className="flex justify-end mt-6">
-        <Button onClick={onSave} type="button">
+        <Button onClick={onSave} type="button" disabled={loading}>
+          {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
           Save Availability
         </Button>
       </div>

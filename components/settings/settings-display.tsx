@@ -23,7 +23,7 @@ export function SettingsDisplay() {
     useLayoutPreferences();
 
   return (
-    <Card>
+    <Card className="py-4">
       <CardHeader>
         <CardTitle>Display</CardTitle>
         <CardDescription>

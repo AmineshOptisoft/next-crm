@@ -1,5 +1,7 @@
 "use client";
 
+import { toast } from "sonner";
+
 import { useEvents } from "@/context/events-context";
 import { Sheet, SheetContent, SheetHeader, SheetFooter, SheetDescription, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
@@ -9,9 +11,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Badge } from "@/components/ui/badge";
-import { X, Calendar as CalendarIcon, DollarSign, Clock, ChevronDown, ChevronUp, Plus, Minus } from "lucide-react";
+import { MultiSelect } from "@/components/ui/multi-select";
+import { DateTimePicker } from "@/components/ui/date-time-picker";
+import { Check, ChevronsUpDown, X, Calendar as CalendarIcon, DollarSign, Clock, ChevronDown, ChevronUp, Plus, Minus } from "lucide-react";
 import { useState, useEffect } from "react";
 import { format } from "date-fns";
+import { cn } from "@/lib/utils";
 
 // Accordion Item component
 function AccordionItem({ title, isOpen, onToggle, children }: any) {
@@ -54,8 +59,12 @@ export function AddBookingForm({ open, onOpenChange, initialData }: AddBookingFo
     // Data states
     const [contacts, setContacts] = useState<any[]>([]);
     const [services, setServices] = useState<any[]>([]);
+    const [technicians, setTechnicians] = useState<any[]>([]);
+    const [allTechnicians, setAllTechnicians] = useState<any[]>([]); // Store all technicians
+    const [filteredTechnicians, setFilteredTechnicians] = useState<any[]>([]); // Filtered list
     const [selectedContact, setSelectedContact] = useState<any>(null);
     const [selectedService, setSelectedService] = useState<any>(null);
+    const [selectedTechnicianIds, setSelectedTechnicianIds] = useState<string[]>([]);
 
     // Form states
     const [formData, setFormData] = useState({
@@ -86,6 +95,15 @@ export function AddBookingForm({ open, onOpenChange, initialData }: AddBookingFo
     const [selectedDays, setSelectedDays] = useState<number[]>([]);
     const [recurringEndDate, setRecurringEndDate] = useState("");
 
+    // Date/Time States (Local)
+    const [bookingStart, setBookingStart] = useState<Date | undefined>(initialData?.start);
+    const [bookingEnd, setBookingEnd] = useState<Date | undefined>(initialData?.end);
+
+    useEffect(() => {
+        if (initialData?.start) setBookingStart(initialData.start);
+        if (initialData?.end) setBookingEnd(initialData.end);
+    }, [initialData]);
+
     // Sub-services and addons with quantities
     const [subServiceQuantities, setSubServiceQuantities] = useState<Record<string, number>>({});
     const [addonQuantities, setAddonQuantities] = useState<Record<string, number>>({});
@@ -104,16 +122,37 @@ export function AddBookingForm({ open, onOpenChange, initialData }: AddBookingFo
         }
     }, [open, userType]);
 
-    // Fetch services when technician is selected
+    // Fetch services when technician is selected (using the primary/initial technician)
     useEffect(() => {
         if (open && initialData?.technicianId) {
             fetchTechnicianServices(initialData.technicianId);
+            // Initialize selected technicians with the clicked one
+            setSelectedTechnicianIds([initialData.technicianId]);
         }
     }, [open, initialData?.technicianId]);
 
+    // Fetch all technicians
+    useEffect(() => {
+        if (open) {
+            fetchTechnicians();
+        }
+    }, [open]);
+
+    const fetchTechnicians = async () => {
+        try {
+            const res = await fetch('/api/appointments/resources');
+            const data = await res.json();
+            // Store all technicians for filtering
+            setAllTechnicians(data.resources || []);
+            setTechnicians(data.resources || []);
+        } catch (error) {
+            console.error("Failed to fetch technicians:", error);
+        }
+    };
+
     // Auto-calculate end time based on estimated times of selected services
     useEffect(() => {
-        if (!selectedService || !initialData?.start) return;
+        if (!selectedService || !bookingStart) return;
 
         let totalMinutes = 0;
 
@@ -134,14 +173,73 @@ export function AddBookingForm({ open, onOpenChange, initialData }: AddBookingFo
         });
 
         // Calculate new end time
-        if (totalMinutes > 0 && initialData.start) {
-            const newEndTime = new Date(initialData.start.getTime() + totalMinutes * 60 * 1000);
-            // Update the initialData end time
-            if (initialData.end?.getTime() !== newEndTime.getTime()) {
-                initialData.end = newEndTime;
+        // Default duration if no estimated time is 60 minutes (or keep existing logic)
+        // If totalMinutes is 0, we can default to 1 hour or just keep current end time difference?
+        // Let's assume if totalMinutes > 0 we update.
+
+        if (totalMinutes > 0) {
+            const newEndTime = new Date(bookingStart.getTime() + totalMinutes * 60 * 1000);
+            setBookingEnd(newEndTime);
+        } else if (bookingStart) {
+            // Default 1 hour if nothing selected? Or keep original gap?
+            // Lets keep original logic: if totalMinutes is 0, maybe don't change end time unless start changed?
+            // If start changed, we want to maintain the DURATION or reset it?
+            // Usually reset to +1 hour or similar.
+            // For now, if totalMinutes is 0, we'll set it to Start + 1 hour as fallback or Start + Service Base Time?
+            // Service might have `estimatedTime`.
+            if (selectedService.estimatedTime) {
+                const newEndTime = new Date(bookingStart.getTime() + selectedService.estimatedTime * 60 * 1000);
+                setBookingEnd(newEndTime);
+            } else {
+                // Fallback 1 hour
+                const newEndTime = new Date(bookingStart.getTime() + 60 * 60 * 1000);
+                setBookingEnd(newEndTime);
             }
         }
-    }, [selectedService, subServiceQuantities, addonQuantities, initialData?.start]);
+    }, [selectedService, subServiceQuantities, addonQuantities, bookingStart]);
+
+    // Filter technicians based on clicked technician's zone and selected service
+    useEffect(() => {
+        if (!selectedService || !bookingStart || !bookingEnd) {
+            setFilteredTechnicians([]);
+            return;
+        }
+
+        // Find the clicked technician's zone from initialData
+        const clickedTechnicianId = initialData?.technicianId;
+        const clickedTechnician = allTechnicians.find(t => t.id === clickedTechnicianId);
+        const targetZone = clickedTechnician?.group;
+
+        if (!targetZone) {
+            // If no zone found, show all technicians (fallback)
+            setFilteredTechnicians(allTechnicians);
+            return;
+        }
+
+        // Filter technicians who:
+        // 1. Are in the same zone as the clicked technician
+        // 2. Have the selected service assigned to them
+        const filtered = allTechnicians.filter(tech => {
+            // Check if technician is in the same service area (zone)
+            if (tech.group !== targetZone) {
+                return false;
+            }
+
+            // Check if technician has the selected service assigned
+            if (tech.services && Array.isArray(tech.services)) {
+                const hasService = tech.services.some((serviceId: any) =>
+                    serviceId.toString() === selectedService._id.toString()
+                );
+                if (!hasService) {
+                    return false;
+                }
+            }
+
+            return true;
+        });
+
+        setFilteredTechnicians(filtered);
+    }, [selectedService, bookingStart, bookingEnd, allTechnicians, initialData?.technicianId]);
 
     const fetchContacts = async () => {
         try {
@@ -236,8 +334,8 @@ export function AddBookingForm({ open, onOpenChange, initialData }: AddBookingFo
         if (!selectedService) return { total: 0, subTotal: 0, addonsTotal: 0 };
 
         // Calculate hours from start and end time
-        const hours = initialData?.start && initialData?.end
-            ? (initialData.end.getTime() - initialData.start.getTime()) / (1000 * 60 * 60)
+        const hours = bookingStart && bookingEnd
+            ? (bookingEnd.getTime() - bookingStart.getTime()) / (1000 * 60 * 60)
             : 0;
 
         let total = 0; // Main service has no price
@@ -270,49 +368,42 @@ export function AddBookingForm({ open, onOpenChange, initialData }: AddBookingFo
     const { total, subTotal, addonsTotal } = calculatePrice();
     const finalAmount = total - discount;
 
+    const durationInHours = bookingStart && bookingEnd
+        ? (bookingEnd.getTime() - bookingStart.getTime()) / (1000 * 60 * 60)
+        : 0;
+    const effectiveRate = durationInHours > 0 ? finalAmount / durationInHours : 0;
+
     const handleSubmit = async () => {
         try {
             let contactId = selectedContact?._id;
-            let createdContactId: string | null = null;
+            let newContactData = null;
 
-            // Create new contact if userType is "new"
+            // Prepare new contact data if userType is "new"
             if (userType === "new") {
                 // Validate required fields
                 if (!formData.email || !formData.password || !formData.firstName || !formData.lastName) {
-                    alert("Error: Please fill all required fields (Email, Password, First Name, Last Name)");
+                    toast.error("Please fill all required fields (Email, Password, First Name, Last Name)");
                     return;
                 }
 
-                const contactRes = await fetch('/api/contacts', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        email: formData.email,
-                        password: formData.password,
-                        firstName: formData.firstName,
-                        lastName: formData.lastName,
-                        phone: formData.phoneNumber,
-                        streetAddress: formData.address,
-                        city: formData.city,
-                        state: formData.state,
-                        zipCode: formData.zipCode,
-                        gender: formData.gender
-                    })
-                });
-
-                if (!contactRes.ok) {
-                    const errorData = await contactRes.json();
-                    throw new Error(errorData.error || "Failed to create contact. Please check if email already exists.");
-                }
-
-                const newContact = await contactRes.json();
-                contactId = newContact._id;
-                createdContactId = newContact._id;
+                newContactData = {
+                    email: formData.email,
+                    password: formData.password,
+                    firstName: formData.firstName,
+                    lastName: formData.lastName,
+                    phone: formData.phoneNumber,
+                    streetAddress: formData.address,
+                    city: formData.city,
+                    state: formData.state,
+                    zipCode: formData.zipCode,
+                    gender: formData.gender
+                };
             }
 
+
             // Validate booking data
-            if (!contactId || !selectedService) {
-                alert("Error: Please select a contact and service");
+            if ((!contactId && !newContactData) || !selectedService) {
+                toast.error("Please select a contact and service");
                 return;
             }
 
@@ -325,10 +416,12 @@ export function AddBookingForm({ open, onOpenChange, initialData }: AddBookingFo
                 .filter(([_, qty]) => qty > 0)
                 .map(([serviceId, quantity]) => ({ serviceId, quantity }));
 
-            // Create booking
+            // Create booking payload
             const bookingData = {
-                contactId,
+                newContact: newContactData, // Send new contact data if applicable
+                contactId, // Will be null if new contact
                 technicianId: initialData?.technicianId,
+                technicianIds: selectedTechnicianIds,
                 serviceId: selectedService._id,
                 subServices,
                 addons,
@@ -338,8 +431,8 @@ export function AddBookingForm({ open, onOpenChange, initialData }: AddBookingFo
                     selectedDays,
                     endDate: recurringEndDate
                 } : undefined,
-                startDateTime: initialData?.start,
-                endDateTime: initialData?.end,
+                startDateTime: bookingStart,
+                endDateTime: bookingEnd,
                 shippingAddress: {
                     street: formData.shippingAddress,
                     city: formData.shippingCity,
@@ -366,31 +459,19 @@ export function AddBookingForm({ open, onOpenChange, initialData }: AddBookingFo
 
             if (!bookingRes.ok) {
                 const errorData = await bookingRes.json();
-
-                // If booking failed and we created a new contact, delete it (rollback)
-                if (createdContactId) {
-                    try {
-                        await fetch(`/api/contacts/${createdContactId}`, {
-                            method: 'DELETE'
-                        });
-                    } catch (deleteError) {
-                        console.error("Failed to rollback contact creation:", deleteError);
-                    }
-                }
-
                 throw new Error(errorData.error || "Failed to create booking");
             }
 
-            alert(bookingType === "once"
-                ? "✅ Booking created successfully!"
-                : "✅ Recurring bookings created successfully!");
+            toast.success(bookingType === "once"
+                ? "Booking created successfully!"
+                : "Recurring bookings created successfully!");
 
             onOpenChange(false);
             // Refresh calendar
             window.location.reload();
         } catch (error: any) {
             console.error("Booking creation error:", error);
-            alert("❌ Error: " + (error.message || "Failed to create booking. Please try again."));
+            toast.error(error.message || "Failed to create booking. Please try again.");
         }
     };
 
@@ -739,9 +820,15 @@ export function AddBookingForm({ open, onOpenChange, initialData }: AddBookingFo
                                 </div>
                             )}
 
-                            <div className="space-y-2 pt-2">
-                                <Label>Technician</Label>
-                                <Input value="Auto-selected from calendar" disabled className="bg-muted" />
+                            <div className="space-y-3 pt-2">
+                                <Label className="text-base font-semibold">Technician(s)</Label>
+                                <MultiSelect
+                                    options={filteredTechnicians.map(t => ({ label: t.title, value: t.id, group: t.group }))}
+                                    selected={selectedTechnicianIds}
+                                    onChange={setSelectedTechnicianIds}
+                                    placeholder={!selectedService ? "Select a service first..." : "Select technicians..."}
+                                    disabled={!selectedService}
+                                />
                             </div>
                         </div>
                     </AccordionItem>
@@ -765,18 +852,19 @@ export function AddBookingForm({ open, onOpenChange, initialData }: AddBookingFo
                             {bookingType === "once" && (
                                 <div className="grid grid-cols-2 gap-6 pb-6 border-b border-dashed mb-4">
                                     <div className="space-y-2">
-                                        <Label>
-                                            <CalendarIcon className="h-3.5 w-3.5 inline mr-1" />
-                                            Start Date/Time
-                                        </Label>
-                                        <Input value={startDate} readOnly />
+                                        <Label>Start Date/Time</Label>
+                                        <DateTimePicker
+                                            date={bookingStart}
+                                            setDate={(d) => setBookingStart(d)}
+                                        />
                                     </div>
                                     <div className="space-y-2">
-                                        <Label>
-                                            <Clock className="h-3.5 w-3.5 inline mr-1" />
-                                            End Date/Time
-                                        </Label>
-                                        <Input value={endDate} readOnly />
+                                        <Label>End Date/Time (Auto-calculated)</Label>
+                                        <Input
+                                            value={bookingEnd ? format(bookingEnd, "PPP HH:mm") : ""}
+                                            readOnly
+                                            className="bg-muted text-muted-foreground"
+                                        />
                                     </div>
                                 </div>
                             )}
@@ -816,7 +904,14 @@ export function AddBookingForm({ open, onOpenChange, initialData }: AddBookingFo
                 <SheetFooter className="p-4 border-t bg-muted/30 flex-col sm:flex-row gap-2 sm:items-center shrink-0">
                     <div className="flex-1 flex items-center gap-2">
                         <DollarSign className="h-5 w-5 text-primary" />
-                        <span className="font-semibold text-lg">Total: ${finalAmount.toFixed(2)}</span>
+                        <div className="flex items-baseline gap-2">
+                            <span className="font-semibold text-lg">Total: ${finalAmount.toFixed(2)}</span>
+                            {durationInHours > 0 && (
+                                <span className="text-sm text-muted-foreground">
+                                    (${effectiveRate.toFixed(2)}/hr)
+                                </span>
+                            )}
+                        </div>
                     </div>
                     <div className="flex gap-2 w-full sm:w-auto">
                         <Button variant="default" onClick={handleSubmit}>Create Booking</Button>
