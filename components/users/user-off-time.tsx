@@ -44,7 +44,7 @@ export function UserOffTime() {
               </div>
           </div>
 
-          <div className="border rounded-md">
+          <div className="border rounded-md overflow-x-auto">
               <Table>
                   <TableHeader>
                       <TableRow>
@@ -87,12 +87,12 @@ export function UserOffTime() {
           </div>
            
            {/* Pagination (Visual Mockup) */}
-           <div className="flex items-center justify-between text-sm text-muted-foreground mt-4">
+           <div className="flex flex-col sm:flex-row items-center justify-between text-sm text-muted-foreground mt-4 gap-4 sm:gap-0">
               <div className="flex items-center gap-2">
                    <span className="bg-primary/10 text-primary px-2 py-1 rounded text-xs px-3">10</span>
                    <span>Showing rows 1 to 10 of 152</span>
               </div>
-               <div className="flex gap-1">
+               <div className="flex gap-1 flex-wrap justify-center">
                   <Button variant="outline" size="sm" disabled>Back</Button>
                   <Button variant="default" size="sm">1</Button>
                   <Button variant="outline" size="sm">2</Button>

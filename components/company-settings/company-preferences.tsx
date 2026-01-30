@@ -22,7 +22,7 @@ interface CompanyPreferencesProps {
 export function CompanyPreferences({ formData, setFormData, saving, handleSubmit }: CompanyPreferencesProps) {
     return (
         <form onSubmit={handleSubmit}>
-            <Card>
+            <Card className="py-4">
                 <CardHeader>
                     <CardTitle>Company Preferences</CardTitle>
                     <CardDescription>

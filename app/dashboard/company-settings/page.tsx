@@ -165,16 +165,18 @@ export default function CompanySettingsPage() {
             </div>
 
             <Tabs defaultValue="profile" className="space-y-6">
-                <TabsList>
-                    <TabsTrigger value="profile">Profile</TabsTrigger>
-                    <TabsTrigger value="subscription">Subscription</TabsTrigger>
-                    <TabsTrigger value="preferences">Preferences</TabsTrigger>
-                    <TabsTrigger value="availability">Availability</TabsTrigger>
-                    <TabsTrigger value="payments">Payments</TabsTrigger>
-                    <TabsTrigger value="promocodes">Promocodes</TabsTrigger>
-                    <TabsTrigger value="service-areas">Service Areas</TabsTrigger>
-                    <TabsTrigger value="zip-codes">Zip Codes</TabsTrigger>
-                </TabsList>
+                <div className="w-full overflow-x-auto pb-2">
+                    <TabsList className="w-auto justify-start h-auto p-1">
+                        <TabsTrigger value="profile">Profile</TabsTrigger>
+                        <TabsTrigger value="subscription">Subscription</TabsTrigger>
+                        <TabsTrigger value="preferences">Preferences</TabsTrigger>
+                        <TabsTrigger value="availability">Availability</TabsTrigger>
+                        <TabsTrigger value="payments">Payments</TabsTrigger>
+                        <TabsTrigger value="promocodes">Promocodes</TabsTrigger>
+                        <TabsTrigger value="service-areas">Service Areas</TabsTrigger>
+                        <TabsTrigger value="zip-codes">Zip Codes</TabsTrigger>
+                    </TabsList>
+                </div>
 
                 <TabsContent value="profile">
                     <CompanyProfile

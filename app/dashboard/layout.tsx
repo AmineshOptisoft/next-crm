@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import dynamic from "next/dynamic";
-import { SidebarProvider } from "@/components/ui/sidebar";
+import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
 
@@ -61,7 +61,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   return (
     <SidebarProvider>
       <AppSidebar />
-      <div className="flex flex-1 flex-col">
+      <SidebarInset>
         <header className="sticky top-0 z-40 bg-background/80 backdrop-blur w-full">
           <div className="border-b">
             <Topbar />
@@ -81,8 +81,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </div>
           )}
         </header>
-        <main className="flex-1 overflow-auto p-4">{children}</main>
-      </div>
+        <main className="flex-1 overflow-auto w-full max-w-full p-4">{children}</main>
+      </SidebarInset>
     </SidebarProvider>
   );
 }

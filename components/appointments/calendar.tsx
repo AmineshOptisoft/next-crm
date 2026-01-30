@@ -129,6 +129,17 @@ export default function Calendar() {
     setEventAddOpen(true);
   };
 
+  const [windowWidth, setWindowWidth] = useState(1200);
+
+  useEffect(() => {
+    setWindowWidth(window.innerWidth);
+    const handleResize = () => setWindowWidth(window.innerWidth);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  const isMobile = windowWidth < 768;
+
   return (
     <div className="space-y-5 h-full">
       <Card className="p-0 border-none shadow-none h-full bg-white dark:bg-zinc-950">
@@ -140,13 +151,17 @@ export default function Calendar() {
             resourceTimelinePlugin,
             interactionPlugin,
           ]}
-          initialView="resourceTimelineWeek"
-          headerToolbar={{
+          initialView={isMobile ? "resourceTimelineDay" : "resourceTimelineWeek"}
+          headerToolbar={isMobile ? {
+            left: 'prev,today,next',
+            center: 'title',
+            right: 'resourceTimelineDay,resourceTimelineWeek,resourceTimelineMonth'
+          } : {
             left: 'prev,today,next',
             center: 'title',
             right: 'resourceTimelineDay,resourceTimelineWeek,resourceTimelineMonth'
           }}
-          resourceAreaWidth="15%"
+          resourceAreaWidth={isMobile ? "45%" : "15%"}
           resourceAreaHeaderContent="Technicians"
           resources={resources}
           events={events}
@@ -156,7 +171,7 @@ export default function Calendar() {
           dayMaxEvents={true}
           nowIndicator={true}
           height="85vh" // Adjust height as needed
-          slotMinWidth={50}
+          slotMinWidth={70}
           resourceGroupField="group"
           select={handleDateSelect}
           eventClick={handleEventClick}
@@ -180,7 +195,7 @@ export default function Calendar() {
             // Custom event content if needed, for now standard is fine or minimal customization
             return (
               <div className="flex flex-col overflow-hidden text-xs p-1 h-full justify-center">
-                <div className="font-semibold truncate">{arg.event.title}</div>
+                <div className="font-semibold  truncate">{arg.event.title}</div>
               </div>
             )
           }}
@@ -208,6 +223,18 @@ export default function Calendar() {
         onOpenChange={setEventAddOpen}
         initialData={{ start: selectedStart, end: selectedEnd }}
       />
+      <style>
+        {`
+          .fc-datagrid-cell-main{
+            font-weight: 500 !important;
+            }
+            
+            .fc-timeline-slot-cushion{
+              font-weight: 300 !important;
+              
+            }
+        `}
+      </style>
     </div>
   );
 }

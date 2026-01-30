@@ -36,7 +36,7 @@ export function UserBookings() {
         />
       </div>
 
-      <div className="rounded-md border">
+      <div className="rounded-md border overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow>
@@ -61,7 +61,7 @@ export function UserBookings() {
         </Table>
       </div>
 
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
         <div className="flex items-center gap-2">
             <Button variant="secondary" className="h-8 w-12">10</Button>
             <span className="text-sm text-muted-foreground">Showing rows 1 to 10 of 18</span>

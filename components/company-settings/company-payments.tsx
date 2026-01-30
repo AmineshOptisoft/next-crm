@@ -84,7 +84,7 @@ export function CompanyPayments() {
     };
 
     return (
-        <Card>
+        <Card className="py-4">
             <CardHeader>
                 <CardTitle>Payment Configuration</CardTitle>
                 <CardDescription>

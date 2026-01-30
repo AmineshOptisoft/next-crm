@@ -215,7 +215,7 @@ export function UserForm({ user, onSave, loading }: UserFormProps) {
             </div>
 
             <Tabs defaultValue="details" className="space-y-6">
-                <TabsList>
+                <TabsList className="w-full justify-start overflow-x-auto h-auto sm:flex-nowrap">
                     <TabsTrigger value="details">Technician Details</TabsTrigger>
                     <TabsTrigger value="bookings">Technician Bookings</TabsTrigger>
                     <TabsTrigger value="availability">Technician Availability</TabsTrigger>
@@ -225,9 +225,9 @@ export function UserForm({ user, onSave, loading }: UserFormProps) {
                 </TabsList>
 
                 <TabsContent value="details">
-                    <Card>
+                    <Card className="py-4">
                         <CardHeader>
-                            <div className="flex justify-between items-center">
+                            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 sm:gap-0">
                                 <div className="flex flex-col gap-2">
                                     <CardTitle>Technician Details</CardTitle>
                                     <CardDescription>
@@ -248,7 +248,7 @@ export function UserForm({ user, onSave, loading }: UserFormProps) {
                                 {/* Upload Image - Company Logo */}
                                 <div className="space-y-2 mb-6 flex flex-col gap-2">
                                     <h3 className="font-semibold">Image</h3>
-                                    <div className="flex items-center gap-6">
+                                    <div className="flex flex-col md:flex-row items-start md:items-center gap-6">
                                         {formData.avatarUrl ? (
                                             <div className="relative">
                                                 <img
@@ -293,7 +293,7 @@ export function UserForm({ user, onSave, loading }: UserFormProps) {
                                     </div>
                                 </div>
                                 {/* Name & Email */}
-                                <div className="grid grid-cols-2 gap-6">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                     <div className="space-y-2">
                                         <Label htmlFor="firstName">First Name</Label>
                                         <Input
@@ -357,7 +357,7 @@ export function UserForm({ user, onSave, loading }: UserFormProps) {
                                 </div>
 
                                 {/* State, City, Zip, Country */}
-                                <div className="grid grid-cols-2 gap-6 mt-4">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
 
                                     <div className="space-y-2">
                                         <Label htmlFor="country">Country</Label>
@@ -435,7 +435,7 @@ export function UserForm({ user, onSave, loading }: UserFormProps) {
                                 </div>
 
                                 {/* Services & Gender */}
-                                <div className="grid grid-cols-2 gap-6 mt-4">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
                                     <div className="space-y-2">
                                         <Label>Services</Label>
                                         <Popover open={openServiceCombobox} onOpenChange={setOpenServiceCombobox}>
@@ -571,7 +571,7 @@ export function UserForm({ user, onSave, loading }: UserFormProps) {
                                 <div className="mt-4 pt-6">
                                     <h3 className="text-lg font-medium mb-4">Working Area</h3>
 
-                                    <div className="grid grid-cols-2 gap-6">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                         <div className="space-y-2">
                                             <Label>Zone</Label>
                                             <Select
@@ -679,7 +679,7 @@ export function UserForm({ user, onSave, loading }: UserFormProps) {
                 </TabsContent>
 
                 <TabsContent value="bookings">
-                    <Card>
+                    <Card className="py-4">
                         <CardHeader>
                             <CardTitle>Bookings</CardTitle>
                             <CardDescription>View and manage technician bookings</CardDescription>
@@ -691,7 +691,7 @@ export function UserForm({ user, onSave, loading }: UserFormProps) {
                 </TabsContent>
 
                 <TabsContent value="availability">
-                    <Card>
+                    <Card className="py-4">
                         <CardHeader>
                             <CardTitle>Availability</CardTitle>
                             <CardDescription>Manage weekly working hours</CardDescription>
@@ -708,9 +708,9 @@ export function UserForm({ user, onSave, loading }: UserFormProps) {
                 </TabsContent>
 
                 <TabsContent value="offtime">
-                    <Card>
+                    <Card className="py-4">
                         <CardHeader>
-                            <div className="flex justify-between items-center">
+                            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 sm:gap-0">
 
                                 <div className="flex flex-col gap-2">
                                     <CardTitle>Off Time</CardTitle>
@@ -727,7 +727,7 @@ export function UserForm({ user, onSave, loading }: UserFormProps) {
                 </TabsContent>
 
                 <TabsContent value="security">
-                    <Card>
+                    <Card className="py-4">
                         <CardHeader>
                             <CardTitle>Security</CardTitle>
                             <CardDescription>Update password and security settings</CardDescription>
@@ -739,7 +739,7 @@ export function UserForm({ user, onSave, loading }: UserFormProps) {
                 </TabsContent>
 
                 <TabsContent value="review">
-                    <Card>
+                    <Card className="py-4">
                         <CardHeader>
                             <CardTitle>Reviews</CardTitle>
                             <CardDescription>Customer reviews and ratings</CardDescription>
