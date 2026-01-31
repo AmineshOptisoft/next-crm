@@ -30,9 +30,9 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 // Single app card
 const appInfo = {
-  name: "Shadcn Admin",
-  logo: "SA",
-  plan: "Vite + ShadcnUI",
+  name: "Booking Crm",
+  logo: "BC",
+  plan: "Booking Crm",
 };
 
 const menuItems = {
