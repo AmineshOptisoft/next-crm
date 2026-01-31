@@ -600,7 +600,7 @@ export function AddBookingForm({ open, onOpenChange, initialData }: AddBookingFo
                                         onValueChange={(value) => setFormData({ ...formData, state: value })}
                                         disabled={userType === "existing"}
                                     >
-                                        <SelectTrigger>
+                                        <SelectTrigger className="w-full">
                                             <SelectValue />
                                         </SelectTrigger>
                                         <SelectContent className="z-[150]">
@@ -626,7 +626,7 @@ export function AddBookingForm({ open, onOpenChange, initialData }: AddBookingFo
                                     <div className="space-y-1">
                                         <Label>Select Default Shipping Address</Label>
                                         <Select onValueChange={(value) => value === "same" && handleSameAsAbove()}>
-                                            <SelectTrigger>
+                                            <SelectTrigger className="w-full">
                                                 <SelectValue placeholder="Select Default Shipping Address" />
                                             </SelectTrigger>
                                             <SelectContent className="z-[150]">
@@ -850,7 +850,7 @@ export function AddBookingForm({ open, onOpenChange, initialData }: AddBookingFo
 
                         <div className="space-y-8">
                             {bookingType === "once" && (
-                                <div className="grid grid-cols-2 gap-6 pb-6 border-b border-dashed mb-4">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pb-6 border-b border-dashed mb-4">
                                     <div className="space-y-2">
                                         <Label>Start Date/Time</Label>
                                         <DateTimePicker
@@ -913,7 +913,7 @@ export function AddBookingForm({ open, onOpenChange, initialData }: AddBookingFo
                             )}
                         </div>
                     </div>
-                    <div className="flex gap-2 w-full sm:w-auto">
+                    <div className="flex justify-end gap-2 w-full sm:w-auto">
                         <Button variant="default" onClick={handleSubmit}>Create Booking</Button>
                         <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
                     </div>

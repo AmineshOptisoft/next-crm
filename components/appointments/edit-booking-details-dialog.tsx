@@ -28,8 +28,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Minus, Plus } from "lucide-react";
+import { Minus, Plus, Calendar as CalendarIcon, Clock } from "lucide-react";
 import type { AppointmentDetails } from "./appointment-details-sheet";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
+import { format } from "date-fns";
 
 interface EditBookingDetailsDialogProps {
   open: boolean;
@@ -98,6 +102,82 @@ function StepperRow({
   );
 }
 
+interface DateTimePickerProps {
+  date: Date | undefined;
+  setDate: (date: Date | undefined) => void;
+}
+
+function DateTimePicker({ date, setDate }: DateTimePickerProps) {
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(date);
+  
+  // Sync internal state with props
+  useEffect(() => {
+      setSelectedDate(date);
+  }, [date]);
+
+  const handleSelect = (newDate: Date | undefined) => {
+      if (!newDate) return;
+      if (!selectedDate) {
+          setSelectedDate(newDate);
+          setDate(newDate);
+          return;
+      }
+      // Keep the time from the previous selection, defaults to 00:00 if just picked
+      const newDateTime = new Date(newDate);
+      newDateTime.setHours(selectedDate.getHours());
+      newDateTime.setMinutes(selectedDate.getMinutes());
+      setSelectedDate(newDateTime);
+      setDate(newDateTime);
+  };
+
+  const handleTimeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      const [hours, minutes] = e.target.value.split(':').map(Number);
+      if (!selectedDate) return; // Should pick date first
+      const newDateTime = new Date(selectedDate);
+      newDateTime.setHours(hours);
+      newDateTime.setMinutes(minutes);
+      setSelectedDate(newDateTime);
+      setDate(newDateTime);
+  };
+
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button
+          variant={"outline"}
+          className={cn(
+            "w-full justify-start text-left font-normal",
+            !date && "text-muted-foreground"
+          )}
+        >
+          <CalendarIcon className="mr-2 h-4 w-4" />
+          {date ? format(date, "PPP p") : <span>Pick a date</span>}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-auto p-0" align="start">
+        <Calendar
+          mode="single"
+          selected={selectedDate}
+          onSelect={handleSelect}
+          initialFocus
+        />
+        <div className="p-3 border-t border-border">
+          <div className="flex items-center gap-2">
+              <Clock className="h-4 w-4 text-muted-foreground" />
+              <Label htmlFor="time" className="sr-only">Time</Label>
+              <Input
+                  type="time"
+                  value={selectedDate ? format(selectedDate, "HH:mm") : ""}
+                  onChange={handleTimeChange}
+                  className="flex-1"
+              />
+          </div>
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 export function EditBookingDetailsDialog({
   open,
   onOpenChange,
@@ -132,10 +212,8 @@ export function EditBookingDetailsDialog({
 
   // Appointment State
   const [appointmentNotes, setAppointmentNotes] = useState("");
-  const [startDate, setStartDate] = useState("");
-  const [startTime, setStartTime] = useState("");
-  const [endDate, setEndDate] = useState("");
-  const [endTime, setEndTime] = useState("");
+  const [startDateTime, setStartDateTime] = useState<Date | undefined>(undefined);
+  const [endDateTime, setEndDateTime] = useState<Date | undefined>(undefined);
   const [assignedStaff, setAssignedStaff] = useState("");
 
   // Fetch Services & Booking Data
@@ -186,14 +264,10 @@ export function EditBookingDetailsDialog({
         setAppointmentNotes(bookingData.notes || "");
 
         if (bookingData.startDateTime) {
-          const start = new Date(bookingData.startDateTime);
-          setStartDate(toDateInputValue(start));
-          setStartTime(toTimeInputValue(start));
+          setStartDateTime(new Date(bookingData.startDateTime));
         }
         if (bookingData.endDateTime) {
-          const end = new Date(bookingData.endDateTime);
-          setEndDate(toDateInputValue(end));
-          setEndTime(toTimeInputValue(end));
+          setEndDateTime(new Date(bookingData.endDateTime));
         }
 
         // Assigned Staff (Technician)
@@ -238,8 +312,8 @@ export function EditBookingDetailsDialog({
           .filter(([_, qty]) => qty > 0)
           .map(([sId, qty]) => ({ serviceId: sId, quantity: qty })),
         notes: appointmentNotes,
-        startDateTime: new Date(`${startDate}T${startTime}`),
-        endDateTime: new Date(`${endDate}T${endTime}`),
+        startDateTime: startDateTime,
+        endDateTime: endDateTime,
         shippingAddress: addressData,
         pricing: {
           // We might need to handle pricing logic properly here if we want auto-calculation.
@@ -398,20 +472,12 @@ export function EditBookingDetailsDialog({
               </div>
 
               <div className="space-y-2">
-                <Label>Start Date</Label>
-                <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+                <Label>Start Time *</Label>
+                <DateTimePicker date={startDateTime} setDate={setStartDateTime} />
               </div>
               <div className="space-y-2">
-                <Label>Start Time</Label>
-                <Input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} />
-              </div>
-              <div className="space-y-2">
-                <Label>End Date</Label>
-                <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
-              </div>
-              <div className="space-y-2">
-                <Label>End Time</Label>
-                <Input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} />
+                <Label>End Time *</Label>
+                <DateTimePicker date={endDateTime} setDate={setEndDateTime} />
               </div>
             </div>
           </div>

@@ -220,17 +220,17 @@ export default function EmailBuilderListPage() {
 
     return (
         <div className="space-y-6">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
                     <h1 className="text-3xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100">Email Builder</h1>
                     <p className="text-muted-foreground">Manage and design your email campaigns and templates.</p>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex gap-2 w-full sm:w-auto">
                     {/* <Button variant="outline" onClick={() => router.push("/dashboard/add-email-builder")}>
                         <Plus className="mr-2 h-4 w-4" />
                         Blank Email
                     </Button> */}
-                    <Button onClick={() => setIsTemplateDialogOpen(true)} className="bg-zinc-900 hover:bg-zinc-800 text-white">
+                    <Button onClick={() => setIsTemplateDialogOpen(true)} className="w-full sm:w-auto bg-zinc-900 hover:bg-zinc-800 text-white">
                         <Mail className="mr-2 h-4 w-4" />
                         Add Email
                     </Button>
@@ -240,21 +240,21 @@ export default function EmailBuilderListPage() {
             {/* Set Reminder Sheet (Right Side) */}
             <Sheet open={isReminderDialogOpen} onOpenChange={setIsReminderDialogOpen}>
                 <SheetContent side="right" className="p-0 overflow-hidden border-l shadow-xl w-full sm:max-w-lg flex flex-col bg-white">
-                    <SheetHeader className="px-8 py-6 border-b flex flex-row items-center justify-between bg-white">
+                    <SheetHeader className="px-4 sm:px-8 py-6 border-b flex flex-row items-center justify-between bg-white">
                         <SheetTitle className="text-xl font-bold text-zinc-800">
                             Set Reminders
                         </SheetTitle>
                     </SheetHeader>
 
-                    <div className="flex-1 overflow-y-auto px-8 py-6 space-y-8">
+                    <div className="flex-1 overflow-y-auto px-4 sm:px-8 py-6 space-y-8">
                         {reminders.map((reminder) => (
                             <div key={reminder.id} className="space-y-3">
                                 <h4 className="text-[15px] font-semibold text-zinc-800">
                                     Send {reminder.label} Reminder Before
                                 </h4>
 
-                                <div className={`flex items-center gap-4 ${!reminder.enabled ? 'opacity-50' : ''}`}>
-                                    <div className="flex-1 grid grid-cols-2 gap-2">
+                                <div className={`flex flex-col sm:flex-row sm:items-center gap-4 ${!reminder.enabled ? 'opacity-50' : ''}`}>
+                                    <div className="flex-1 grid grid-cols-2 gap-2 w-full">
                                         <Select
                                             disabled={!reminder.enabled}
                                             value={reminder.unit}
@@ -311,7 +311,7 @@ export default function EmailBuilderListPage() {
                         </div>
                     </div>
 
-                    <SheetFooter className="px-8 py-6 border-t bg-white">
+                    <SheetFooter className="px-4 sm:px-8 py-6 border-t bg-white">
                         <Button
                             onClick={handleSaveReminders}
                             className="w-full bg-zinc-900 hover:bg-black text-white h-12 font-bold rounded-md"
@@ -325,11 +325,11 @@ export default function EmailBuilderListPage() {
             {/* Template Selection Dialog */}
             <Dialog open={isTemplateDialogOpen} onOpenChange={setIsTemplateDialogOpen}>
                 <DialogContent className="sm:max-w-[650px] p-0 overflow-hidden border-none rounded-[20px] shadow-xl bg-white">
-                    <div className="bg-[#E5E5E5] px-6 py-4 flex items-center justify-between">
+                    <div className="bg-[#E5E5E5] px-4 sm:px-6 py-4 flex items-center justify-between">
                         <h2 className="text-xl font-bold text-[#333333] tracking-tight">Choose your templates</h2>
                     </div>
 
-                    <div className="flex-1 overflow-y-auto px-8 py-4 flex flex-col max-h-[80vh] space-y-1">
+                    <div className="flex-1 overflow-y-auto px-4 sm:px-8 py-4 flex flex-col max-h-[80vh] space-y-1">
                         {templatesList.map((tpl) => (
                             <button
                                 key={tpl.id}
@@ -348,7 +348,7 @@ export default function EmailBuilderListPage() {
                         ))}
                     </div>
 
-                    <div className="px-6 py-4 flex items-center justify-end gap-3 border-t">
+                    <div className="px-4 sm:px-6 py-4 flex items-center justify-end gap-3 border-t">
                         <Button
                             variant="ghost"
                             onClick={() => setIsTemplateDialogOpen(false)}
@@ -367,18 +367,18 @@ export default function EmailBuilderListPage() {
             </Dialog>
 
             {/* Rest of the list page */}
-            <Card className="border-none shadow-sm bg-card/50 backdrop-blur-sm">
+            <Card className="border-none shadow-sm bg-card/50 backdrop-blur-sm ">
                 <CardHeader>
-                    <div className="flex items-center justify-between">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                         <div className="space-y-1">
                             <CardTitle>Templates & Campaigns</CardTitle>
                             <CardDescription>A list of all your created emails and their current status.</CardDescription>
                         </div>
-                        <div className="flex items-center gap-2">
-                            <div className="relative w-64">
+                        <div className="flex items-center gap-2 w-full sm:w-auto">
+                            <div className="relative w-full sm:w-64">
                                 <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                                 <Input
-                                    className="pl-9"
+                                    className="pl-9 w-full"
                                     placeholder="Search emails..."
                                     value={searchTerm}
                                     onChange={(e) => setSearchTerm(e.target.value)}
@@ -391,7 +391,8 @@ export default function EmailBuilderListPage() {
                     </div>
                 </CardHeader>
                 <CardContent>
-                    <Table>
+                    <div className="overflow-x-auto">
+                        <Table>
                         <TableHeader>
                             <TableRow>
                                 <TableHead>Email Name</TableHead>
@@ -503,7 +504,8 @@ export default function EmailBuilderListPage() {
                                 </TableRow>
                             ))}
                         </TableBody>
-                    </Table>
+                        </Table>
+                    </div>
                 </CardContent>
             </Card>
 
@@ -526,7 +528,7 @@ export default function EmailBuilderListPage() {
                                 onChange={(e) => setTestEmail(e.target.value)}
                             />
                         </div>
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div className="space-y-2">
                                 <label className="text-sm font-medium">First Name</label>
                                 <Input
@@ -549,7 +551,7 @@ export default function EmailBuilderListPage() {
                                 onChange={(e) => setTestData({ ...testData, service_name: e.target.value })}
                             />
                         </div>
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div className="space-y-2">
                                 <label className="text-sm font-medium">Units (Booking Count)</label>
                                 <Input

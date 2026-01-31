@@ -19,6 +19,13 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
+import { format } from "date-fns";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -29,9 +36,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Pencil, Trash2, Calendar, Video, Loader2 } from "lucide-react";
+import { Plus, Pencil, Trash2, Calendar as CalendarIcon, Video, Loader2, Clock } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Calendar } from "@/components/ui/calendar";
+import { Card, CardContent } from "@/components/ui/card";
 import { toast } from "sonner";
 
 interface Meeting {
@@ -65,6 +74,82 @@ interface Employee {
   firstName: string;
   lastName: string;
   email: string;
+}
+
+interface DateTimePickerProps {
+  date: Date | undefined;
+  setDate: (date: Date | undefined) => void;
+}
+
+function DateTimePicker({ date, setDate }: DateTimePickerProps) {
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(date);
+  
+  // Sync internal state with props
+  useEffect(() => {
+      setSelectedDate(date);
+  }, [date]);
+
+  const handleSelect = (newDate: Date | undefined) => {
+      if (!newDate) return;
+      if (!selectedDate) {
+          setSelectedDate(newDate);
+          setDate(newDate);
+          return;
+      }
+      // Keep the time from the previous selection, defaults to 00:00 if just picked
+      const newDateTime = new Date(newDate);
+      newDateTime.setHours(selectedDate.getHours());
+      newDateTime.setMinutes(selectedDate.getMinutes());
+      setSelectedDate(newDateTime);
+      setDate(newDateTime);
+  };
+
+  const handleTimeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      const [hours, minutes] = e.target.value.split(':').map(Number);
+      if (!selectedDate) return; // Should pick date first
+      const newDateTime = new Date(selectedDate);
+      newDateTime.setHours(hours);
+      newDateTime.setMinutes(minutes);
+      setSelectedDate(newDateTime);
+      setDate(newDateTime);
+  };
+
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button
+          variant={"outline"}
+          className={cn(
+            "w-full justify-start text-left font-normal",
+            !date && "text-muted-foreground"
+          )}
+        >
+          <CalendarIcon className="mr-2 h-4 w-4" />
+          {date ? format(date, "PPP p") : <span>Pick a date</span>}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-auto p-0" align="start">
+        <Calendar
+          mode="single"
+          selected={selectedDate}
+          onSelect={handleSelect}
+          initialFocus
+        />
+        <div className="p-3 border-t border-border">
+          <div className="flex items-center gap-2">
+              <Clock className="h-4 w-4 text-muted-foreground" />
+              <Label htmlFor="time" className="sr-only">Time</Label>
+              <Input
+                  type="time"
+                  value={selectedDate ? format(selectedDate, "HH:mm") : ""}
+                  onChange={handleTimeChange}
+                  className="flex-1"
+              />
+          </div>
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
 }
 
 export default function MeetingsPage() {
@@ -295,6 +380,8 @@ export default function MeetingsPage() {
     });
   };
 
+
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -346,29 +433,28 @@ export default function MeetingsPage() {
                   />
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="startTime">Start Time *</Label>
-                    <Input
-                      id="startTime"
-                      type="datetime-local"
-                      required
-                      value={formData.startTime}
-                      onChange={(e) =>
-                        setFormData({ ...formData, startTime: e.target.value })
-                      }
+                    <Label>Start Time *</Label>
+                    <DateTimePicker
+                      date={formData.startTime ? new Date(formData.startTime) : undefined}
+                      setDate={(date) => {
+                         if (!date) return;
+                         // Keep strict ISO string
+                         const iso = new Date(date.getTime() - (date.getTimezoneOffset() * 60000)).toISOString().slice(0, 16);
+                         setFormData({ ...formData, startTime: iso });
+                      }}
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="endTime">End Time *</Label>
-                    <Input
-                      id="endTime"
-                      type="datetime-local"
-                      required
-                      value={formData.endTime}
-                      onChange={(e) =>
-                        setFormData({ ...formData, endTime: e.target.value })
-                      }
+                    <Label>End Time *</Label>
+                    <DateTimePicker
+                      date={formData.endTime ? new Date(formData.endTime) : undefined}
+                      setDate={(date) => {
+                          if (!date) return;
+                          const iso = new Date(date.getTime() - (date.getTimezoneOffset() * 60000)).toISOString().slice(0, 16);
+                          setFormData({ ...formData, endTime: iso });
+                      }}
                     />
                   </div>
                 </div>
@@ -519,7 +605,7 @@ export default function MeetingsPage() {
                     <TableRow>
                       <TableCell colSpan={6} className="py-12 text-center">
                         <div className="flex flex-col items-center gap-2">
-                          <Calendar className="h-12 w-12 text-muted-foreground" />
+                          <CalendarIcon className="h-12 w-12 text-muted-foreground" />
                           <p className="text-muted-foreground">
                             No meetings found. Schedule your first meeting to get
                             started.

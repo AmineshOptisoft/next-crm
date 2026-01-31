@@ -277,7 +277,7 @@ export default function ProductsPage() {
                         setFormData({ ...formData, unit: value })
                       }
                     >
-                      <SelectTrigger>
+                      <SelectTrigger className="w-full">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent position="popper" sideOffset={5} className="z-[100]">
@@ -326,7 +326,7 @@ export default function ProductsPage() {
                         setFormData({ ...formData, currency: value })
                       }
                     >
-                      <SelectTrigger>
+                      <SelectTrigger className="w-full">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent position="popper" sideOffset={5} className="z-[100]">

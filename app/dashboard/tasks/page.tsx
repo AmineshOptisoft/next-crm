@@ -29,9 +29,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Pencil, Trash2, CheckCircle, Loader2 } from "lucide-react";
+import { Plus, Pencil, Trash2, CheckCircle, Loader2, Calendar as CalendarIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { format } from "date-fns";
+import { cn } from "@/lib/utils";
 
 interface Task {
   _id: string;
@@ -54,6 +58,36 @@ interface Employee {
 }
 
 const UNASSIGNED_VALUE = "unassigned";
+
+function DatePicker({ date, setDate }: { date: Date | undefined; setDate: (date: Date | undefined) => void }) {
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button
+          variant={"outline"}
+          className={cn(
+            "w-full justify-start text-left font-normal",
+            !date && "text-muted-foreground"
+          )}
+        >
+          <CalendarIcon className="mr-2 h-4 w-4" />
+          {date ? format(date, "PPP") : <span>Pick a date</span>}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-auto p-0" align="start">
+        <Calendar
+          mode="single"
+          selected={date}
+          onSelect={setDate}
+          captionLayout="dropdown"
+          fromYear={2000}
+          toYear={2050}
+          initialFocus
+        />
+      </PopoverContent>
+    </Popover>
+  )
+}
 
 export default function TasksPage() {
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -307,10 +341,10 @@ export default function TasksPage() {
                         setFormData({ ...formData, assignedTo: value })
                       }
                     >
-                      <SelectTrigger>
+                      <SelectTrigger className="w-full">
                         <SelectValue placeholder="Select employee" />
                       </SelectTrigger>
-                      <SelectContent>
+                      <SelectContent className="z-[100]" sideOffset={5} position="popper">
                         <SelectItem value={UNASSIGNED_VALUE}>
                           Unassigned
                         </SelectItem>
@@ -324,12 +358,13 @@ export default function TasksPage() {
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="dueDate">Due Date</Label>
-                    <Input
-                      id="dueDate"
-                      type="date"
-                      value={formData.dueDate}
-                      onChange={(e) =>
-                        setFormData({ ...formData, dueDate: e.target.value })
+                    <DatePicker
+                      date={formData.dueDate ? new Date(formData.dueDate) : undefined}
+                      setDate={(date) =>
+                        setFormData({
+                          ...formData,
+                          dueDate: date ? format(date, "yyyy-MM-dd") : "",
+                        })
                       }
                     />
                   </div>
@@ -343,7 +378,7 @@ export default function TasksPage() {
                         setFormData({ ...formData, status: value })
                       }
                     >
-                      <SelectTrigger>
+                      <SelectTrigger className="w-full">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent position="popper" sideOffset={5} className="z-[100]">
@@ -362,7 +397,7 @@ export default function TasksPage() {
                         setFormData({ ...formData, priority: value })
                       }
                     >
-                      <SelectTrigger>
+                      <SelectTrigger className="w-full">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent position="popper" sideOffset={5} className="z-[100]">

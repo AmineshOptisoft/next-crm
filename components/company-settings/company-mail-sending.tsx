@@ -169,7 +169,7 @@ export function CompanyMailSending({ company }: CompanyMailSendingProps) {
     };
 
     return (
-        <Card>
+        <Card className="py-4">
             <CardHeader>
                 <CardTitle>Mail Sending Configuration</CardTitle>
                 <CardDescription>
