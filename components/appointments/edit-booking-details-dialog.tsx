@@ -30,6 +30,8 @@ import {
 } from "@/components/ui/select";
 import { Minus, Plus } from "lucide-react";
 import type { AppointmentDetails } from "./appointment-details-sheet";
+import { DateTimePicker } from "@/components/ui/date-time-picker";
+import { format, addMinutes } from "date-fns";
 
 interface EditBookingDetailsDialogProps {
   open: boolean;
@@ -37,18 +39,7 @@ interface EditBookingDetailsDialogProps {
   appointment?: AppointmentDetails;
 }
 
-function toDateInputValue(date: Date) {
-  const yyyy = date.getFullYear();
-  const mm = String(date.getMonth() + 1).padStart(2, "0");
-  const dd = String(date.getDate()).padStart(2, "0");
-  return `${yyyy}-${mm}-${dd}`;
-}
 
-function toTimeInputValue(date: Date) {
-  const hh = String(date.getHours()).padStart(2, "0");
-  const mm = String(date.getMinutes()).padStart(2, "0");
-  return `${hh}:${mm}`;
-}
 
 function parseUnits(units: string) {
   const result: Record<string, number> = {};
@@ -132,10 +123,9 @@ export function EditBookingDetailsDialog({
 
   // Appointment State
   const [appointmentNotes, setAppointmentNotes] = useState("");
-  const [startDate, setStartDate] = useState("");
-  const [startTime, setStartTime] = useState("");
-  const [endDate, setEndDate] = useState("");
-  const [endTime, setEndTime] = useState("");
+  // Unified Start Date
+  const [bookingStart, setBookingStart] = useState<Date | undefined>(undefined);
+  // Removed separate start/end date/time states
   const [assignedStaff, setAssignedStaff] = useState("");
 
   // Fetch Services & Booking Data
@@ -186,14 +176,7 @@ export function EditBookingDetailsDialog({
         setAppointmentNotes(bookingData.notes || "");
 
         if (bookingData.startDateTime) {
-          const start = new Date(bookingData.startDateTime);
-          setStartDate(toDateInputValue(start));
-          setStartTime(toTimeInputValue(start));
-        }
-        if (bookingData.endDateTime) {
-          const end = new Date(bookingData.endDateTime);
-          setEndDate(toDateInputValue(end));
-          setEndTime(toTimeInputValue(end));
+          setBookingStart(new Date(bookingData.startDateTime));
         }
 
         // Assigned Staff (Technician)
@@ -224,11 +207,104 @@ export function EditBookingDetailsDialog({
     return allServices.find(s => s._id === serviceId);
   }, [allServices, serviceId]);
 
+  // Dynamic Price Calculation
+  useEffect(() => {
+    if (fetching || !selectedService) return;
+
+    let total = 0;
+
+    // 1. Base Service Price
+    if (selectedService.priceType === 'hourly') {
+      // specific logic for hourly if needed, or just basePrice if it acts as a starting fee
+      // Assuming hourlyRate * billedHours is calculated externally or user inputs it?
+      // For now, let's assume basePrice is the starting point even for hourly, 
+      // but typically hourly means (hourlyRate * hours).
+      // However, billedAmount is often "Final Price".
+      // If the user hasn't input hours yet, we might fallback to basePrice.
+      // Let's stick to adding basePrice first.
+      total += (selectedService.basePrice || 0);
+
+      // If we want to automate hourly calculation:
+      const hours = Number(billedHours.split(':')[0]) || 0;
+      // Complex parsing for partial hours? 
+      // Simple approach: if hourlyRate exists and hours > 0, add (rate * hours).
+      // But 'basePrice' might be 0 for purely hourly.
+      if (selectedService.hourlyRate && billedHours) {
+        // Parse "HH:MM"
+        const [h, m] = billedHours.split(":").map(Number);
+        const timeInHours = (h || 0) + (m || 0) / 60;
+        if (timeInHours > 0) {
+          // For hourly, we might replace basePrice or add to it. 
+          // Sticking strictly to additive for safety unless we know business logic.
+          // Actually, usually it's Rate * Time.
+          total += (selectedService.hourlyRate * timeInHours);
+        }
+      }
+    } else {
+      total += (selectedService.basePrice || 0);
+    }
+
+    // 2. Sub Services
+    Object.entries(subServiceQuantities).forEach(([sId, qty]) => {
+      if (qty > 0) {
+        const sub = allServices.find(s => s._id === sId);
+        if (sub?.basePrice) {
+          total += (sub.basePrice * qty);
+        }
+      }
+    });
+
+    // 3. Addons
+    Object.entries(addonQuantities).forEach(([sId, qty]) => {
+      if (qty > 0) {
+        const addon = allServices.find(s => s._id === sId);
+        if (addon?.basePrice) {
+          total += (addon.basePrice * qty);
+        }
+      }
+    });
+
+    setBilledAmount(total.toFixed(2));
+
+  }, [selectedService, subServiceQuantities, addonQuantities, billedHours, allServices, fetching]);
+
+  const bookingEnd = useMemo(() => {
+    if (!bookingStart) return undefined;
+    // Parse billedHours (HH:MM or decimal)
+    // Assuming "HH:MM" format from inputs or "3.5" from number?
+    // The state 'billedHours' is initialized from string.
+    // Let's try to parse "HH:MM". If it fails, try simple number.
+    let minutes = 0;
+    if (billedHours.includes(":")) {
+      const [h, m] = billedHours.split(":").map(Number);
+      if (!Number.isNaN(h) && !Number.isNaN(m)) {
+        minutes = h * 60 + m;
+      }
+    } else {
+      const h = Number(billedHours);
+      if (!Number.isNaN(h)) {
+        minutes = h * 60;
+      }
+    }
+
+    if (minutes > 0) {
+      return addMinutes(bookingStart, minutes);
+    }
+    return addMinutes(bookingStart, 60); // Default 1 hour
+  }, [bookingStart, billedHours]);
+
 
   const handleSubmit = async () => {
     try {
       setLoading(true);
       // prepare payload
+      // prepare payload
+      if (!bookingStart || !bookingEnd) {
+        alert("Please select a start date");
+        setLoading(false);
+        return;
+      }
+
       const payload = {
         serviceId, // Usually doesn't change provided options, but we keep it
         subServices: Object.entries(subServiceQuantities)
@@ -238,8 +314,8 @@ export function EditBookingDetailsDialog({
           .filter(([_, qty]) => qty > 0)
           .map(([sId, qty]) => ({ serviceId: sId, quantity: qty })),
         notes: appointmentNotes,
-        startDateTime: new Date(`${startDate}T${startTime}`),
-        endDateTime: new Date(`${endDate}T${endTime}`),
+        startDateTime: bookingStart,
+        endDateTime: bookingEnd,
         shippingAddress: addressData,
         pricing: {
           // We might need to handle pricing logic properly here if we want auto-calculation.
@@ -398,20 +474,19 @@ export function EditBookingDetailsDialog({
               </div>
 
               <div className="space-y-2">
-                <Label>Start Date</Label>
-                <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+                <Label>Start Date/Time</Label>
+                <DateTimePicker
+                  date={bookingStart}
+                  setDate={setBookingStart}
+                />
               </div>
               <div className="space-y-2">
-                <Label>Start Time</Label>
-                <Input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} />
-              </div>
-              <div className="space-y-2">
-                <Label>End Date</Label>
-                <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
-              </div>
-              <div className="space-y-2">
-                <Label>End Time</Label>
-                <Input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} />
+                <Label>End Date/Time (Auto-calculated)</Label>
+                <Input
+                  value={bookingEnd ? format(bookingEnd, "PPP HH:mm") : ""}
+                  readOnly
+                  className="bg-muted text-muted-foreground"
+                />
               </div>
             </div>
           </div>

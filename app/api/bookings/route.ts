@@ -10,163 +10,183 @@ import { v4 as uuidv4 } from "uuid";
 
 // Helper to generate unique Order ID
 function generateOrderId() {
-    return `ORD-${Date.now()}-${Math.floor(Math.random() * 10000).toString().padStart(4, '0')}`;
+    // Increased randomness: 6 digits + timestamp to minimize collisions
+    return `ORD-${Date.now()}-${Math.floor(Math.random() * 1000000).toString().padStart(6, '0')}`;
 }
 
 // POST - Create booking(s)
-// POST - Create booking(s)
 export async function POST(req: NextRequest) {
-    let session;
-    try {
-        const user = await getCurrentUser();
-        if (!user || !user.companyId) {
-            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-        }
+    const MAX_RETRIES = 3;
+    let attempt = 0;
 
-        await connectDB();
-        session = await mongoose.startSession();
-        session.startTransaction();
+    while (attempt < MAX_RETRIES) {
+        let session;
+        try {
+            const user = await getCurrentUser();
+            if (!user || !user.companyId) {
+                return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+            }
 
-        const body = await req.json();
-        const {
-            newContact, // Optional: New contact details
-            contactId: existingContactId,
-            technicianId,
-            technicianIds = [],
-            serviceId,
-            subServices = [],
-            addons = [],
-            bookingType,
-            frequency,
-            customRecurrence,
-            startDateTime,
-            endDateTime,
-            shippingAddress,
-            notes,
-            pricing
-        } = body;
+            await connectDB();
+            session = await mongoose.startSession();
+            session.startTransaction();
 
-        // --- 1. Handle Contact Creation (if needed) ---
-        let finalContactId = existingContactId;
+            const body = await req.json();
+            const {
+                newContact, // Optional: New contact details
+                contactId: existingContactId,
+                technicianId,
+                technicianIds = [],
+                serviceId,
+                subServices = [],
+                addons = [],
+                bookingType,
+                frequency,
+                customRecurrence,
+                startDateTime,
+                endDateTime,
+                shippingAddress,
+                notes,
+                pricing
+            } = body;
 
-        if (newContact) {
-            // Check if email already exists
-            const existingUser = await User.findOne({ email: newContact.email }).session(session);
-            if (existingUser) {
+            // --- 1. Handle Contact Creation (if needed) ---
+            let finalContactId = existingContactId;
+
+            if (newContact) {
+                // Check if email already exists
+                const existingUser = await User.findOne({ email: newContact.email }).session(session);
+                if (existingUser) {
+                    await session.abortTransaction();
+                    session.endSession();
+                    return NextResponse.json({ error: "User with this email already exists." }, { status: 400 });
+                }
+
+                // Create new contact
+                const createdContact = await User.create([{
+                    firstName: newContact.firstName,
+                    lastName: newContact.lastName,
+                    email: newContact.email,
+                    passwordHash: await bcrypt.hash(newContact.password, 10), // Hash password
+                    phoneNumber: newContact.phone,
+                    role: "contact",
+                    companyId: user.companyId,
+                    address: newContact.streetAddress, // Assuming mapped from form
+                    city: newContact.city,
+                    state: newContact.state,
+                    zipCode: newContact.zipCode,
+                    contactStatus: "new lead",
+                    ownerId: user.userId,
+                    // Add any other mapped fields here
+                }], { session });
+
+                finalContactId = createdContact[0]._id;
+            }
+
+            // --- 2. Determines Technicians ---
+            let techIdsToProcess: string[] = [];
+            if (technicianIds && technicianIds.length > 0) {
+                techIdsToProcess = technicianIds;
+            } else if (technicianId) {
+                techIdsToProcess = [technicianId];
+            }
+
+            // Validate required fields
+            if (!finalContactId || techIdsToProcess.length === 0 || !serviceId || !startDateTime || !endDateTime) {
                 await session.abortTransaction();
                 session.endSession();
-                return NextResponse.json({ error: "User with this email already exists." }, { status: 400 });
+                return NextResponse.json(
+                    { error: "Missing required fields" },
+                    { status: 400 }
+                );
             }
 
-            // Create new contact
-            const createdContact = await User.create([{
-                firstName: newContact.firstName,
-                lastName: newContact.lastName,
-                email: newContact.email,
-                passwordHash: await bcrypt.hash(newContact.password, 10), // Hash password
-                phoneNumber: newContact.phone,
-                role: "contact",
-                companyId: user.companyId,
-                address: newContact.streetAddress, // Assuming mapped from form
-                city: newContact.city,
-                state: newContact.state,
-                zipCode: newContact.zipCode,
-                contactStatus: "new lead",
-                ownerId: user.userId,
-                // Add any other mapped fields here
-            }], { session });
+            // Generate a unique Group ID
+            const bookingGroupId = uuidv4();
+            let allCreatedBookings: any[] = [];
 
-            finalContactId = createdContact[0]._id;
-        }
+            // Loop through each technician and create bookings
+            for (const techId of techIdsToProcess) {
+                if (bookingType === "once") {
+                    const booking = await Booking.create([{
+                        contactId: finalContactId,
+                        technicianId: techId,
+                        serviceId,
+                        subServices,
+                        addons,
+                        bookingType,
+                        startDateTime: new Date(startDateTime),
+                        endDateTime: new Date(endDateTime),
+                        shippingAddress,
+                        notes,
+                        pricing,
+                        orderId: generateOrderId(),
+                        recurringGroupId: bookingGroupId,
+                        companyId: user.companyId,
+                        status: "unconfirmed"
+                    }], { session });
+                    allCreatedBookings.push(booking[0]);
+                }
+                else if (bookingType === "recurring") {
+                    const bookingsData = generateRecurringBookings({
+                        contactId: finalContactId,
+                        technicianId: techId,
+                        serviceId,
+                        subServices,
+                        addons,
+                        frequency,
+                        customRecurrence,
+                        startDateTime,
+                        endDateTime,
+                        shippingAddress,
+                        notes,
+                        pricing,
+                        recurringGroupId: bookingGroupId,
+                        companyId: user.companyId
+                    });
 
-        // --- 2. Determines Technicians ---
-        let techIdsToProcess: string[] = [];
-        if (technicianIds && technicianIds.length > 0) {
-            techIdsToProcess = technicianIds;
-        } else if (technicianId) {
-            techIdsToProcess = [technicianId];
-        }
+                    const created = await Booking.insertMany(bookingsData, { session });
+                    allCreatedBookings.push(...created);
+                }
+            }
 
-        // Validate required fields
-        if (!finalContactId || techIdsToProcess.length === 0 || !serviceId || !startDateTime || !endDateTime) {
-            await session.abortTransaction();
+            await session.commitTransaction();
             session.endSession();
+
+            return NextResponse.json({
+                message: `Created ${allCreatedBookings.length} bookings for ${techIdsToProcess.length} technicians`,
+                count: allCreatedBookings.length,
+                bookingGroupId: bookingGroupId,
+                bookings: allCreatedBookings
+            }, { status: 201 });
+
+        } catch (error: any) {
+            if (session) {
+                await session.abortTransaction();
+                session.endSession();
+            }
+
+            // Check for duplicate key error on orderId (code 11000)
+            if (error.code === 11000 && error.keyPattern?.orderId) {
+                console.warn(`Duplicate Order ID encountered. Retrying... (Attempt ${attempt + 1}/${MAX_RETRIES})`);
+                attempt++;
+                // Wait a small random amount of time to reduce collision chance in tight loops knowing Date.now()
+                await new Promise(resolve => setTimeout(resolve, Math.random() * 50));
+                continue;
+            }
+
+            console.error("Error creating booking:", error);
             return NextResponse.json(
-                { error: "Missing required fields" },
-                { status: 400 }
+                { error: "Failed to create booking", details: error.message },
+                { status: 500 }
             );
         }
-
-        // Generate a unique Group ID
-        const bookingGroupId = uuidv4();
-        let allCreatedBookings: any[] = [];
-
-        // Loop through each technician and create bookings
-        for (const techId of techIdsToProcess) {
-            if (bookingType === "once") {
-                const booking = await Booking.create([{
-                    contactId: finalContactId,
-                    technicianId: techId,
-                    serviceId,
-                    subServices,
-                    addons,
-                    bookingType,
-                    startDateTime: new Date(startDateTime),
-                    endDateTime: new Date(endDateTime),
-                    shippingAddress,
-                    notes,
-                    pricing,
-                    orderId: generateOrderId(),
-                    recurringGroupId: bookingGroupId,
-                    companyId: user.companyId,
-                    status: "unconfirmed"
-                }], { session });
-                allCreatedBookings.push(booking[0]);
-            }
-            else if (bookingType === "recurring") {
-                const bookingsData = generateRecurringBookings({
-                    contactId: finalContactId,
-                    technicianId: techId,
-                    serviceId,
-                    subServices,
-                    addons,
-                    frequency,
-                    customRecurrence,
-                    startDateTime,
-                    endDateTime,
-                    shippingAddress,
-                    notes,
-                    pricing,
-                    recurringGroupId: bookingGroupId,
-                    companyId: user.companyId
-                });
-
-                const created = await Booking.insertMany(bookingsData, { session });
-                allCreatedBookings.push(...created);
-            }
-        }
-
-        await session.commitTransaction();
-        session.endSession();
-
-        return NextResponse.json({
-            message: `Created ${allCreatedBookings.length} bookings for ${techIdsToProcess.length} technicians`,
-            count: allCreatedBookings.length,
-            bookingGroupId: bookingGroupId,
-            bookings: allCreatedBookings
-        }, { status: 201 });
-
-    } catch (error: any) {
-        if (session) {
-            await session.abortTransaction();
-            session.endSession();
-        }
-        console.error("Error creating booking:", error);
-        return NextResponse.json(
-            { error: "Failed to create booking", details: error.message },
-            { status: 500 }
-        );
     }
+
+    return NextResponse.json(
+        { error: "Failed to create booking after multiple retries due to ID collision." },
+        { status: 500 }
+    );
 }
 
 // Helper function to generate recurring bookings
