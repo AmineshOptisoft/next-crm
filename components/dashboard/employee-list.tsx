@@ -26,7 +26,7 @@ export function EmployeeList({ employees }: EmployeeListProps) {
   };
 
   return (
-    <Card>
+    <Card className="py-4">
       <CardHeader>
         <CardTitle className="text-base font-medium">Employee List</CardTitle>
         <p className="text-xs text-muted-foreground">

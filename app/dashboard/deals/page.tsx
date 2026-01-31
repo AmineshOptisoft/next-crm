@@ -28,9 +28,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Pencil, Trash2, Loader2 } from "lucide-react";
+import { Plus, Pencil, Trash2, Loader2, Calendar as CalendarIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { format } from "date-fns";
+import { cn } from "@/lib/utils";
 
 interface ContactOption {
   _id: string;
@@ -50,6 +54,36 @@ interface DealType {
 }
 
 const NO_CONTACT_VALUE = "none";
+
+function DatePicker({ date, setDate }: { date: Date | undefined; setDate: (date: Date | undefined) => void }) {
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button
+          variant={"outline"}
+          className={cn(
+            "w-full justify-start text-left font-normal",
+            !date && "text-muted-foreground"
+          )}
+        >
+          <CalendarIcon className="mr-2 h-4 w-4" />
+          {date ? format(date, "PPP") : <span>Pick a date</span>}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-auto p-0" align="start">
+        <Calendar
+          mode="single"
+          selected={date}
+          onSelect={setDate}
+          captionLayout="dropdown"
+          fromYear={2000}
+          toYear={2050}
+          initialFocus
+        />
+      </PopoverContent>
+    </Popover>
+  )
+}
 
 export default function DealsPage() {
   const [deals, setDeals] = useState<DealType[]>([]);
@@ -269,10 +303,10 @@ export default function DealsPage() {
                         setFormData({ ...formData, stage: value })
                       }
                     >
-                      <SelectTrigger>
+                      <SelectTrigger className="w-full">
                         <SelectValue />
                       </SelectTrigger>
-                      <SelectContent>
+                      <SelectContent className="z-[100]" sideOffset={5} position="popper">
                         <SelectItem value="new">New</SelectItem>
                         <SelectItem value="qualified">Qualified</SelectItem>
                         <SelectItem value="proposal">Proposal</SelectItem>
@@ -291,10 +325,10 @@ export default function DealsPage() {
                         setFormData({ ...formData, contactId: value })
                       }
                     >
-                      <SelectTrigger>
+                      <SelectTrigger className="w-full">
                         <SelectValue placeholder="Select contact" />
                       </SelectTrigger>
-                      <SelectContent>
+                      <SelectContent className="z-[100]" sideOffset={5} position="popper">
                         <SelectItem value={NO_CONTACT_VALUE}>
                           No contact
                         </SelectItem>
@@ -308,14 +342,15 @@ export default function DealsPage() {
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="closeDate">Close Date</Label>
-                    <Input
-                      id="closeDate"
-                      type="date"
-                      value={formData.closeDate}
-                      onChange={(e) =>
+                    <DatePicker
+                      date={formData.closeDate ? new Date(formData.closeDate) : undefined}
+                      setDate={(date) =>
                         setFormData({
                           ...formData,
-                          closeDate: e.target.value,
+                          // Use ISO string but just the date part if needed or full ISO
+                          // The previous implementation used e.target.value which is yyyy-mm-dd
+                          // We'll keep it compatible
+                          closeDate: date ? format(date, "yyyy-MM-dd") : "",
                         })
                       }
                     />

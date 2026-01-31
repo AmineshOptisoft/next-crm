@@ -340,7 +340,7 @@ export default function ActivitiesPage() {
                       }
                       required
                     >
-                      <SelectTrigger>
+                      <SelectTrigger className="w-full">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent position="popper" sideOffset={5} className="z-[100]">
@@ -361,7 +361,7 @@ export default function ActivitiesPage() {
                       }
                       required
                     >
-                      <SelectTrigger>
+                      <SelectTrigger className="w-full">
                         <SelectValue placeholder="Select contact" />
                       </SelectTrigger>
                       <SelectContent position="popper" sideOffset={5} className="z-[100]">
@@ -408,7 +408,7 @@ export default function ActivitiesPage() {
                         setFormData({ ...formData, dealId: value === "none" ? "" : value })
                       }
                     >
-                      <SelectTrigger>
+                      <SelectTrigger className="w-full">
                         <SelectValue placeholder="Select deal (optional)" />
                       </SelectTrigger>
                       <SelectContent position="popper" sideOffset={5} className="z-[100]">
@@ -429,7 +429,7 @@ export default function ActivitiesPage() {
                         setFormData({ ...formData, assignedTo: value === "none" ? "" : value })
                       }
                     >
-                      <SelectTrigger>
+                      <SelectTrigger className="w-full">
                         <SelectValue placeholder="Select employee (optional)" />
                       </SelectTrigger>
                       <SelectContent position="popper" sideOffset={5} className="z-[100]">
@@ -444,7 +444,7 @@ export default function ActivitiesPage() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="scheduledAt">Scheduled At</Label>
                     <Input
@@ -475,7 +475,7 @@ export default function ActivitiesPage() {
                         setFormData({ ...formData, status: value })
                       }
                     >
-                      <SelectTrigger>
+                      <SelectTrigger className="w-full">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent position="popper" sideOffset={5} className="z-[100]" >
@@ -496,7 +496,7 @@ export default function ActivitiesPage() {
                         setFormData({ ...formData, outcome: value })
                       }
                     >
-                      <SelectTrigger>
+                      <SelectTrigger className="w-full">
                         <SelectValue placeholder="Select outcome" />
                       </SelectTrigger>
                       <SelectContent >

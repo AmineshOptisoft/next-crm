@@ -191,7 +191,7 @@ export default function CompanySettingsPage() {
             </div>
 
             <Tabs defaultValue="profile" className="space-y-6">
-                <TabsList>
+                <TabsList className="w-full justify-start overflow-x-auto h-auto flex-nowrap p-1">
                     <TabsTrigger value="profile">Profile</TabsTrigger>
                     <TabsTrigger value="subscription">Subscription</TabsTrigger>
                     <TabsTrigger value="preferences">Preferences</TabsTrigger>

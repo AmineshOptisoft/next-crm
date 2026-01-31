@@ -10,7 +10,7 @@ interface ProductivityChartProps {
 
 export function ProductivityChart({ data }: ProductivityChartProps) {
   return (
-    <Card>
+    <Card className="py-4">
       <CardHeader>
         <CardTitle className="text-base font-medium">Productivity</CardTitle>
       </CardHeader>
