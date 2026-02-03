@@ -243,6 +243,9 @@ export default function Calendar() {
               font-weight: 300 !important;
               
             }
+              .fc .fc-bg-event{
+                opacity: 1 !important;
+              }
         `}
       </style>
     </div>

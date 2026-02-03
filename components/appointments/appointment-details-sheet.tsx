@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { CheckCircle, CreditCard, Pencil, Trash2, XCircle, FileText, DollarSign, Archive } from "lucide-react";
 import { EditBookingDetailsDialog } from "./edit-booking-details-dialog";
+import { BillClientModal } from "./bill-client-modal";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
@@ -80,6 +81,7 @@ export function AppointmentDetailsSheet({
   if (!appointment) return null;
 
   const [editBookingOpen, setEditBookingOpen] = useState(false);
+  const [isBillingModalOpen, setIsBillingModalOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const router = useRouter();
 
@@ -244,6 +246,22 @@ export function AppointmentDetailsSheet({
 
         <div className="mt-auto p-4 border-t bg-muted/30">
           <div className="flex flex-wrap gap-2 justify-end">
+            {/* Always Visible: Bill Client (unless already invoiced/paid/closed maybe? User said ALWAYS) */}
+            {appointment.bookingStatus !== "paid" &&
+              appointment.bookingStatus !== "closed" &&
+              appointment.bookingStatus !== "cancelled" &&
+              appointment.bookingStatus !== "rejected" && (
+                <Button
+                  variant="outline"
+                  className="min-w-[120px]"
+                  onClick={() => setIsBillingModalOpen(true)}
+                  disabled={loading}
+                >
+                  <FileText className="h-4 w-4 mr-2" />
+                  Bill client
+                </Button>
+              )}
+
             {/* Unconfirmed State */}
             {appointment.bookingStatus === "unconfirmed" && (
               <>
@@ -288,28 +306,6 @@ export function AppointmentDetailsSheet({
                 >
                   <XCircle className="h-4 w-4 mr-2" />
                   Cancel
-                </Button>
-                {/* Keeping 'Bill Client' as an option if it's the next step in some workflows, or maybe hiding it if user wants strictly Complete/Cancel? 
-                    User said "jab confirmed hoga tab cancel aur complete ke button dikhenge". I'll strictly follow that preference for now, but keeping Invoice maybe useful. 
-                    I'll hide "Bill Client" to strictly follow the "Cancel and Complete" instruction unless user asks for it. 
-                    Actually, "invoice_sent" is a status. If I remove the button, they can't get there. 
-                    But the user explicitly asked for "Cancel and Complete". I'll add them. I will keep "Bill Client" as a secondary or remove if it contradicts. 
-                    Let's assume "Cancel" and "Complete" are the primary actions they want to see. 
-                    "Bill client" transitions to "invoice_sent". If I remove it, that flow breaks. 
-                    I'll add Cancel and Complete. I'll leave Bill Client but maybe less prominent or just leave it. 
-                    Wait, `unconfirmed` -> `confirmed` -> `invoice_sent` was the previous flow.
-                    Now user says: `confirmed` -> `cancel` OR `complete`.
-                    Maybe they are simplifying the flow? 
-                    I will provide Cancel, Complete, and Invoice (as it was there). But prioritize Cancel/Complete visuals.
-                */}
-                <Button
-                  variant="outline"
-                  className="min-w-[120px]"
-                  onClick={() => handleStatusUpdate("invoice_sent")}
-                  disabled={loading}
-                >
-                  <FileText className="h-4 w-4 mr-2" />
-                  Bill client
                 </Button>
               </>
             )}
@@ -400,6 +396,12 @@ export function AppointmentDetailsSheet({
         open={editBookingOpen}
         onOpenChange={setEditBookingOpen}
         appointment={appointment}
+      />
+
+      <BillClientModal
+        open={isBillingModalOpen}
+        onOpenChange={setIsBillingModalOpen}
+        bookingId={appointment.bookingId as string}
       />
     </Sheet>
   );

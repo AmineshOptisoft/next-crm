@@ -20,6 +20,7 @@ export async function GET(req: NextRequest) {
   const filter: any = buildCompanyFilter(user);
   if (status) filter.status = status;
   if (contactId) filter.contactId = contactId;
+  if (searchParams.get("bookingId")) filter.bookingId = searchParams.get("bookingId");
 
   const invoices = await Invoice.find(filter)
     .populate("contactId", "name email company")
@@ -47,6 +48,7 @@ export async function POST(req: NextRequest) {
   const {
     contactId,
     dealId,
+    bookingId,
     items,
     issueDate,
     dueDate,
@@ -97,6 +99,7 @@ export async function POST(req: NextRequest) {
     invoiceNumber,
     contactId,
     dealId,
+    bookingId,
     items: processedItems,
     subtotal,
     taxAmount,
