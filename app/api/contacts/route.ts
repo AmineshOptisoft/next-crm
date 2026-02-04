@@ -45,6 +45,7 @@ export async function POST(req: NextRequest) {
     companyId: requestCompanyId,
     password,
     streetAddress,
+    country,
     city,
     state,
     zipCode,
@@ -72,6 +73,7 @@ export async function POST(req: NextRequest) {
     billingNotes,
     discount,
     tags,
+    zoneName,
     fsrAssigned,
     staxId,
     serviceDefaults
@@ -132,6 +134,7 @@ export async function POST(req: NextRequest) {
     companyName: company,
     avatarUrl: image,
     contactStatus: status || "lead",
+    country,
     address: streetAddress, // User model has string address
     city,
     state,
@@ -144,6 +147,8 @@ export async function POST(req: NextRequest) {
     bathrooms,
     bedrooms,
     specialInstructions,
+    zoneName,
+    zone: zoneName,
     defaultPaymentMethod,
     billedAmount,
     billedHours,

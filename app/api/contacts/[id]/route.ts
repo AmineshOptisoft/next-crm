@@ -60,6 +60,7 @@ export async function PUT(req: NextRequest, context: Context) {
     status,
     companyId: newCompanyId,
     streetAddress,
+    country,
     city,
     state,
     zipCode,
@@ -88,6 +89,7 @@ export async function PUT(req: NextRequest, context: Context) {
     billingNotes,
     discount,
     tags,
+    zoneName,
     fsrAssigned,
     staxId,
     serviceDefaults
@@ -119,6 +121,7 @@ export async function PUT(req: NextRequest, context: Context) {
     contactStatus: status,
     avatarUrl: image,
     address: streetAddress,
+    country,
     city,
     state,
     zipCode,
@@ -145,6 +148,8 @@ export async function PUT(req: NextRequest, context: Context) {
     billingNotes,
     discount,
     tags,
+    zoneName,
+    zone: zoneName,
     fsrAssigned,
     staxId,
     serviceDefaults

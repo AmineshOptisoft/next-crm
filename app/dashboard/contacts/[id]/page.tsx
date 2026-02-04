@@ -455,7 +455,7 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
                                     <div className="space-y-1"><Label>First Name</Label><Input value={data.firstName || ""} onChange={(e) => setData({ ...data, firstName: e.target.value })} /></div>
                                     <div className="space-y-1"><Label>Last Name</Label><Input value={data.lastName || ""} onChange={(e) => setData({ ...data, lastName: e.target.value })} /></div>
                                 </div>
-                                <div className="space-y-1 flex gap-2">
+                                <div className="space-y-1 flex gap-2 justify-between items-center">
                                     <div className="flex-1">
                                         <Label>Email Address</Label>
                                         <Input value={data.email || ""} onChange={(e) => setData({ ...data, email: e.target.value })} />
@@ -473,7 +473,7 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
 
                                 <div className="grid grid-cols-2 gap-4">
                                     {/* <div className="space-y-1"><Label>Password</Label><Input type="password" placeholder=".................." disabled /></div> */}
-                                    <div className="space-y-1"><Label>Customer Stage</Label><Input value={data.contactStatus} onChange={(e) => setData({ ...data, contactStatus: e.target.value })} /></div>
+                                    <div className="space-y-1 "><Label>Customer Stage</Label><Input className="w-full" value={data.contactStatus} onChange={(e) => setData({ ...data, contactStatus: e.target.value })} /></div>
                                 </div>
 
                                 <div className="grid grid-cols-2 gap-4">

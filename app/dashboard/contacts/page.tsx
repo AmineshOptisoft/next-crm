@@ -28,6 +28,7 @@ import {
 } from "@/components/ui/sheet";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -66,6 +67,7 @@ import { ServiceDefaults } from "./[id]/ServiceDefaults";
 import { Separator } from "@/components/ui/separator";
 import { DataTable } from "@/components/data-table";
 import { ColumnDef } from "@tanstack/react-table";
+import { Country, State, City } from "country-state-city";
 
 interface ContactType {
   _id: string;
@@ -87,6 +89,10 @@ interface ContactType {
   createdAt: string;
   avatarUrl?: string;
   address?: string;
+  country?: string;
+  state?: string;
+  city?: string;
+  zipCode?: string;
   role?: string;
 }
 
@@ -122,6 +128,7 @@ export default function ContactsPage() {
     bathrooms: "",
     bedrooms: "",
     streetAddress: "",
+    country: "",
     state: "",
     city: "",
     zipCode: "",
@@ -167,14 +174,12 @@ export default function ContactsPage() {
 
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10);
-  const [statesList, setStatesList] = useState<any[]>([]);
   const [zonesList, setZonesList] = useState<string[]>([]);
   const [usersList, setUsersList] = useState<any[]>([]);
 
   useEffect(() => {
     fetchContacts();
     fetchCurrentUser();
-    fetchStates();
     fetchZones();
     fetchUsers();
   }, []);
@@ -193,26 +198,20 @@ export default function ContactsPage() {
 
   async function fetchZones() {
     try {
-      const res = await fetch("/api/zip-codes");
+      const res = await fetch("/api/service-areas");
       if (res.ok) {
         const data = await res.json();
-        const uniqueZones = Array.from(new Set(data.map((z: any) => z.zone))) as string[];
+        const uniqueZones = Array.from(
+          new Set(
+            (data as any[])
+              .map((area: any) => area?.name as string | undefined)
+              .filter(Boolean)
+          )
+        ) as string[];
         setZonesList(uniqueZones);
       }
     } catch (e) {
       console.error("Failed to fetch zones", e);
-    }
-  }
-
-  async function fetchStates() {
-    try {
-      const res = await fetch("/api/geo/states?countryId=US");
-      if (res.ok) {
-        const data = await res.json();
-        setStatesList(data);
-      }
-    } catch (e) {
-      console.error("Failed to fetch states", e);
     }
   }
 
@@ -287,9 +286,10 @@ export default function ContactsPage() {
       bathrooms: contact.bathrooms || "",
       bedrooms: contact.bedrooms || "",
       streetAddress: contact.address || "",
-      state: "", // User model has string address, individual components might be missing or combined
-      city: "",
-      zipCode: "",
+      country: (contact as any).country || "",
+      state: (contact as any).state || "",
+      city: (contact as any).city || "",
+      zipCode: (contact as any).zipCode || "",
       specialInstructions: contact.specialInstructions || "",
       company: contact.companyName || "",
       companyId: contact.companyId || "",
@@ -396,6 +396,7 @@ export default function ContactsPage() {
       bathrooms: "",
       bedrooms: "",
       streetAddress: "",
+      country: "",
       state: "",
       city: "",
       zipCode: "",
@@ -439,6 +440,29 @@ export default function ContactsPage() {
     if (filterData.staxData === "non-stax" && contact.staxId) return false;
 
     return true;
+  });
+
+  // Location helpers (country, state, city) similar to UserForm
+  const countries = Country.getAllCountries();
+  const selectedCountry = countries.find((c) => c.name === formData.country);
+  const countryCode = selectedCountry?.isoCode;
+
+  const states = countryCode ? State.getStatesOfCountry(countryCode) : [];
+  const selectedState = states.find((s) => s.name === formData.state);
+  const stateCode = selectedState?.isoCode;
+
+  const cities = countryCode && stateCode ? City.getCitiesOfState(countryCode, stateCode) : [];
+
+  // Filter users for FSR Assigned: match role name and optionally zone
+  const eligibleFsrUsers = usersList.filter((u: any) => {
+    const roleName =
+      u?.customRoleId && typeof u.customRoleId === "object"
+        ? u.customRoleId.name
+        : undefined;
+    const userZone = u?.zone;
+    const matchesRole = roleName?.toLowerCase() === "sales representative";
+    const matchesZone = formData.zoneName ? userZone === formData.zoneName : true;
+    return matchesRole && matchesZone;
   });
 
   // Refreshing CSV export to use updated field names
@@ -966,11 +990,19 @@ export default function ContactsPage() {
                   <Select value={formData.fsrAssigned} onValueChange={v => setFormData({ ...formData, fsrAssigned: v })}>
                     <SelectTrigger><SelectValue placeholder="Select FSR" /></SelectTrigger>
                     <SelectContent>
-                      {usersList.map(u => (
-                        <SelectItem key={u._id} value={u._id}>
-                          {u.firstName} {u.lastName}
+                      {eligibleFsrUsers.length === 0 ? (
+                        <SelectItem value="no-fsr" disabled>
+                          {formData.zoneName
+                            ? "No sales representatives available for this zone"
+                            : "Select a zone to see sales representatives"}
                         </SelectItem>
-                      ))}
+                      ) : (
+                        eligibleFsrUsers.map((u: any) => (
+                          <SelectItem key={u._id} value={u._id}>
+                            {u.firstName} {u.lastName}
+                          </SelectItem>
+                        ))
+                      )}
                     </SelectContent>
                   </Select>
                 </div>
@@ -984,27 +1016,78 @@ export default function ContactsPage() {
               <div className="space-y-2"><Label>Street Address</Label><Input value={formData.streetAddress} onChange={e => setFormData({ ...formData, streetAddress: e.target.value })} /></div>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="space-y-2"><Label>State</Label>
-                  <Select value={formData.state} onValueChange={v => setFormData({ ...formData, state: v })}>
-                    <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+                <div className="space-y-2">
+                  <Label>Country</Label>
+                  <Select
+                    value={formData.country}
+                    onValueChange={(v) => {
+                      setFormData({ ...formData, country: v, state: "", city: "" });
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select Country" />
+                    </SelectTrigger>
                     <SelectContent>
-                      {statesList.map(s => (
-                        <SelectItem key={s.id} value={s.name}>{s.name}</SelectItem>
+                      {countries.map((c) => (
+                        <SelectItem key={c.isoCode} value={c.name}>
+                          {c.name}
+                        </SelectItem>
                       ))}
-                      {statesList.length === 0 && (
-                        <>
-                          <SelectItem value="Alabama">Alabama</SelectItem>
-                          <SelectItem value="California">California</SelectItem>
-                        </>
-                      )}
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="space-y-2"><Label>City</Label><Input value={formData.city} onChange={e => setFormData({ ...formData, city: e.target.value })} /></div>
+                <div className="space-y-2">
+                  <Label>State</Label>
+                  <Select
+                    value={formData.state}
+                    onValueChange={(v) => {
+                      setFormData({ ...formData, state: v, city: "" });
+                    }}
+                    disabled={!countryCode}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select State" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {states.map((s) => (
+                        <SelectItem key={s.isoCode} value={s.name}>
+                          {s.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>City</Label>
+                  <Select
+                    value={formData.city}
+                    onValueChange={(v) => setFormData({ ...formData, city: v })}
+                    disabled={!stateCode}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select City" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {cities.map((city) => (
+                        <SelectItem key={city.name} value={city.name}>
+                          {city.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
                 <div className="space-y-2"><Label>Zip Code</Label><Input value={formData.zipCode} onChange={e => setFormData({ ...formData, zipCode: e.target.value })} /></div>
               </div>
 
-              <div className="space-y-2"><Label>Special instructions</Label><Input value={formData.specialInstructions} onChange={e => setFormData({ ...formData, specialInstructions: e.target.value })} /></div>
+              <div className="space-y-2">
+                <Label>Special instructions</Label>
+                <Textarea
+                  value={formData.specialInstructions}
+                  onChange={e => setFormData({ ...formData, specialInstructions: e.target.value })}
+                  placeholder="Enter any special instructions for this contact"
+                  className="min-h-[80px]"
+                />
+              </div>
 
               <Separator className="my-6" />
               <div className="space-y-4">

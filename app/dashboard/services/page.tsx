@@ -560,7 +560,7 @@ export default function ServicesPage() {
 
                             {/* Price Fields - Only for Sub and Addon */}
                             {formData.category !== "main" && (
-                                <div className="grid grid-cols-3 gap-6 animate-in fade-in slide-in-from-top-2">
+                                <div className="grid md:grid-cols-3 grid-cols-1 gap-6 animate-in fade-in slide-in-from-top-2">
                                     <div className="space-y-3">
                                         <Label className="text-base font-semibold">Base Price ($)</Label>
                                         <Input
@@ -602,6 +602,7 @@ export default function ServicesPage() {
                                     </Button>
                                 </SheetClose>
                                 <Button type="submit" size="lg" className="min-w-[140px]  shadow-sm" disabled={isSaving}>
+                                {editingService ? "Update" : "Create"}
                                 </Button>
                             </div>
                         </form>
