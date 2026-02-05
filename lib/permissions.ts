@@ -36,8 +36,8 @@ export async function checkPermission(
     return { authorized: true, user };
   }
 
-  // Company user - check custom role permissions
-  if (user.role === "company_user") {
+  // Company user, employee, and contact - check custom role permissions
+  if (user.role === "company_user" || user.role === "employee" || user.role === "contact") {
     const permission = user.permissions?.find((p: any) => p.module === module);
 
     if (!permission) {

@@ -31,6 +31,7 @@ import {
 import { Plus, Pencil, Trash2, FileText, Eye } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { usePermissions } from "@/hooks/usePermissions";
 
 interface Invoice {
   _id: string;
@@ -72,6 +73,9 @@ interface Product {
 }
 
 export default function InvoicesPage() {
+  // Check permissions for this module
+  const permissions = usePermissions("invoices");
+  
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
@@ -251,13 +255,14 @@ export default function InvoicesPage() {
             Create and manage customer invoices
           </p>
         </div>
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
-            <Button onClick={resetForm}>
-              <Plus className="mr-2 h-4 w-4" />
-              Create Invoice
-            </Button>
-          </DialogTrigger>
+        {permissions.canCreate && (
+          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <DialogTrigger asChild>
+              <Button onClick={resetForm}>
+                <Plus className="mr-2 h-4 w-4" />
+                Create Invoice
+              </Button>
+            </DialogTrigger>
           <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Create New Invoice</DialogTitle>
@@ -433,6 +438,7 @@ export default function InvoicesPage() {
             </form>
           </DialogContent>
         </Dialog>
+        )}
       </div>
 
       <Tabs value={filterStatus} onValueChange={setFilterStatus}>
@@ -484,9 +490,9 @@ export default function InvoicesPage() {
                         <TableCell>
                           <div>
                             <div className="font-medium">
-                              {invoice.contactId.name}
+                              {invoice.contactId?.name || "N/A"}
                             </div>
-                            {invoice.contactId.company && (
+                            {invoice.contactId?.company && (
                               <div className="text-sm text-muted-foreground">
                                 {invoice.contactId.company}
                               </div>
@@ -512,7 +518,7 @@ export default function InvoicesPage() {
                             >
                               <Eye className="h-4 w-4" />
                             </Button>
-                            {invoice.status === "draft" && (
+                            {permissions.canEdit && invoice.status === "draft" && (
                               <Button
                                 variant="ghost"
                                 size="sm"
@@ -523,7 +529,7 @@ export default function InvoicesPage() {
                                 Send
                               </Button>
                             )}
-                            {invoice.status === "sent" && (
+                            {permissions.canEdit && invoice.status === "sent" && (
                               <Button
                                 variant="ghost"
                                 size="sm"
@@ -534,13 +540,15 @@ export default function InvoicesPage() {
                                 Mark Paid
                               </Button>
                             )}
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleDelete(invoice._id)}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
+                            {permissions.canDelete && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleDelete(invoice._id)}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            )}
                           </div>
                         </TableCell>
                       </TableRow>
@@ -564,8 +572,8 @@ export default function InvoicesPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <h3 className="font-semibold">Customer</h3>
-                  <p>{viewInvoice.contactId.name}</p>
-                  {viewInvoice.contactId.company && (
+                  <p>{viewInvoice.contactId?.name || "N/A"}</p>
+                  {viewInvoice.contactId?.company && (
                     <p className="text-sm text-muted-foreground">
                       {viewInvoice.contactId.company}
                     </p>

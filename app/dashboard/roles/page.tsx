@@ -65,16 +65,15 @@ interface Role {
 
 const MODULES = [
   "dashboard",
-  "employees",
   "tasks",
   "contacts",
   "deals",
   "products",
+  "appointments",
   "invoices",
   "meetings",
   "activities",
-  "analytics",
-  "settings",
+  "email-builder",
 ];
 
 export default function RolesPage() {

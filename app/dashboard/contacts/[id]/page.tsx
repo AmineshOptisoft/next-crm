@@ -20,6 +20,7 @@ import { ServiceDefaults } from "./ServiceDefaults";
 import { DataTable } from "@/components/data-table";
 import { ColumnDef } from "@tanstack/react-table";
 import { DateRangePicker } from "@/components/date-range-picker";
+import { Country, State, City } from "country-state-city";
 
 // Service Type Definition
 interface ServiceData {
@@ -140,24 +141,29 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
     });
     const [uploading, setUploading] = useState(false);
     const [sameAsBilling, setSameAsBilling] = useState(false);
-    const [statesList, setStatesList] = useState<any[]>([]);
     const [isExpanded, setIsExpanded] = useState(false);
 
-    useEffect(() => {
-        async function fetchStates() {
-            try {
-                // Defaulting to US states for dynamic list
-                const res = await fetch("/api/geo/states?countryId=US");
-                if (res.ok) {
-                    const data = await res.json();
-                    setStatesList(data);
-                }
-            } catch (err) {
-                console.error("Failed to fetch states", err);
-            }
-        }
-        fetchStates();
-    }, []);
+    // Cascading Location Logic - Billing Address
+    const countries = Country.getAllCountries();
+    const billingSelectedCountry = countries.find((c) => c.name === data?.billingAddress?.country);
+    const billingCountryCode = billingSelectedCountry?.isoCode;
+
+    const billingStates = billingCountryCode ? State.getStatesOfCountry(billingCountryCode) : [];
+    const billingSelectedState = billingStates.find((s) => s.name === data?.billingAddress?.state);
+    const billingStateCode = billingSelectedState?.isoCode;
+
+    const billingCities = (billingCountryCode && billingStateCode) ? City.getCitiesOfState(billingCountryCode, billingStateCode) : [];
+
+    // Cascading Location Logic - Shipping Address
+    const shippingSelectedCountry = countries.find((c) => c.name === data?.shippingAddress?.country);
+    const shippingCountryCode = shippingSelectedCountry?.isoCode;
+
+    const shippingStates = shippingCountryCode ? State.getStatesOfCountry(shippingCountryCode) : [];
+    const shippingSelectedState = shippingStates.find((s) => s.name === data?.shippingAddress?.state);
+    const shippingStateCode = shippingSelectedState?.isoCode;
+
+    const shippingCities = (shippingCountryCode && shippingStateCode) ? City.getCitiesOfState(shippingCountryCode, shippingStateCode) : [];
+
 
     const handleSameAsBillingToggle = (checked: boolean) => {
         setSameAsBilling(checked);
@@ -504,25 +510,51 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
                                 </div>
                                 <div className="grid grid-cols-2 gap-4">
                                     <div className="space-y-1">
-                                        <Label>Billing City</Label>
-                                        <Input value={data.billingAddress?.city || ""} onChange={(e) => updateBillingField("city", e.target.value)} />
+                                        <Label>Billing Country</Label>
+                                        <Select value={data.billingAddress?.country} onValueChange={(v) => {
+                                            setData({
+                                                ...data,
+                                                billingAddress: { ...data.billingAddress, country: v, state: "", city: "" }
+                                            });
+                                        }}>
+                                            <SelectTrigger className="w-full"><SelectValue placeholder="Select Country" /></SelectTrigger>
+                                            <SelectContent>
+                                                {countries.map((country) => (
+                                                    <SelectItem key={country.isoCode} value={country.name}>{country.name}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
                                     </div>
                                     <div className="space-y-1">
                                         <Label>Billing State</Label>
-                                        <Select value={data.billingAddress?.state} onValueChange={(v) => updateBillingField("state", v)}>
-                                            <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+                                        <Select value={data.billingAddress?.state} onValueChange={(v) => {
+                                            setData({
+                                                ...data,
+                                                billingAddress: { ...data.billingAddress, state: v, city: "" }
+                                            });
+                                        }} disabled={!billingCountryCode}>
+                                            <SelectTrigger className="w-full"><SelectValue placeholder="Select State" /></SelectTrigger>
                                             <SelectContent>
-                                                {statesList.map(s => (
-                                                    <SelectItem key={s.id} value={s.name}>{s.name}</SelectItem>
+                                                {billingStates.map((state) => (
+                                                    <SelectItem key={state.isoCode} value={state.name}>{state.name}</SelectItem>
                                                 ))}
-                                                {statesList.length === 0 && (
-                                                    <>
-                                                        <SelectItem value="California">California</SelectItem>
-                                                        <SelectItem value="Alabama">Alabama</SelectItem>
-                                                    </>
-                                                )}
                                             </SelectContent>
                                         </Select>
+                                    </div>
+                                </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-1">
+                                        <Label>Billing City</Label>
+                                        <Select value={data.billingAddress?.city} onValueChange={(v) => updateBillingField("city", v)} disabled={!billingStateCode}>
+                                            <SelectTrigger className="w-full"><SelectValue placeholder="Select City" /></SelectTrigger>
+                                            <SelectContent>
+                                                {billingCities.map((city) => (
+                                                    <SelectItem key={city.name} value={city.name}>{city.name}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div className="space-y-1">
                                     </div>
                                 </div>
 
@@ -538,7 +570,7 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
                                 <div className="space-y-1">
                                     <Label>Select Default Shipping Address</Label>
                                     <Select>
-                                        <SelectTrigger><SelectValue placeholder="Select Default Shipping Address" /></SelectTrigger>
+                                        <SelectTrigger className="w-full"><SelectValue placeholder="Select Default Shipping Address" /></SelectTrigger>
                                         <SelectContent><SelectItem value="default">Default</SelectItem></SelectContent>
                                     </Select>
                                 </div>
@@ -563,33 +595,53 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
                                 </div>
                                 <div className="grid grid-cols-2 gap-4">
                                     <div className="space-y-1">
-                                        <Label>Shipping City</Label>
-                                        <Input
-                                            value={data.shippingAddress?.city || ""}
-                                            onChange={(e) => setData({ ...data, shippingAddress: { ...data.shippingAddress, city: e.target.value } })}
+                                        <Label>Shipping Country</Label>
+                                        <Select
+                                            value={data.shippingAddress?.country}
+                                            onValueChange={(v) => setData({ ...data, shippingAddress: { ...data.shippingAddress, country: v, state: "", city: "" } })}
                                             disabled={sameAsBilling}
-                                        />
+                                        >
+                                            <SelectTrigger className="w-full"><SelectValue placeholder="Select Country" /></SelectTrigger>
+                                            <SelectContent>
+                                                {countries.map((country) => (
+                                                    <SelectItem key={country.isoCode} value={country.name}>{country.name}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
                                     </div>
                                     <div className="space-y-1">
                                         <Label>Shipping State</Label>
                                         <Select
                                             value={data.shippingAddress?.state}
-                                            onValueChange={(v) => setData({ ...data, shippingAddress: { ...data.shippingAddress, state: v } })}
-                                            disabled={sameAsBilling}
+                                            onValueChange={(v) => setData({ ...data, shippingAddress: { ...data.shippingAddress, state: v, city: "" } })}
+                                            disabled={sameAsBilling || !shippingCountryCode}
                                         >
-                                            <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+                                            <SelectTrigger className="w-full"><SelectValue placeholder="Select State" /></SelectTrigger>
                                             <SelectContent>
-                                                {statesList.map(s => (
-                                                    <SelectItem key={s.id} value={s.name}>{s.name}</SelectItem>
+                                                {shippingStates.map((state) => (
+                                                    <SelectItem key={state.isoCode} value={state.name}>{state.name}</SelectItem>
                                                 ))}
-                                                {statesList.length === 0 && (
-                                                    <>
-                                                        <SelectItem value="California">California</SelectItem>
-                                                        <SelectItem value="Alabama">Alabama</SelectItem>
-                                                    </>
-                                                )}
                                             </SelectContent>
                                         </Select>
+                                    </div>
+                                </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-1">
+                                        <Label>Shipping City</Label>
+                                        <Select
+                                            value={data.shippingAddress?.city}
+                                            onValueChange={(v) => setData({ ...data, shippingAddress: { ...data.shippingAddress, city: v } })}
+                                            disabled={sameAsBilling || !shippingStateCode}
+                                        >
+                                            <SelectTrigger className="w-full"><SelectValue placeholder="Select City" /></SelectTrigger>
+                                            <SelectContent>
+                                                {shippingCities.map((city) => (
+                                                    <SelectItem key={city.name} value={city.name}>{city.name}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div className="space-y-1">
                                     </div>
                                 </div>
                             </div>

@@ -68,6 +68,7 @@ import { Separator } from "@/components/ui/separator";
 import { DataTable } from "@/components/data-table";
 import { ColumnDef } from "@tanstack/react-table";
 import { Country, State, City } from "country-state-city";
+import { usePermissions } from "@/hooks/usePermissions";
 
 interface ContactType {
   _id: string;
@@ -97,6 +98,9 @@ interface ContactType {
 }
 
 export default function ContactsPage() {
+  // Check permissions for this module
+  const permissions = usePermissions("contacts");
+  
   const router = useRouter();
   const [contacts, setContacts] = useState<ContactType[]>([]);
   const [loading, setLoading] = useState(true);
@@ -553,12 +557,16 @@ export default function ContactsPage() {
         </DropdownMenu>
 
         <div className="flex flex-col md:flex-row items-stretch md:items-center gap-2 w-full md:w-auto">
-          <Button variant="outline" onClick={exportCSV} className="w-full md:w-auto">
-            <Download className="mr-2 h-4 w-4" /> Export CSV
-          </Button>
-          <Button onClick={() => { resetForm(); setIsSheetOpen(true); }} className="w-full md:w-auto">
-            <Plus className="mr-2 h-4 w-4" /> Add New Client
-          </Button>
+          {permissions.canExport && (
+            <Button variant="outline" onClick={exportCSV} className="w-full md:w-auto">
+              <Download className="mr-2 h-4 w-4" /> Export CSV
+            </Button>
+          )}
+          {permissions.canCreate && (
+            <Button onClick={() => { resetForm(); setIsSheetOpen(true); }} className="w-full md:w-auto">
+              <Plus className="mr-2 h-4 w-4" /> Add New Client
+            </Button>
+          )}
           <Button variant="outline" onClick={() => setIsFilterModalOpen(true)} className="w-full md:w-auto">
             <Filter className="mr-2 h-4 w-4" /> Filter
           </Button>
@@ -662,16 +670,20 @@ export default function ContactsPage() {
               const contact = row.original;
               return (
                 <div className="flex items-center gap-2">
-                  <Button size="icon" variant="ghost" onClick={() => router.push(`/dashboard/contacts/${contact._id}`)}>
-                    <Pencil className="h-4 w-4" />
-                  </Button>
-                  <Button size="icon" variant="ghost" className="text-destructive hover:text-destructive" onClick={() => openDeleteDialog(contact._id)} disabled={deletingId === contact._id}>
-                    {deletingId === contact._id ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Trash2 className="h-4 w-4" />
-                    )}
-                  </Button>
+                  {permissions.canEdit && (
+                    <Button size="icon" variant="ghost" onClick={() => router.push(`/dashboard/contacts/${contact._id}`)}>
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                  )}
+                  {permissions.canDelete && (
+                    <Button size="icon" variant="ghost" className="text-destructive hover:text-destructive" onClick={() => openDeleteDialog(contact._id)} disabled={deletingId === contact._id}>
+                      {deletingId === contact._id ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Trash2 className="h-4 w-4" />
+                      )}
+                    </Button>
+                  )}
                 </div>
               );
             },

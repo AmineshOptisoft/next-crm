@@ -50,6 +50,7 @@ import {
 } from "@/components/ui/select";
 import { Clock, Bell } from "lucide-react";
 import { toast } from "sonner";
+import { usePermissions } from "@/hooks/usePermissions";
 
 // Mock data for existing emails
 const mockEmails = [
@@ -60,6 +61,9 @@ const mockEmails = [
 ];
 
 export default function EmailBuilderListPage() {
+    // Check permissions for this module
+    const permissions = usePermissions("email-builder");
+    
     const router = useRouter();
     const [searchTerm, setSearchTerm] = useState("");
     const [isTemplateDialogOpen, setIsTemplateDialogOpen] = useState(false);
@@ -230,10 +234,12 @@ export default function EmailBuilderListPage() {
                         <Plus className="mr-2 h-4 w-4" />
                         Blank Email
                     </Button> */}
+                {permissions.canCreate && (
                     <Button onClick={() => setIsTemplateDialogOpen(true)} className="w-full sm:w-auto bg-zinc-900 hover:bg-zinc-800 text-white">
                         <Mail className="mr-2 h-4 w-4" />
                         Add Email
                     </Button>
+                )}
                 </div>
             </div>
 
@@ -443,62 +449,70 @@ export default function EmailBuilderListPage() {
 
                                     <TableCell>
                                         <div className="flex items-center gap-1 justify-end">
-                                            <Button
-                                                variant="ghost"
-                                                size="icon"
-                                                className="h-8 w-8 text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100"
-                                                onClick={() => router.push(`/dashboard/email-builder/${email._id}/edit`)}
-                                                title="Edit Design"
-                                            >
-                                                <Edit2 className="h-4 w-4" />
-                                            </Button>
+                                            {permissions.canEdit && (
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="h-8 w-8 text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100"
+                                                    onClick={() => router.push(`/dashboard/email-builder/${email._id}/edit`)}
+                                                    title="Edit Design"
+                                                >
+                                                    <Edit2 className="h-4 w-4" />
+                                                </Button>
+                                            )}
 
-                                            <Button
-                                                variant="ghost"
-                                                size="icon"
-                                                className="h-8 w-8 text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100"
-                                                onClick={() => {
-                                                    setSelectedEmailForReminder(email._id);
-                                                    if (email.reminders && email.reminders.length > 0) {
-                                                        setReminders(email.reminders.map((r: any, idx: number) => ({
-                                                            ...r,
-                                                            id: idx + 1
-                                                        })));
-                                                    }
-                                                    setIsReminderDialogOpen(true);
-                                                }}
-                                                title="Set Reminder"
-                                            >
-                                                <Bell className="h-4 w-4" />
-                                            </Button>
+                                            {permissions.canEdit && (
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="h-8 w-8 text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100"
+                                                    onClick={() => {
+                                                        setSelectedEmailForReminder(email._id);
+                                                        if (email.reminders && email.reminders.length > 0) {
+                                                            setReminders(email.reminders.map((r: any, idx: number) => ({
+                                                                ...r,
+                                                                id: idx + 1
+                                                            })));
+                                                        }
+                                                        setIsReminderDialogOpen(true);
+                                                    }}
+                                                    title="Set Reminder"
+                                                >
+                                                    <Bell className="h-4 w-4" />
+                                                </Button>
+                                            )}
 
-                                            <Button
-                                                variant="ghost"
-                                                size="icon"
-                                                className="h-8 w-8 text-zinc-500 hover:text-blue-600 hover:bg-blue-50"
-                                                onClick={() => {
-                                                    setSelectedCampaignForTest(email);
-                                                }}
-                                                title="Send Test Mail"
-                                            >
-                                                <Send className="h-4 w-4" />
-                                            </Button>
+                                            {permissions.canCreate && (
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="h-8 w-8 text-zinc-500 hover:text-blue-600 hover:bg-blue-50"
+                                                    onClick={() => {
+                                                        setSelectedCampaignForTest(email);
+                                                    }}
+                                                    title="Send Test Mail"
+                                                >
+                                                    <Send className="h-4 w-4" />
+                                                </Button>
+                                            )}
 
-                                            <Button
-                                                variant="ghost"
-                                                size="icon"
-                                                className="h-8 w-8 text-zinc-400 hover:text-red-600 hover:bg-red-50"
-                                                onClick={async () => {
-                                                    if (confirm("Are you sure you want to delete this campaign?")) {
-                                                        await fetch(`/api/email-campaigns/${email._id}`, { method: 'DELETE' });
-                                                        toast.success("Deleted successfully");
-                                                        fetchEmails();
-                                                    }
-                                                }}
-                                                title="Delete"
-                                            >
-                                                <Trash2 className="h-4 w-4" />
-                                            </Button>
+                                            {permissions.canDelete && (
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="h-8 w-8 text-zinc-400 hover:text-red-600 hover:bg-red-50"
+                                                    onClick={async () => {
+                                                        if (confirm("Are you sure you want to delete this campaign?")) {
+                                                            await fetch(`/api/email-campaigns/${email._id}`, { method: 'DELETE' });
+                                                            toast.success("Deleted successfully");
+                                                            fetchEmails();
+                                                        }
+                                                    }}
+                                                    title="Delete"
+                                                >
+                                                    <Trash2 className="h-4 w-4" />
+                                                </Button>
+                                            )}
                                         </div>
                                     </TableCell>
                                 </TableRow>

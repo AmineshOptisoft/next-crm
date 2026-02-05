@@ -629,7 +629,7 @@ export function AddBookingForm({ open, onOpenChange, initialData }: AddBookingFo
                                             <SelectTrigger className="w-full">
                                                 <SelectValue placeholder="Select Default Shipping Address" />
                                             </SelectTrigger>
-                                            <SelectContent className="z-[150]">
+                                            <SelectContent className="z-[150] w-full">
                                                 <SelectItem value="same">Same As Above</SelectItem>
                                             </SelectContent>
                                         </Select>
@@ -652,12 +652,12 @@ export function AddBookingForm({ open, onOpenChange, initialData }: AddBookingFo
                                             />
                                         </div>
                                         <div className="space-y-1">
-                                            <Label>State</Label>
-                                            <Select
+                                            <Label >State</Label>
+                                            <Select 
                                                 value={formData.shippingState}
                                                 onValueChange={(value) => setFormData({ ...formData, shippingState: value })}
                                             >
-                                                <SelectTrigger>
+                                                <SelectTrigger className="w-full">
                                                     <SelectValue />
                                                 </SelectTrigger>
                                                 <SelectContent className="z-[150]">

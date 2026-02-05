@@ -42,6 +42,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Calendar } from "@/components/ui/calendar";
 import { Card, CardContent } from "@/components/ui/card";
 import { toast } from "sonner";
+import { usePermissions } from "@/hooks/usePermissions";
 
 interface Meeting {
   _id: string;
@@ -52,7 +53,7 @@ interface Meeting {
   startTime: string;
   endTime: string;
   attendees: Array<{
-    contactId?: { _id: string; name: string };
+    contactId?: { _id: string; firstName: string; lastName: string };
     employeeId?: { _id: string; firstName: string; lastName: string };
     email?: string;
     name?: string;
@@ -65,7 +66,8 @@ interface Meeting {
 
 interface Contact {
   _id: string;
-  name: string;
+  firstName: string;
+  lastName: string;
   email?: string;
 }
 
@@ -153,6 +155,9 @@ function DateTimePicker({ date, setDate }: DateTimePickerProps) {
 }
 
 export default function MeetingsPage() {
+  // Check permissions for this module
+  const permissions = usePermissions("meetings");
+  
   const [meetings, setMeetings] = useState<Meeting[]>([]);
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -391,13 +396,14 @@ export default function MeetingsPage() {
             Schedule and manage meetings with your team and contacts
           </p>
         </div>
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
-            <Button onClick={resetForm}>
-              <Plus className="mr-2 h-4 w-4" />
-              Schedule Meeting
-            </Button>
-          </DialogTrigger>
+        {permissions.canCreate && (
+          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <DialogTrigger asChild>
+              <Button onClick={resetForm}>
+                <Plus className="mr-2 h-4 w-4" />
+                Schedule Meeting
+              </Button>
+            </DialogTrigger>
           <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>
@@ -495,7 +501,7 @@ export default function MeetingsPage() {
                       <SelectContent position="popper" sideOffset={5} className="z-[100]">
                         {contacts.map((contact) => (
                           <SelectItem key={contact._id} value={contact._id}>
-                            {contact.name}
+                            {contact.firstName} {contact.lastName}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -522,7 +528,7 @@ export default function MeetingsPage() {
                         (e) => e._id === attendee.employeeId
                       );
                       const name = contact
-                        ? contact.name
+                        ? `${contact.firstName} ${contact.lastName}`
                         : employee
                         ? `${employee.firstName} ${employee.lastName}`
                         : "Unknown";
@@ -571,6 +577,7 @@ export default function MeetingsPage() {
             </form>
           </DialogContent>
         </Dialog>
+        )}
       </div>
 
       <Tabs value={filterStatus} onValueChange={setFilterStatus}>
@@ -657,7 +664,7 @@ export default function MeetingsPage() {
                           <div className="flex flex-wrap gap-1">
                             {meeting.attendees.slice(0, 2).map((attendee, idx) => {
                               const name = attendee.contactId
-                                ? attendee.contactId.name
+                                ? `${attendee.contactId.firstName} ${attendee.contactId.lastName}`
                                 : attendee.employeeId
                                 ? `${attendee.employeeId.firstName} ${attendee.employeeId.lastName}`
                                 : attendee.name || "Unknown";
@@ -677,7 +684,7 @@ export default function MeetingsPage() {
                         <TableCell>{getStatusBadge(meeting.status)}</TableCell>
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-2">
-                            {meeting.status === "scheduled" && (
+                            {permissions.canEdit && meeting.status === "scheduled" && (
                               <Button
                                 variant="ghost"
                                 size="sm"
@@ -688,21 +695,25 @@ export default function MeetingsPage() {
                                 Complete
                               </Button>
                             )}
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleEdit(meeting)}
-                            >
-                              <Pencil className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleDelete(meeting._id)}
-                              disabled={deletingId === meeting._id}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
+                            {permissions.canEdit && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleEdit(meeting)}
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </Button>
+                            )}
+                            {permissions.canDelete && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleDelete(meeting._id)}
+                                disabled={deletingId === meeting._id}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            )}
                           </div>
                         </TableCell>
                       </TableRow>

@@ -32,12 +32,14 @@ import {
 import { Plus, Pencil, Trash2, Activity as ActivityIcon, Phone, Mail, Calendar, FileText } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { usePermissions } from "@/hooks/usePermissions";
 
 interface Activity {
   _id: string;
   contactId: {
     _id: string;
-    name: string;
+    firstName: string;
+    lastName: string;
     email?: string;
   };
   dealId?: {
@@ -61,7 +63,8 @@ interface Activity {
 
 interface Contact {
   _id: string;
-  name: string;
+  firstName: string;
+  lastName: string;
 }
 
 interface Deal {
@@ -76,6 +79,9 @@ interface Employee {
 }
 
 export default function ActivitiesPage() {
+  // Check permissions for this module
+  const permissions = usePermissions("activities");
+  
   const [activities, setActivities] = useState<Activity[]>([]);
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [deals, setDeals] = useState<Deal[]>([]);
@@ -312,13 +318,14 @@ export default function ActivitiesPage() {
             Track all interactions with your contacts
           </p>
         </div>
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
-            <Button onClick={resetForm}>
-              <Plus className="mr-2 h-4 w-4" />
-              Log Activity
-            </Button>
-          </DialogTrigger>
+        {permissions.canCreate && (
+          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <DialogTrigger asChild>
+              <Button onClick={resetForm}>
+                <Plus className="mr-2 h-4 w-4" />
+                Log Activity
+              </Button>
+            </DialogTrigger>
           <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>
@@ -367,7 +374,7 @@ export default function ActivitiesPage() {
                       <SelectContent position="popper" sideOffset={5} className="z-[100]">
                         {contacts.map((contact) => (
                           <SelectItem key={contact._id} value={contact._id}>
-                            {contact.name}
+                            {contact.firstName} {contact.lastName}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -526,6 +533,7 @@ export default function ActivitiesPage() {
             </form>
           </DialogContent>
         </Dialog>
+        )}
       </div>
 
       <Tabs value={filterType} onValueChange={setFilterType}>
@@ -585,7 +593,7 @@ export default function ActivitiesPage() {
                             </div>
                           </div>
                         </TableCell>
-                        <TableCell>{activity.contactId.name}</TableCell>
+                        <TableCell>{activity.contactId.firstName} {activity.contactId.lastName}</TableCell>
                         <TableCell>
                           {activity.dealId ? (
                             activity.dealId.title
@@ -604,7 +612,7 @@ export default function ActivitiesPage() {
                         <TableCell>{getOutcomeBadge(activity.outcome)}</TableCell>
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-2">
-                            {activity.status === "scheduled" && (
+                            {permissions.canEdit && activity.status === "scheduled" && (
                               <Button
                                 variant="ghost"
                                 size="sm"
@@ -613,20 +621,24 @@ export default function ActivitiesPage() {
                                 Complete
                               </Button>
                             )}
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleEdit(activity)}
-                            >
-                              <Pencil className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleDelete(activity._id)}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
+                            {permissions.canEdit && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleEdit(activity)}
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </Button>
+                            )}
+                            {permissions.canDelete && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleDelete(activity._id)}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            )}
                           </div>
                         </TableCell>
                       </TableRow>
