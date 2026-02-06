@@ -31,6 +31,7 @@ export interface IBooking extends Document {
         city: string;
         state: string;
         zipCode: string;
+        country?: string;
         zone?: string;
     };
 
@@ -137,6 +138,7 @@ const BookingSchema = new Schema({
         city: String,
         state: String,
         zipCode: String,
+        country: String,
         zone: String
     },
 

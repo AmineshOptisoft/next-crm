@@ -228,17 +228,29 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
 
     async function handleUpdate() {
         try {
+            // Transform data to match API expectations
+            const updatePayload = {
+                ...data,
+                phone: data.phoneNumber, // API expects 'phone'
+                status: data.contactStatus, // API expects 'status'
+                image: data.avatarUrl, // API expects 'image'
+                company: data.companyName, // API expects 'company'
+            };
+            
             const res = await fetch(`/api/contacts/${id}`, {
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(data),
+                body: JSON.stringify(updatePayload),
             });
             if (res.ok) {
                 toast.success("Updated successfully");
             } else {
-                toast.error("Update failed");
+                const errorData = await res.json();
+                toast.error(errorData.error || "Update failed");
+                console.error("Update error:", errorData);
             }
         } catch (e) {
+            console.error("Update exception:", e);
             toast.error("Update failed");
         }
     }

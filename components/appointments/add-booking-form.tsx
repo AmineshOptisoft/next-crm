@@ -17,6 +17,7 @@ import { Check, ChevronsUpDown, X, Calendar as CalendarIcon, DollarSign, Clock, 
 import { useState, useEffect } from "react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
+import { Country, State, City } from "country-state-city";
 
 // Accordion Item component
 function AccordionItem({ title, isOpen, onToggle, children }: any) {
@@ -75,6 +76,7 @@ export function AddBookingForm({ open, onOpenChange, initialData }: AddBookingFo
         lastName: "",
         phoneNumber: "",
         address: "",
+        country: "United States",
         city: "",
         state: "California",
         zipCode: "",
@@ -82,6 +84,7 @@ export function AddBookingForm({ open, onOpenChange, initialData }: AddBookingFo
 
         // Shipping address
         shippingAddress: "",
+        shippingCountry: "United States",
         shippingCity: "",
         shippingState: "California",
         shippingZipCode: "",
@@ -274,7 +277,8 @@ export function AddBookingForm({ open, onOpenChange, initialData }: AddBookingFo
                 address: contact.address || "",
                 city: contact.city || "",
                 state: contact.state || "California",
-                zipCode: contact.zipCode || ""
+                zipCode: contact.zipCode || "",
+                country: contact.country || "United States"
             });
         }
     };
@@ -282,6 +286,7 @@ export function AddBookingForm({ open, onOpenChange, initialData }: AddBookingFo
     const handleSameAsAbove = () => {
         setFormData({
             ...formData,
+            shippingCountry: formData.country,
             shippingAddress: formData.address,
             shippingCity: formData.city,
             shippingState: formData.state,
@@ -393,6 +398,7 @@ export function AddBookingForm({ open, onOpenChange, initialData }: AddBookingFo
                     lastName: formData.lastName,
                     phone: formData.phoneNumber,
                     streetAddress: formData.address,
+                    country: formData.country,
                     city: formData.city,
                     state: formData.state,
                     zipCode: formData.zipCode,
@@ -435,6 +441,7 @@ export function AddBookingForm({ open, onOpenChange, initialData }: AddBookingFo
                 endDateTime: bookingEnd,
                 shippingAddress: {
                     street: formData.shippingAddress,
+                    country: formData.shippingCountry,
                     city: formData.shippingCity,
                     state: formData.shippingState,
                     zipCode: formData.shippingZipCode
@@ -478,6 +485,25 @@ export function AddBookingForm({ open, onOpenChange, initialData }: AddBookingFo
     const startDate = initialData?.start ? format(initialData.start, "dd-MM-yyyy HH:mm") : "";
     const endDate = initialData?.end ? format(initialData.end, "dd-MM-yyyy HH:mm") : "";
 
+    // Derived Locations
+    const countries = Country.getAllCountries();
+
+    // Personal Details Logic
+    const selectedCountry = countries.find(c => c.name === formData.country);
+    const selectedCountryCode = selectedCountry?.isoCode;
+    const states = selectedCountryCode ? State.getStatesOfCountry(selectedCountryCode) : [];
+    const selectedState = states.find(s => s.name === formData.state);
+    const selectedStateCode = selectedState?.isoCode;
+    const cities = (selectedCountryCode && selectedStateCode) ? City.getCitiesOfState(selectedCountryCode, selectedStateCode) : [];
+
+    // Shipping Logic
+    const shippingSelectedCountry = countries.find(c => c.name === formData.shippingCountry);
+    const shippingSelectedCountryCode = shippingSelectedCountry?.isoCode;
+    const shippingStates = shippingSelectedCountryCode ? State.getStatesOfCountry(shippingSelectedCountryCode) : [];
+    const shippingSelectedState = shippingStates.find(s => s.name === formData.shippingState);
+    const shippingSelectedStateCode = shippingSelectedState?.isoCode;
+    const shippingCities = (shippingSelectedCountryCode && shippingSelectedStateCode) ? City.getCitiesOfState(shippingSelectedCountryCode, shippingSelectedStateCode) : [];
+
     return (
         <Sheet open={open} onOpenChange={onOpenChange}>
             <SheetContent side="right" className="sm:max-w-2xl w-full p-0 flex flex-col z-[100]">
@@ -512,7 +538,7 @@ export function AddBookingForm({ open, onOpenChange, initialData }: AddBookingFo
                                         <SelectTrigger>
                                             <SelectValue placeholder="Choose a contact" />
                                         </SelectTrigger>
-                                        <SelectContent className="z-[150]">
+                                        <SelectContent className="z-[150]" position="popper">
                                             {contacts.map(contact => (
                                                 <SelectItem key={contact._id} value={contact._id}>
                                                     {contact.firstName} {contact.lastName} - {contact.email}
@@ -583,28 +609,55 @@ export function AddBookingForm({ open, onOpenChange, initialData }: AddBookingFo
                                 />
                             </div>
 
-                            <div className="grid grid-cols-3 gap-4">
+                            <div className="grid grid-cols-2 gap-4">
                                 <div className="space-y-1">
-                                    <Label>City</Label>
-                                    <Input
-                                        placeholder="City"
-                                        value={formData.city}
-                                        onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                                    <Label>Country</Label>
+                                    <Select
+                                        value={formData.country}
+                                        onValueChange={(value) => setFormData({ ...formData, country: value, state: "", city: "" })}
                                         disabled={userType === "existing"}
-                                    />
+                                    >
+                                        <SelectTrigger className="w-full">
+                                            <SelectValue placeholder="Select Country" />
+                                        </SelectTrigger>
+                                        <SelectContent className="z-[150]">
+                                            {countries.map((country) => (
+                                                <SelectItem key={country.isoCode} value={country.name}>{country.name}</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
                                 </div>
                                 <div className="space-y-1">
                                     <Label>State</Label>
                                     <Select
                                         value={formData.state}
-                                        onValueChange={(value) => setFormData({ ...formData, state: value })}
-                                        disabled={userType === "existing"}
+                                        onValueChange={(value) => setFormData({ ...formData, state: value, city: "" })}
+                                        disabled={userType === "existing" || !selectedCountryCode}
                                     >
                                         <SelectTrigger className="w-full">
-                                            <SelectValue />
+                                            <SelectValue placeholder="Select State" />
                                         </SelectTrigger>
                                         <SelectContent className="z-[150]">
-                                            <SelectItem value="California">California</SelectItem>
+                                            {states.map((state) => (
+                                                <SelectItem key={state.isoCode} value={state.name}>{state.name}</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div className="space-y-1">
+                                    <Label>City</Label>
+                                    <Select
+                                        value={formData.city}
+                                        onValueChange={(value) => setFormData({ ...formData, city: value })}
+                                        disabled={userType === "existing" || !selectedStateCode}
+                                    >
+                                        <SelectTrigger className="w-full">
+                                            <SelectValue placeholder="Select City" />
+                                        </SelectTrigger>
+                                        <SelectContent className="z-[150]">
+                                            {cities.map((city) => (
+                                                <SelectItem key={city.name} value={city.name}>{city.name}</SelectItem>
+                                            ))}
                                         </SelectContent>
                                     </Select>
                                 </div>
@@ -642,26 +695,54 @@ export function AddBookingForm({ open, onOpenChange, initialData }: AddBookingFo
                                             onChange={(e) => setFormData({ ...formData, shippingAddress: e.target.value })}
                                         />
                                     </div>
-                                    <div className="grid grid-cols-3 gap-4">
+                                    <div className="grid grid-cols-2 gap-4">
                                         <div className="space-y-1">
-                                            <Label>City</Label>
-                                            <Input
-                                                placeholder="City"
-                                                value={formData.shippingCity}
-                                                onChange={(e) => setFormData({ ...formData, shippingCity: e.target.value })}
-                                            />
-                                        </div>
-                                        <div className="space-y-1">
-                                            <Label >State</Label>
-                                            <Select 
-                                                value={formData.shippingState}
-                                                onValueChange={(value) => setFormData({ ...formData, shippingState: value })}
+                                            <Label>Country</Label>
+                                            <Select
+                                                value={formData.shippingCountry}
+                                                onValueChange={(value) => setFormData({ ...formData, shippingCountry: value, shippingState: "", shippingCity: "" })}
                                             >
                                                 <SelectTrigger className="w-full">
-                                                    <SelectValue />
+                                                    <SelectValue placeholder="Select Country" />
                                                 </SelectTrigger>
                                                 <SelectContent className="z-[150]">
-                                                    <SelectItem value="California">California</SelectItem>
+                                                    {countries.map((country) => (
+                                                        <SelectItem key={country.isoCode} value={country.name}>{country.name}</SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                        <div className="space-y-1">
+                                            <Label>State</Label>
+                                            <Select
+                                                value={formData.shippingState}
+                                                onValueChange={(value) => setFormData({ ...formData, shippingState: value, shippingCity: "" })}
+                                                disabled={!shippingSelectedCountryCode}
+                                            >
+                                                <SelectTrigger className="w-full">
+                                                    <SelectValue placeholder="Select State" />
+                                                </SelectTrigger>
+                                                <SelectContent className="z-[150]">
+                                                    {shippingStates.map((state) => (
+                                                        <SelectItem key={state.isoCode} value={state.name}>{state.name}</SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                        <div className="space-y-1">
+                                            <Label>City</Label>
+                                            <Select
+                                                value={formData.shippingCity}
+                                                onValueChange={(value) => setFormData({ ...formData, shippingCity: value })}
+                                                disabled={!shippingSelectedStateCode}
+                                            >
+                                                <SelectTrigger className="w-full">
+                                                    <SelectValue placeholder="Select City" />
+                                                </SelectTrigger>
+                                                <SelectContent className="z-[150]">
+                                                    {shippingCities.map((city) => (
+                                                        <SelectItem key={city.name} value={city.name}>{city.name}</SelectItem>
+                                                    ))}
                                                 </SelectContent>
                                             </Select>
                                         </div>

@@ -22,7 +22,7 @@ export async function GET(req: NextRequest) {
   await connectDB();
 
   // Build filter: super admins see all users, company admins see only their company's users
-  const filter = { ...buildCompanyFilter(user), isActive: true };
+  const filter = { ...buildCompanyFilter(user), isActive: true, role: { $ne: "contact" } };
   const users = await User.find(filter)
     .populate("customRoleId", "name permissions")
     .select("-passwordHash -verificationToken")

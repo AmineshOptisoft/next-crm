@@ -422,6 +422,9 @@ export default function ContactsPage() {
   // --- Export CSV ---
 
   const filteredContacts = contacts.filter(contact => {
+    // Ensure only users with role "contact" are shown
+    if (contact.role !== "contact") return false;
+
     // Search by Name or Email (Keywords input)
     if (filterData.name) {
       const search = filterData.name.toLowerCase();

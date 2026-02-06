@@ -74,6 +74,7 @@ export async function POST(req: NextRequest) {
                     address: newContact.streetAddress, // Assuming mapped from form
                     city: newContact.city,
                     state: newContact.state,
+                    country: newContact.country,
                     zipCode: newContact.zipCode,
                     contactStatus: "new lead",
                     ownerId: user.userId,
