@@ -6,6 +6,7 @@ import {
   DateSelectArg,
   EventChangeArg,
   EventClickArg,
+  DatesSetArg,
 } from "@fullcalendar/core/index.js";
 import interactionPlugin from "@fullcalendar/interaction";
 import FullCalendar from "@fullcalendar/react";
@@ -38,6 +39,7 @@ export default function Calendar() {
   // State for resources and events from mock API
   const [resources, setResources] = useState([]);
   const [events, setEvents] = useState([]);
+  const [currentView, setCurrentView] = useState<string>("resourceTimelineDay");
 
   // Fetch data from real API
   const fetchCalendarData = async () => {
@@ -55,6 +57,20 @@ export default function Calendar() {
   useEffect(() => {
     fetchCalendarData();
   }, []);
+
+  // Filter events per view:
+  // - bookings always visible
+  // - full‑day unavailability visible in all views
+  // - time‑based unavailability only in Day view
+  const filteredEvents = events.filter((event: any) => {
+    const type = (event as any).type;
+    if (type === "booking") return true;
+    if (type === "unavailability") return true;
+    if (type === "unavailability_timed") {
+      return currentView === "resourceTimelineDay";
+    }
+    return true;
+  });
 
   const handleEventClick = (info: EventClickArg) => {
     const props = info.event.extendedProps as Record<string, any>;
@@ -156,7 +172,7 @@ export default function Calendar() {
             resourceTimelinePlugin,
             interactionPlugin,
           ]}
-          initialView={isMobile ? "resourceTimelineDay" : "resourceTimelineWeek"}
+          initialView="resourceTimelineDay"
           headerToolbar={isMobile ? {
             left: 'prev,today,next',
             center: 'title',
@@ -169,7 +185,7 @@ export default function Calendar() {
           resourceAreaWidth={isMobile ? "45%" : "15%"}
           resourceAreaHeaderContent="Technicians"
           resources={resources}
-          events={events}
+          events={filteredEvents}
           editable={true}
           selectable={true}
           selectMirror={true}
@@ -181,6 +197,9 @@ export default function Calendar() {
           select={handleDateSelect}
           eventClick={handleEventClick}
           eventChange={handleEventChange}
+          datesSet={(arg: DatesSetArg) => {
+            setCurrentView(arg.view.type);
+          }}
           views={{
             resourceTimelineDay: {
               buttonText: 'Day',

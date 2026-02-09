@@ -216,12 +216,23 @@ function generateRecurringBookings(data: any) {
     // Calculate duration of a single booking
     const bookingDuration = end.getTime() - start.getTime();
 
+    // Recurrence end date: use user's end date as hard stop (parse as local date to avoid timezone issues)
+    const getRecurrenceEndDate = (userEndDate: string | undefined): Date => {
+        const trimmed = typeof userEndDate === "string" ? userEndDate.trim() : "";
+        if (trimmed && /^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+            const [y, m, d] = trimmed.split("-").map(Number);
+            return new Date(y, m - 1, d, 23, 59, 59, 999);
+        }
+        const d = new Date(start);
+        d.setFullYear(d.getFullYear() + 1);
+        return d;
+    };
+
     // Generate bookings based on frequency
     if (frequency === "weekly") {
         const selectedDays = customRecurrence?.selectedDays || [];
         let currentDate = new Date(start);
-        const endDate = new Date(customRecurrence?.endDate || start);
-        endDate.setFullYear(endDate.getFullYear() + 1); // Max 1 year
+        const endDate = getRecurrenceEndDate(customRecurrence?.endDate);
 
         while (currentDate <= endDate) {
             const dayOfWeek = currentDate.getDay();
@@ -229,7 +240,7 @@ function generateRecurringBookings(data: any) {
             if (selectedDays.includes(dayOfWeek)) {
                 const bookingStart = new Date(currentDate);
                 const bookingEnd = new Date(bookingStart.getTime() + bookingDuration);
-
+                if (bookingStart > endDate) break;
                 bookings.push({
                     contactId,
                     technicianId,
@@ -250,53 +261,111 @@ function generateRecurringBookings(data: any) {
                 });
             }
 
-            // Move to next day
             currentDate.setDate(currentDate.getDate() + 1);
+            if (currentDate > endDate) break;
         }
     } else if (frequency === "monthly") {
+        const monthlyWeeks: { week: number; dayOfWeek: number }[] =
+            (customRecurrence?.monthlyWeeks as any[]) || [];
         const selectedDays = customRecurrence?.selectedDays || [];
-        let currentDate = new Date(start);
-        const endDate = new Date(customRecurrence?.endDate || start);
-        endDate.setFullYear(endDate.getFullYear() + 1); // Max 1 year
+        const endDate = getRecurrenceEndDate(customRecurrence?.endDate);
 
-        while (currentDate <= endDate) {
-            const dayOfWeek = currentDate.getDay();
+        // Helper: get the Nth occurrence of a weekday in a given month (week: 1-5)
+        const getNthWeekdayOfMonth = (year: number, month: number, dayOfWeek: number, week: number) => {
+            const firstOfMonth = new Date(year, month, 1);
+            const firstDow = firstOfMonth.getDay(); // 0-6
+            const offset = (dayOfWeek - firstDow + 7) % 7;
+            const day = 1 + offset + (week - 1) * 7;
+            const date = new Date(year, month, day);
+            // If month rolled over, this week/day doesn't exist (e.g. 5th Monday in a 4-week month)
+            if (date.getMonth() !== month) return null;
+            return date;
+        };
 
-            if (selectedDays.includes(dayOfWeek)) {
-                const bookingStart = new Date(currentDate);
-                const bookingEnd = new Date(bookingStart.getTime() + bookingDuration);
+        const startLocal = new Date(start);
+        let monthCursor = new Date(startLocal.getFullYear(), startLocal.getMonth(), 1, startLocal.getHours(), startLocal.getMinutes(), startLocal.getSeconds(), startLocal.getMilliseconds());
 
-                bookings.push({
-                    contactId,
-                    technicianId,
-                    serviceId,
-                    subServices,
-                    addons,
-                    bookingType: "recurring",
-                    frequency,
-                    customRecurrence,
-                    startDateTime: bookingStart,
-                    endDateTime: bookingEnd,
-                    shippingAddress,
-                    notes,
-                    pricing,
-                    orderId: generateOrderId(),
-                    recurringGroupId,
-                    companyId
-                });
+        while (monthCursor <= endDate) {
+            const year = monthCursor.getFullYear();
+            const month = monthCursor.getMonth();
+
+            if (monthlyWeeks.length) {
+                // New behavior: specific week-of-month + weekday combinations
+                for (const pattern of monthlyWeeks) {
+                    const occurrence = getNthWeekdayOfMonth(year, month, pattern.dayOfWeek, pattern.week);
+                    if (!occurrence) continue;
+
+                    // Apply the original start time of day
+                    occurrence.setHours(startLocal.getHours(), startLocal.getMinutes(), startLocal.getSeconds(), startLocal.getMilliseconds());
+
+                    if (occurrence < startLocal || occurrence > endDate) continue;
+
+                    const bookingStart = new Date(occurrence);
+                    const bookingEnd = new Date(bookingStart.getTime() + bookingDuration);
+                    if (bookingStart > endDate) continue;
+
+                    bookings.push({
+                        contactId,
+                        technicianId,
+                        serviceId,
+                        subServices,
+                        addons,
+                        bookingType: "recurring",
+                        frequency,
+                        customRecurrence,
+                        startDateTime: bookingStart,
+                        endDateTime: bookingEnd,
+                        shippingAddress,
+                        notes,
+                        pricing,
+                        orderId: generateOrderId(),
+                        recurringGroupId,
+                        companyId
+                    });
+                }
+            } else if (selectedDays.length) {
+                // Backwards-compatible behavior: same weekday each month based on selectedDays
+                const baseDayOfWeek = startLocal.getDay();
+                if (selectedDays.includes(baseDayOfWeek)) {
+                    const bookingStart = new Date(startLocal);
+                    bookingStart.setFullYear(year, month, startLocal.getDate());
+                    if (bookingStart >= startLocal && bookingStart <= endDate) {
+                        const bookingEnd = new Date(bookingStart.getTime() + bookingDuration);
+                        bookings.push({
+                            contactId,
+                            technicianId,
+                            serviceId,
+                            subServices,
+                            addons,
+                            bookingType: "recurring",
+                            frequency,
+                            customRecurrence,
+                            startDateTime: bookingStart,
+                            endDateTime: bookingEnd,
+                            shippingAddress,
+                            notes,
+                            pricing,
+                            orderId: generateOrderId(),
+                            recurringGroupId,
+                            companyId
+                        });
+                    }
+                }
             }
 
-            // Move to next month, same day of week
-            currentDate.setMonth(currentDate.getMonth() + 1);
+            // Next month
+            monthCursor = new Date(year, month + 1, 1, startLocal.getHours(), startLocal.getMinutes(), startLocal.getSeconds(), startLocal.getMilliseconds());
+            if (monthCursor > endDate) break;
         }
     } else if (frequency === "custom" && customRecurrence) {
         const { interval, unit, endDate: recurEndDate } = customRecurrence;
         let currentDate = new Date(start);
-        const endDate = new Date(recurEndDate || start);
+        const endDate = getRecurrenceEndDate(recurEndDate);
 
         while (currentDate <= endDate) {
             const bookingStart = new Date(currentDate);
             const bookingEnd = new Date(bookingStart.getTime() + bookingDuration);
+            if (bookingStart > endDate) break;
 
             bookings.push({
                 contactId,

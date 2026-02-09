@@ -666,7 +666,7 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
                                     <div className="space-y-1">
                                         <Label>Default Payment Method</Label>
                                         <Select value={data.defaultPaymentMethod} onValueChange={v => setData({ ...data, defaultPaymentMethod: v })}>
-                                            <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+                                            <SelectTrigger className="w-full"><SelectValue placeholder="Select" /></SelectTrigger>
                                             <SelectContent>
                                                 <SelectItem value="Fattmerchant">Fattmerchant</SelectItem>
                                                 <SelectItem value="Stripe">Stripe</SelectItem>

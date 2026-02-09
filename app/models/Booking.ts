@@ -18,9 +18,14 @@ export interface IBooking extends Document {
     bookingType: "once" | "recurring";
     frequency?: "weekly" | "monthly" | "custom";
     customRecurrence?: {
-        interval: number;
-        unit: "days" | "weeks" | "months";
-        selectedDays?: number[]; // 0-6 for Sunday-Saturday
+        interval?: number;
+        unit?: "days" | "weeks" | "months";
+        // For weekly/custom: plain list of weekdays (0-6, Sunday-Saturday)
+        selectedDays?: number[];
+        // For monthly: specific week-of-month + weekday combinations
+        monthlyWeeks?: { week: number; dayOfWeek: number }[]; // week: 1-5, dayOfWeek: 0-6
+        // Series end date (no bookings after this)
+        endDate?: string;
     };
 
     startDateTime: Date;
@@ -120,7 +125,17 @@ const BookingSchema = new Schema({
             type: String,
             enum: ["days", "weeks", "months"]
         },
-        selectedDays: [Number] // 0-6 for Sunday-Saturday
+        // Weekly/custom recurrence
+        selectedDays: [Number], // 0-6 for Sunday-Saturday
+        // Monthly recurrence: array of { week: 1-5, dayOfWeek: 0-6 }
+        monthlyWeeks: [
+            {
+                week: Number,
+                dayOfWeek: Number
+            }
+        ],
+        // Recurrence series end date (no bookings after this)
+        endDate: String
     },
 
     startDateTime: {

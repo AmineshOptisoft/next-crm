@@ -979,7 +979,7 @@ export default function ContactsPage() {
               <div className="space-y-2">
                 <Label>Customer Stage</Label>
                 <Select value={formData.status} onValueChange={v => setFormData({ ...formData, status: v })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="new lead">New Lead</SelectItem>
                     <SelectItem value="prospect">Prospect</SelectItem>
@@ -994,7 +994,7 @@ export default function ContactsPage() {
                 <div className="space-y-2">
                   <Label>Zone</Label>
                   <Select value={formData.zoneName} onValueChange={v => setFormData({ ...formData, zoneName: v })}>
-                    <SelectTrigger><SelectValue placeholder="Select Zone" /></SelectTrigger>
+                    <SelectTrigger className="w-full"><SelectValue placeholder="Select Zone" /></SelectTrigger>
                     <SelectContent>
                       {zonesList.map(z => <SelectItem key={z} value={z}>{z}</SelectItem>)}
                     </SelectContent>
@@ -1003,7 +1003,7 @@ export default function ContactsPage() {
                 <div className="space-y-2">
                   <Label>FSR Assigned</Label>
                   <Select value={formData.fsrAssigned} onValueChange={v => setFormData({ ...formData, fsrAssigned: v })}>
-                    <SelectTrigger><SelectValue placeholder="Select FSR" /></SelectTrigger>
+                    <SelectTrigger className="w-full"><SelectValue placeholder="Select FSR" /></SelectTrigger>
                     <SelectContent>
                       {eligibleFsrUsers.length === 0 ? (
                         <SelectItem value="no-fsr" disabled>
@@ -1030,7 +1030,7 @@ export default function ContactsPage() {
 
               <div className="space-y-2"><Label>Street Address</Label><Input value={formData.streetAddress} onChange={e => setFormData({ ...formData, streetAddress: e.target.value })} /></div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Country</Label>
                   <Select
@@ -1039,7 +1039,7 @@ export default function ContactsPage() {
                       setFormData({ ...formData, country: v, state: "", city: "" });
                     }}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className="w-full">
                       <SelectValue placeholder="Select Country" />
                     </SelectTrigger>
                     <SelectContent>
@@ -1060,7 +1060,7 @@ export default function ContactsPage() {
                     }}
                     disabled={!countryCode}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className="w-full">
                       <SelectValue placeholder="Select State" />
                     </SelectTrigger>
                     <SelectContent>
@@ -1079,7 +1079,7 @@ export default function ContactsPage() {
                     onValueChange={(v) => setFormData({ ...formData, city: v })}
                     disabled={!stateCode}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className="w-full">
                       <SelectValue placeholder="Select City" />
                     </SelectTrigger>
                     <SelectContent>

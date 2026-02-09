@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Building2, Save, Upload, MapPin, X, Loader2 } from "lucide-react";
+import { Country, State, City } from "country-state-city";
 
 
 interface CompanyProfileProps {
@@ -138,6 +139,17 @@ export function CompanyProfile({ formData, setFormData, saving, handleSubmit, in
         setFormData({ ...formData, logo: "" });
     };
 
+    // Cascading Location Logic
+    const countries = Country.getAllCountries();
+    const selectedCountry = countries.find((c) => c.name === formData.address.country);
+    const countryCode = selectedCountry?.isoCode;
+
+    const states = countryCode ? State.getStatesOfCountry(countryCode) : [];
+    const selectedState = states.find((s) => s.name === formData.address.state);
+    const stateCode = selectedState?.isoCode;
+
+    const cities = (countryCode && stateCode) ? City.getCitiesOfState(countryCode, stateCode) : [];
+
     return (
         <form onSubmit={handleSubmit}>
             <Script
@@ -221,7 +233,7 @@ export function CompanyProfile({ formData, setFormData, saving, handleSubmit, in
                                     })
                                 }
                             >
-                                <SelectTrigger id="industry">
+                                <SelectTrigger id="industry" className="w-full">
                                     <SelectValue placeholder="Select an industry" />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -312,34 +324,89 @@ export function CompanyProfile({ formData, setFormData, saving, handleSubmit, in
                                 }
                             />
                         </div>
-                        <div className="grid gap-4 md:grid-cols-3">
+                        <div className="grid gap-4 md:grid-cols-2">
                             <div className="space-y-2">
-                                <Label htmlFor="city">City *</Label>
-                                <Input
-                                    id="city"
-                                    required
-                                    value={formData.address.city}
-                                    onChange={(e) =>
+                                <Label htmlFor="country">Country *</Label>
+                                <Select
+                                    value={formData.address.country || ""}
+                                    onValueChange={(val) => {
                                         setFormData({
                                             ...formData,
-                                            address: { ...formData.address, city: e.target.value },
-                                        })
-                                    }
-                                />
+                                            address: {
+                                                ...formData.address,
+                                                country: val,
+                                                state: "",
+                                                city: "",
+                                            },
+                                        });
+                                    }}
+                                >
+                                    <SelectTrigger id="country" className="w-full">
+                                        <SelectValue placeholder="Select Country" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {countries.map((country) => (
+                                            <SelectItem key={country.isoCode} value={country.name}>
+                                                {country.name}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
                             </div>
                             <div className="space-y-2">
                                 <Label htmlFor="state">State *</Label>
-                                <Input
-                                    id="state"
-                                    required
-                                    value={formData.address.state}
-                                    onChange={(e) =>
+                                <Select
+                                    value={formData.address.state || ""}
+                                    onValueChange={(val) => {
                                         setFormData({
                                             ...formData,
-                                            address: { ...formData.address, state: e.target.value },
+                                            address: {
+                                                ...formData.address,
+                                                state: val,
+                                                city: "",
+                                            },
+                                        });
+                                    }}
+                                    disabled={!countryCode}
+                                >
+                                    <SelectTrigger id="state" className="w-full">
+                                        <SelectValue placeholder="Select State" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {states.map((state) => (
+                                            <SelectItem key={state.isoCode} value={state.name}>
+                                                {state.name}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="city">City *</Label>
+                                <Select
+                                    value={formData.address.city || ""}
+                                    onValueChange={(val) =>
+                                        setFormData({
+                                            ...formData,
+                                            address: {
+                                                ...formData.address,
+                                                city: val,
+                                            },
                                         })
                                     }
-                                />
+                                    disabled={!stateCode}
+                                >
+                                    <SelectTrigger id="city" className="w-full">
+                                        <SelectValue placeholder="Select City" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {cities.map((city) => (
+                                            <SelectItem key={city.name} value={city.name}>
+                                                {city.name}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
                             </div>
                             <div className="space-y-2">
                                 <Label htmlFor="zipCode">Zip Code *</Label>
@@ -355,20 +422,6 @@ export function CompanyProfile({ formData, setFormData, saving, handleSubmit, in
                                     }
                                 />
                             </div>
-                        </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="country">Country *</Label>
-                            <Input
-                                id="country"
-                                required
-                                value={formData.address.country}
-                                onChange={(e) =>
-                                    setFormData({
-                                        ...formData,
-                                        address: { ...formData.address, country: e.target.value },
-                                    })
-                                }
-                            />
                         </div>
 
                         {/* Google Maps Section */}

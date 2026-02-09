@@ -504,11 +504,9 @@ export function AppSidebar() {
   // Check if user has permission to view a module
   const hasModulePermission = (module: string): boolean => {
     if (!me) {
-      console.log('[Sidebar] No user found');
       return false;
     }
 
-    console.log('[Sidebar] Checking permission for module:', module, 'User role:', me.role, 'Permissions:', me.permissions);
 
     // Super admin and company admin have access to all modules
     if (me.role === "super_admin" || me.role === "company_admin") {
@@ -519,11 +517,9 @@ export function AppSidebar() {
     if ((me.role === "company_user" || me.role === "employee" || me.role === "contact") && me.permissions) {
       const permission = me.permissions.find((p: any) => p.module === module);
       const hasPermission = permission?.canView === true;
-      console.log('[Sidebar] Permission check result:', hasPermission, 'Permission object:', permission);
       return hasPermission;
     }
 
-    console.log('[Sidebar] No matching role or permissions');
     return false;
   };
 
@@ -531,13 +527,11 @@ export function AppSidebar() {
   const filteredGeneralItems = menuItems.general.filter((item) =>
     hasModulePermission(item.module)
   );
-  console.log('[Sidebar] Filtered general items:', filteredGeneralItems.length, 'out of', menuItems.general.length);
 
   const filteredAdminItems = menuItems.admin.filter((item: any) => {
     if (item.superAdminOnly && me?.role !== "super_admin") return false;
     return true;
   });
-  console.log('[Sidebar] Filtered admin items:', filteredAdminItems.length, 'out of', menuItems.admin.length);
 
   return (
     <Sidebar>

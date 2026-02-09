@@ -27,12 +27,15 @@ export async function GET(req: NextRequest) {
             companyId: user.companyId,
             role: "company_user",
             isTechnicianActive: true
-        }).select('firstName lastName zone availability services');
-        console.log("Technicians found:", technicians.length, technicians.map(t => ({ name: `${t.firstName} ${t.lastName}`, zone: t.zone })));
+        }).select('firstName lastName zone availability services').lean();
+        console.log("Technicians found:", technicians.length, technicians.map((t: any) => ({ name: `${t.firstName} ${t.lastName}`, zone: t.zone })));
 
-        // Fetch master availability
-        const company = await Company.findById(user.companyId);
-        const masterAvailability = company?.masterAvailability || [];
+        // Fetch master availability (use default when empty so week/month don't show all red)
+        const company = await Company.findById(user.companyId).lean();
+        let masterAvailability = normalizeAvailability(company?.masterAvailability);
+        if (masterAvailability.length === 0) {
+            masterAvailability = getDefaultMasterAvailability();
+        }
         console.log("Master availability:", masterAvailability.length);
 
         // Build resources array (technicians grouped by service area)
@@ -50,7 +53,7 @@ export async function GET(req: NextRequest) {
             techniciansByZone.get(zone)!.push(tech);
         });
 
-        // Add service areas and their technicians
+        // Add service areas and their technicians (Unassigned zone excluded from appointments)
         serviceAreas.forEach(area => {
             const zoneTechs = techniciansByZone.get(area.name) || [];
 
@@ -62,11 +65,11 @@ export async function GET(req: NextRequest) {
                     services: tech.services || [] // Include assigned services
                 });
 
-                // Generate availability blocks for this technician
+                // Generate availability blocks (normalize tech availability from DB)
                 const blocks = generateAvailabilityBlocks(
                     tech._id.toString(),
                     masterAvailability,
-                    tech.availability || []
+                    normalizeAvailability(tech.availability)
                 );
                 availabilityEvents.push(...blocks);
             });
@@ -168,7 +171,7 @@ export async function GET(req: NextRequest) {
     }
 }
 
-// Helper function to generate availability blocks
+// Helper function to generate availability blocks (supports multiple weeks for calendar navigation)
 function generateAvailabilityBlocks(
     technicianId: string,
     masterAvailability: any[],
@@ -177,69 +180,48 @@ function generateAvailabilityBlocks(
     const blocks: any[] = [];
     const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
-    // Get current week's dates
+    // When technician has no availability set, use master so company hours show as available
+    const effectiveTechAvailability =
+        technicianAvailability && technicianAvailability.length > 0
+            ? technicianAvailability
+            : masterAvailability;
+
+    // Generate blocks for a wide date range so calendar shows availability when navigating
     const today = new Date();
-    const startOfWeek = new Date(today);
-    startOfWeek.setDate(today.getDate() - today.getDay()); // Sunday
+    const startRange = new Date(today);
+    startRange.setDate(today.getDate() - 28); // 4 weeks back
 
-    days.forEach((day, index) => {
-        const date = new Date(startOfWeek);
-        date.setDate(startOfWeek.getDate() + index);
+    // Monday = 0 for alignment with days[] (index 0 = Monday)
+    const getMondayOfWeek = (d: Date) => {
+        const m = new Date(d);
+        const day = m.getDay();
+        const diff = day === 0 ? -6 : 1 - day; // Sunday -> previous Monday
+        m.setDate(m.getDate() + diff);
+        m.setHours(0, 0, 0, 0);
+        return m;
+    };
 
-        const masterDay = masterAvailability.find(m => m.day === day);
-        const techDay = technicianAvailability.find(t => t.day === day);
+    const weekStart = getMondayOfWeek(startRange);
+    const totalWeeks = 30; // ~4 weeks back + ~26 forward so calendar always has blocks
 
-        // If either master or technician is closed, mark entire day as unavailable
-        if (!masterDay?.isOpen || !techDay?.isOpen) {
-            blocks.push({
-                id: `unavailable-${technicianId}-${day}`,
-                resourceId: technicianId,
-                start: new Date(date.setHours(0, 0, 0, 0)),
-                end: new Date(date.setHours(23, 59, 59, 999)),
-                title: "Not Available",
-                backgroundColor: "#ef4444",
-                display: "background",
-                type: "unavailability"
-            });
-        } else {
-            // Add unavailable blocks before start time and after end time
-            const masterStart = parseTime(masterDay.startTime);
-            const masterEnd = parseTime(masterDay.endTime);
-            const techStart = parseTime(techDay.startTime);
-            const techEnd = parseTime(techDay.endTime);
+    for (let weekIndex = 0; weekIndex < totalWeeks; weekIndex++) {
+        const w = new Date(weekStart);
+        w.setDate(weekStart.getDate() + weekIndex * 7);
+        days.forEach((day, index) => {
+            const date = new Date(w);
+            date.setDate(w.getDate() + index);
 
-            // Use the most restrictive times
-            const effectiveStart = Math.max(masterStart, techStart);
-            const effectiveEnd = Math.min(masterEnd, techEnd);
+            const masterDay = masterAvailability.find((m: any) => m.day === day);
+            const techDay = effectiveTechAvailability.find((t: any) => t.day === day);
 
-            // Block before working hours
-            if (effectiveStart > 0) {
+            // If either master or technician is closed, mark entire day as unavailable
+            if (!masterDay?.isOpen || !techDay?.isOpen) {
                 const blockStart = new Date(date);
                 blockStart.setHours(0, 0, 0, 0);
                 const blockEnd = new Date(date);
-                blockEnd.setHours(Math.floor(effectiveStart / 60), effectiveStart % 60, 0, 0);
-
-                blocks.push({
-                    id: `unavailable-${technicianId}-${day}-before`,
-                    resourceId: technicianId,
-                    start: blockStart,
-                    end: blockEnd,
-                    title: "Not Available",
-                    backgroundColor: "#ef4444",
-                    display: "background",
-                    type: "unavailability"
-                });
-            }
-
-            // Block after working hours
-            if (effectiveEnd < 1440) {
-                const blockStart = new Date(date);
-                blockStart.setHours(Math.floor(effectiveEnd / 60), effectiveEnd % 60, 0, 0);
-                const blockEnd = new Date(date);
                 blockEnd.setHours(23, 59, 59, 999);
-
                 blocks.push({
-                    id: `unavailable-${technicianId}-${day}-after`,
+                    id: `unavailable-${technicianId}-${date.toISOString().slice(0, 10)}-${day}`,
                     resourceId: technicianId,
                     start: blockStart,
                     end: blockEnd,
@@ -248,20 +230,107 @@ function generateAvailabilityBlocks(
                     display: "background",
                     type: "unavailability"
                 });
+            } else {
+                // DAY VIEW FIX:
+                // For days that are open, we create time-based unavailability
+                // blocks ONLY for the day view (before/after working hours).
+                // Week/Month views will ignore these via the calendar filter.
+
+                const masterStart = parseTime(masterDay.startTime);
+                const masterEnd = parseTime(masterDay.endTime);
+                const techStart = parseTime(techDay.startTime);
+                const techEnd = parseTime(techDay.endTime);
+
+                // Effective working window is the intersection of company + tech hours
+                const effectiveStart = Math.max(masterStart, techStart);
+                const effectiveEnd = Math.min(masterEnd, techEnd);
+
+                // Block before working hours
+                if (effectiveStart > 0) {
+                    const blockStart = new Date(date);
+                    blockStart.setHours(0, 0, 0, 0);
+                    const blockEnd = new Date(date);
+                    blockEnd.setHours(Math.floor(effectiveStart / 60), effectiveStart % 60, 0, 0);
+
+                    blocks.push({
+                        id: `unavailable-${technicianId}-${date.toISOString().slice(0, 10)}-${day}-before`,
+                        resourceId: technicianId,
+                        start: blockStart,
+                        end: blockEnd,
+                        title: "Not Available",
+                        backgroundColor: "#ef4444",
+                        display: "background",
+                        type: "unavailability_timed", // used only in Day view
+                    });
+                }
+
+                // Block after working hours
+                if (effectiveEnd < 1440) {
+                    const blockStart = new Date(date);
+                    blockStart.setHours(Math.floor(effectiveEnd / 60), effectiveEnd % 60, 0, 0);
+                    const blockEnd = new Date(date);
+                    blockEnd.setHours(23, 59, 59, 999);
+
+                    blocks.push({
+                        id: `unavailable-${technicianId}-${date.toISOString().slice(0, 10)}-${day}-after`,
+                        resourceId: technicianId,
+                        start: blockStart,
+                        end: blockEnd,
+                        title: "Not Available",
+                        backgroundColor: "#ef4444",
+                        display: "background",
+                        type: "unavailability_timed", // used only in Day view
+                    });
+                }
             }
-        }
-    });
+        });
+    }
 
     return blocks;
 }
 
-// Helper to convert time string to minutes
-function parseTime(timeStr: string): number {
-    const [time, period] = timeStr.split(" ");
-    let [hours, minutes] = time.split(":").map(Number);
+// Normalize availability array from DB (plain objects, consistent day names: Monday-Sunday)
+function normalizeAvailability(arr: any): { day: string; isOpen: boolean; startTime: string; endTime: string }[] {
+    if (!Array.isArray(arr) || arr.length === 0) return [];
+    const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+    const toDay = (s: string) => s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
+    return arr
+        .map((item: any) => {
+            const rawDay = typeof item?.day === "string" ? item.day.trim() : "";
+            const day = toDay(rawDay);
+            return {
+                day: days.includes(day) ? day : "",
+                isOpen: Boolean(item?.isOpen),
+                startTime: typeof item?.startTime === "string" ? item.startTime : "09:00 AM",
+                endTime: typeof item?.endTime === "string" ? item.endTime : "06:00 PM"
+            };
+        })
+        .filter((item: any) => item.day);
+}
 
-    if (period === "PM" && hours !== 12) hours += 12;
-    if (period === "AM" && hours === 12) hours = 0;
+// Default master availability when company has none set (matches company-settings behavior)
+function getDefaultMasterAvailability() {
+    const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+    return days.map(day => ({
+        day,
+        isOpen: day !== "Saturday" && day !== "Sunday",
+        startTime: "09:00 AM",
+        endTime: "06:00 PM"
+    }));
+}
 
-    return hours * 60 + minutes;
+// Helper to convert time string to minutes (e.g. "09:00 AM"); returns 0-1440, default 0 for invalid
+function parseTime(timeStr: string | undefined): number {
+    if (typeof timeStr !== "string" || !timeStr.trim()) return 0;
+    const parts = timeStr.trim().split(" ");
+    const period = parts[1];
+    const timePart = parts[0];
+    if (!timePart || !period) return 0;
+    const [h, m] = timePart.split(":").map(Number);
+    if (Number.isNaN(h)) return 0;
+    let hours = h;
+    const minutes = Number.isNaN(m) ? 0 : m;
+    if (period.toUpperCase() === "PM" && hours !== 12) hours += 12;
+    if (period.toUpperCase() === "AM" && hours === 12) hours = 0;
+    return Math.min(1440, Math.max(0, hours * 60 + minutes));
 }

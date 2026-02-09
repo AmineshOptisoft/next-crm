@@ -12,6 +12,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Badge } from "@/components/ui/badge";
 import { MultiSelect } from "@/components/ui/multi-select";
+import { Calendar } from "@/components/ui/calendar";
+import {
+    Popover,
+    PopoverContent,
+    PopoverTrigger,
+} from "@/components/ui/popover";
 import { DateTimePicker } from "@/components/ui/date-time-picker";
 import { Check, ChevronsUpDown, X, Calendar as CalendarIcon, DollarSign, Clock, ChevronDown, ChevronUp, Plus, Minus } from "lucide-react";
 import { useState, useEffect } from "react";
@@ -94,8 +100,10 @@ export function AddBookingForm({ open, onOpenChange, initialData }: AddBookingFo
     });
 
     const [bookingType, setBookingType] = useState<"once" | "recurring">("once");
-    const [frequency, setFrequency] = useState<"weekly" | "monthly" | "custom">("weekly");
+    const [frequency, setFrequency] = useState<"weekly" | "monthly">("weekly");
     const [selectedDays, setSelectedDays] = useState<number[]>([]);
+    // For monthly recurrence: specific week-of-month + weekday pairs
+    const [monthlyWeeks, setMonthlyWeeks] = useState<{ week: number; dayOfWeek: number }[]>([]);
     const [recurringEndDate, setRecurringEndDate] = useState("");
 
     // Date/Time States (Local)
@@ -335,6 +343,17 @@ export function AddBookingForm({ open, onOpenChange, initialData }: AddBookingFo
         );
     };
 
+    // Toggle a specific (week, dayOfWeek) combination for monthly recurrence
+    const toggleMonthlyWeekDay = (week: number, dayOfWeek: number) => {
+        setMonthlyWeeks(prev => {
+            const exists = prev.some(w => w.week === week && w.dayOfWeek === dayOfWeek);
+            if (exists) {
+                return prev.filter(w => !(w.week === week && w.dayOfWeek === dayOfWeek));
+            }
+            return [...prev, { week, dayOfWeek }];
+        });
+    };
+
     const calculatePrice = () => {
         if (!selectedService) return { total: 0, subTotal: 0, addonsTotal: 0 };
 
@@ -412,6 +431,23 @@ export function AddBookingForm({ open, onOpenChange, initialData }: AddBookingFo
                 toast.error("Please select a contact and service");
                 return;
             }
+            if (bookingType === "recurring") {
+                if (!recurringEndDate || !recurringEndDate.trim()) {
+                    toast.error("Please set a recurring end date");
+                    return;
+                }
+                if (frequency === "monthly") {
+                    if (!monthlyWeeks.length) {
+                        toast.error("Please select at least one week/day combination");
+                        return;
+                    }
+                } else {
+                    if (!selectedDays.length) {
+                        toast.error("Please select at least one day for recurrence");
+                        return;
+                    }
+                }
+            }
 
             // Prepare sub-services and addons arrays
             const subServices = Object.entries(subServiceQuantities)
@@ -433,10 +469,18 @@ export function AddBookingForm({ open, onOpenChange, initialData }: AddBookingFo
                 addons,
                 bookingType,
                 frequency: bookingType === "recurring" ? frequency : undefined,
-                customRecurrence: bookingType === "recurring" ? {
-                    selectedDays,
-                    endDate: recurringEndDate
-                } : undefined,
+                customRecurrence:
+                    bookingType === "recurring"
+                        ? frequency === "monthly"
+                            ? {
+                                monthlyWeeks,
+                                endDate: recurringEndDate
+                            }
+                            : {
+                                selectedDays,
+                                endDate: recurringEndDate
+                            }
+                        : undefined,
                 startDateTime: bookingStart,
                 endDateTime: bookingEnd,
                 shippingAddress: {
@@ -800,6 +844,7 @@ export function AddBookingForm({ open, onOpenChange, initialData }: AddBookingFo
 
                             {bookingType === "recurring" && (
                                 <div className="space-y-4">
+                                    {/* Frequency */}
                                     <div className="space-y-1">
                                         <Label>Frequency</Label>
                                         <Select value={frequency} onValueChange={(value: any) => setFrequency(value)}>
@@ -809,34 +854,91 @@ export function AddBookingForm({ open, onOpenChange, initialData }: AddBookingFo
                                             <SelectContent className="z-[150]">
                                                 <SelectItem value="weekly">Weekly</SelectItem>
                                                 <SelectItem value="monthly">Monthly</SelectItem>
-                                                <SelectItem value="custom">Custom Recurrence</SelectItem>
                                             </SelectContent>
                                         </Select>
                                     </div>
 
-                                    <div className="space-y-1">
-                                        <Label>Select Days</Label>
-                                        <div className="flex gap-2">
-                                            {["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"].map((day, index) => (
-                                                <Button
-                                                    key={index}
-                                                    size="sm"
-                                                    variant={selectedDays.includes(index) ? "default" : "outline"}
-                                                    onClick={() => toggleDay(index)}
-                                                >
-                                                    {day}
-                                                </Button>
-                                            ))}
+                                    {/* Weekly: simple day-of-week selector */}
+                                    {frequency === "weekly" && (
+                                        <div className="space-y-1">
+                                            <Label>Select Days</Label>
+                                            <div className="flex gap-2">
+                                                {["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"].map((day, index) => (
+                                                    <Button
+                                                        key={index}
+                                                        size="sm"
+                                                        variant={selectedDays.includes(index) ? "default" : "outline"}
+                                                        onClick={() => toggleDay(index)}
+                                                    >
+                                                        {day}
+                                                    </Button>
+                                                ))}
+                                            </div>
                                         </div>
-                                    </div>
+                                    )}
 
+                                    {/* Monthly: Day of week in Months (multi-select, per week-of-month) */}
+                                    {frequency === "monthly" && (
+                                        <div className="space-y-2">
+                                            <Label>Day of week in Months</Label>
+                                            <div className="space-y-1">
+                                                {[1, 2, 3, 4, 5].map((weekNumber) => (
+                                                    <div key={weekNumber} className="flex gap-2">
+                                                        {["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"].map((dayLabel, idx) => {
+                                                            // Our selectedDays uses 0=Su,... so map labels accordingly
+                                                            const dayIndexMap = [1, 2, 3, 4, 5, 6, 0]; // Mo->1,...,Su->0
+                                                            const dayIndex = dayIndexMap[idx];
+                                                            const isSelected = monthlyWeeks.some(
+                                                                (w) => w.week === weekNumber && w.dayOfWeek === dayIndex
+                                                            );
+                                                            return (
+                                                                <Button
+                                                                    key={`${weekNumber}-${dayLabel}`}
+                                                                    size="sm"
+                                                                    variant={isSelected ? "default" : "outline"}
+                                                                    onClick={() => toggleMonthlyWeekDay(weekNumber, dayIndex)}
+                                                                >
+                                                                    {dayLabel}
+                                                                </Button>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* End date (shared, date-only using shadcn Calendar) */}
                                     <div className="space-y-1">
                                         <Label>Recurring End Date</Label>
-                                        <Input
-                                            type="date"
-                                            value={recurringEndDate}
-                                            onChange={(e) => setRecurringEndDate(e.target.value)}
-                                        />
+                                        <Popover>
+                                            <PopoverTrigger asChild>
+                                                <Button
+                                                    variant="outline"
+                                                    className={cn(
+                                                        "w-full justify-start text-left font-normal",
+                                                        !recurringEndDate && "text-muted-foreground"
+                                                    )}
+                                                >
+                                                    <CalendarIcon className="mr-2 h-4 w-4" />
+                                                    {recurringEndDate
+                                                        ? format(new Date(recurringEndDate), "PPP")
+                                                        : <span>Select end date</span>}
+                                                </Button>
+                                            </PopoverTrigger>
+                                            <PopoverContent className="w-auto p-0" align="start">
+                                                <Calendar
+                                                    mode="single"
+                                                    selected={recurringEndDate ? new Date(recurringEndDate) : undefined}
+                                                    onSelect={(date) => {
+                                                        if (date) {
+                                                            setRecurringEndDate(format(date, "yyyy-MM-dd"));
+                                                        }
+                                                    }}
+                                                    initialFocus
+                                                />
+                                            </PopoverContent>
+                                        </Popover>
                                     </div>
                                 </div>
                             )}
@@ -936,7 +1038,7 @@ export function AddBookingForm({ open, onOpenChange, initialData }: AddBookingFo
                                         <Label>Start Date/Time</Label>
                                         <DateTimePicker
                                             date={bookingStart}
-                                            setDate={(d) => setBookingStart(d)}
+                                            setDate={(d: Date) => setBookingStart(d)}
                                         />
                                     </div>
                                     <div className="space-y-2">
