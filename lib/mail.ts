@@ -58,8 +58,9 @@ async function getCompanyIdFromCampaign(campaignId: string): Promise<string> {
 export async function getCompanyTransporter(companyId: string): Promise<any> {
   const company = await Company.findById(companyId);
 
+  // If no per-company mail config is set, fall back to legacy SMTP (from .env)
   if (!company || !company.mailConfig) {
-    throw new Error("Company mail configuration not found");
+    return getLegacyTransporter();
   }
 
   const { provider, smtp, gmail: gmailConfig } = company.mailConfig;
@@ -154,7 +155,8 @@ export async function getCompanyTransporter(companyId: string): Promise<any> {
     return transporter;
   }
 
-  throw new Error("No active mail provider configured for this company. Please set up SMTP or Gmail in Settings.");
+  // Fallback: use legacy transporter (env-based) if provider is unknown or not fully configured
+  return getLegacyTransporter();
 }
 
 /**
