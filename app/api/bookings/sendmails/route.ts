@@ -30,12 +30,18 @@ export async function POST(_req: NextRequest) {
       .populate("contactId", "email")
       .lean();
 
-    // Collect unique customer emails from bookings
+    // Collect unique customer emails from bookings AND create booking map
     const emailSet = new Set<string>();
+    const bookingMap = new Map<string, string>();  // email -> bookingId
+    
     for (const booking of bookings as any[]) {
       const contact = booking.contactId as { email?: string } | undefined;
       if (contact?.email) {
         emailSet.add(contact.email);
+        // Store the most recent booking for each email
+        if (!bookingMap.has(contact.email)) {
+          bookingMap.set(contact.email, booking._id.toString());
+        }
       }
     }
 
@@ -60,8 +66,8 @@ export async function POST(_req: NextRequest) {
       );
     }
 
-    // Use the helper to send bulk emails using this specific campaign
-    const results = await sendBulkEmails(String(campaign._id), emails);
+    // Use the helper to send bulk emails with booking data
+    const results = await sendBulkEmails(String(campaign._id), emails, bookingMap);
 
     return NextResponse.json({
       message: "Reminder emails processed.",

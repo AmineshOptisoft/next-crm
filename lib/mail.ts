@@ -20,18 +20,44 @@ export function getLegacyTransporter() {
 }
 
 /**
- * Personalize email content with user data
+ * Personalize email content with user data and optional booking data
  */
-export function personalizeEmail(html: string, user: any): string {
+export function personalizeEmail(html: string, user: any, bookingData?: {
+  bookingId?: string;
+  campaignId?: string;
+}): string {
   if (!html) return "";
+  
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+  
   if (!user) {
     // Basic cleanup of common tags if no user provided
     return html
       .replace(/\{\{\s*(firstname|first_name)\s*\}\}/gi, "User")
       .replace(/\{\{\s*(lastname|last_name)\s*\}\}/gi, "")
-      .replace(/\{\{\s*email\s*\}\}/gi, "");
+      .replace(/\{\{\s*email\s*\}\}/gi, "")
+      .replace(/\{\{\s*url\s*\}\}/gi, `${baseUrl}/api/bookings/cancel`)
+      .replace(/\{\{\s*cancel_url\s*\}\}/gi, `${baseUrl}/api/bookings/cancel`)
+      .replace(/\{\{\s*confirm_url\s*\}\}/gi, `${baseUrl}/api/bookings/confirm`);
   }
-
+  
+  // Build confirm and cancel URLs with query parameters
+  let confirmUrl = `${baseUrl}/api/bookings/confirm`;
+  let cancelUrl = `${baseUrl}/api/bookings/cancel`;
+  
+  if (bookingData) {
+    const params = new URLSearchParams();
+    if (bookingData.bookingId) params.append('bookingId', bookingData.bookingId);
+    if (user._id) params.append('userId', user._id.toString());
+    if (bookingData.campaignId) params.append('campaignId', bookingData.campaignId);
+    
+    const queryString = params.toString();
+    if (queryString) {
+      confirmUrl += `?${queryString}`;
+      cancelUrl += `?${queryString}`;
+    }
+  }
+  
   return html
     .replace(/\{\{\s*(firstname|first_name)\s*\}\}/gi, user.firstName || "")
     .replace(/\{\{\s*(lastname|last_name)\s*\}\}/gi, user.lastName || "")
@@ -40,7 +66,13 @@ export function personalizeEmail(html: string, user: any): string {
     .replace(/\{\{\s*company\s*\}\}/gi, user.companyName || "")
     .replace(/\{\{\s*service_name\s*\}\}/gi, user.serviceName || "")
     .replace(/\{\{\s*price\s*\}\}/gi, user.price || "")
-    .replace(/\{\{\s*units\s*\}\}/gi, user.units || "");
+    .replace(/\{\{\s*units\s*\}\}/gi, user.units || "")
+    // Booking-specific URLs with parameters
+    .replace(/\{\{\s*cancel_url\s*\}\}/gi, cancelUrl)
+    .replace(/\{\{\s*confirm_url\s*\}\}/gi, confirmUrl)
+    // Legacy support
+    .replace(/\{\{\s*cancel_booking\s*\}\}/gi, cancelUrl)
+    .replace(/\{\{\s*confirm_booking\s*\}\}/gi, confirmUrl);
 }
 
 /**

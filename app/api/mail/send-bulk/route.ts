@@ -41,6 +41,8 @@ export async function POST(req: NextRequest) {
         // Send emails one by one (can be optimized for parallel sending)
         const { User } = await import("@/app/models/User");
         const { personalizeEmail } = await import("@/lib/mail");
+        const ReminderLog = await import("@/app/models/ReminderLog");
+        const EmailActivity = await import("@/app/models/EmailActivity");
         const results = [];
         for (const email of to) {
             try {
@@ -54,8 +56,42 @@ export async function POST(req: NextRequest) {
                     subject,
                     html: personalizedHtml,
                 });
+
+                // Create ReminderLog entry for successful send
+                if (recipientUser?._id) {
+                    await ReminderLog.default.create({
+                        campaignId: campaign._id,
+                        contactId: recipientUser._id,
+                        reminderLabel: `API Bulk Send - ${new Date().toISOString().split('T')[0]}`,
+                        status: 'sent',
+                        companyId: campaign.companyId,
+                    });
+
+                    // Create EmailActivity entry
+                    await EmailActivity.default.create({
+                        userId: recipientUser._id,
+                        campaignId: campaign._id,
+                        companyId: campaign.companyId,
+                        isAction: false,
+                    });
+
+                    console.log(`[API Bulk Mail] ✅ ReminderLog & EmailActivity created for ${email}`);
+                }
+
                 results.push({ email, success: true, messageId: result.messageId });
             } catch (err: any) {
+                // Log failed send attempt
+                const recipientUser = await User.findOne({ email, companyId });
+                if (recipientUser?._id) {
+                    await ReminderLog.default.create({
+                        campaignId: campaign._id,
+                        contactId: recipientUser._id,
+                        reminderLabel: `API Bulk Send - ${new Date().toISOString().split('T')[0]}`,
+                        status: 'failed',
+                        error: err.message,
+                        companyId: campaign.companyId,
+                    });
+                }
                 results.push({ email, success: false, error: err.message });
             }
         }
