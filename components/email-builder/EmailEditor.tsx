@@ -32,7 +32,12 @@ function EmailEditorInner({ initialData, mode = "add" }: EmailEditorComponentPro
     const [loading, setLoading] = useState(false);
 
     const templateParam = searchParams.get('template');
-    const templateKey = templateParam?.replace('.html', '') || "";
+    const templateKey = templateParam || null;
+    
+    // Debug logging
+    console.log('[EmailEditor] Template param:', templateParam);
+    console.log('[EmailEditor] Template key:', templateKey);
+    console.log('[EmailEditor] Initial data templateId:', initialData?.templateId);
 
     const transformDesign = (design: any) => {
         // We are disabling the transformation logic that reverts Green Frog branding
@@ -87,7 +92,9 @@ function EmailEditorInner({ initialData, mode = "add" }: EmailEditorComponentPro
                 const url = campaignId ? `/api/email-campaigns/${campaignId}` : '/api/email-campaigns';
                 const method = campaignId ? 'PATCH' : 'POST';
 
-                console.log(`Saving email via ${method} to ${url}`);
+                const finalTemplateId = templateKey || initialData?.templateId || null;
+                console.log(`[EmailEditor] Saving with templateId:`, finalTemplateId);
+                console.log(`[EmailEditor] Saving via ${method} to ${url}`);
 
                 let response = await fetch(url, {
                     method: method,
@@ -97,7 +104,8 @@ function EmailEditorInner({ initialData, mode = "add" }: EmailEditorComponentPro
                         subject: emailSubject,
                         design: design,
                         content: html,
-                        status: "draft"
+                        status: "draft",
+                        templateId: finalTemplateId
                     })
                 });
 
@@ -105,7 +113,7 @@ function EmailEditorInner({ initialData, mode = "add" }: EmailEditorComponentPro
 
                 // If PATCH fails because the campaign doesn't exist, fallback to POST (create new)
                 if (method === 'PATCH' && (response.status === 404 || result.error === "Campaign not found")) {
-                    console.log("Campaign not found for update, falling back to create...");
+                    console.log("[EmailEditor] Campaign not found for update, falling back to create...");
                     response = await fetch('/api/email-campaigns', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -114,7 +122,8 @@ function EmailEditorInner({ initialData, mode = "add" }: EmailEditorComponentPro
                             subject: emailSubject,
                             design: design,
                             content: html,
-                            status: "draft"
+                            status: "draft",
+                            templateId: finalTemplateId
                         })
                     });
                     result = await response.json();

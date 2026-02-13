@@ -7,6 +7,7 @@ import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import { sendVerificationEmail } from "@/lib/mail";
 import { signupSchema } from "@/app/(auth)/signup/schema";
+import { EMAIL_TEMPLATES } from "@/lib/emailTemplateHelper";
 
 export async function POST(req: NextRequest) {
   await connectDB();
@@ -91,7 +92,24 @@ export async function POST(req: NextRequest) {
     // Create default roles for the company
     await createDefaultRoles(company._id.toString(), user._id.toString());
 
-    await sendVerificationEmail(user.email, token);
+    // Try to send via template system first
+    const { sendTransactionalEmail } = await import("@/lib/sendmailhelper");
+    const emailResult = await sendTransactionalEmail(
+        EMAIL_TEMPLATES.ACCOUNT_CONFIRMATION,
+        user.email,
+        { 
+            token, 
+            firstname: user.firstName,
+            lastname: user.lastName,
+            company_name: companyName 
+        },
+        company._id.toString()
+    );
+
+    if (!emailResult.sent) {
+        console.log("Template email failed, falling back to legacy verification email");
+        await sendVerificationEmail(user.email, token);
+    }
 
     return NextResponse.json({
       message: "Company registered successfully. Check email to verify.",

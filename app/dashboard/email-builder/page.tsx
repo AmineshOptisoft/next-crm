@@ -94,9 +94,9 @@ export default function EmailBuilderListPage() {
         { id: 5, label: "Fifth", unit: "Hours", value: "14", enabled: true },
     ]);
 
-    useEffect(() => {
-        fetchEmails();
-    }, []);
+    // useEffect(() => {
+    //     fetchEmails();
+    // }, []);
 
     const fetchEmails = async () => {
         setLoadingEmails(true);
@@ -185,25 +185,23 @@ export default function EmailBuilderListPage() {
         }
     };
 
-    const templatesList = [
-        { id: "01_welcome_email", name: "Welcome Email", icon: "👋", defaultSubject: "Welcome to CRM!" },
-        { id: "02_booking_confirmation", name: "Booking Confirmation Email", icon: "✅", defaultSubject: "Booking Confirmed - {{service_name}}" },
-        { id: "03_booking_reminder", name: "Booking Reminder Email", icon: "⏰", defaultSubject: "Reminder: Your Upcoming Service" },
-        { id: "04_service_thank_you", name: "Service Thank You Email", icon: "🙏", defaultSubject: "Thank you for choosing CRM" },
-        { id: "05_follow_up_review", name: "Follow Up Review Email", icon: "⭐", defaultSubject: "How was your service? Rate us!" },
-        { id: "06_offer_discount", name: "Offer Discount Email", icon: "📢", defaultSubject: "Exclusive Offer for You!" },
-        { id: "07_reengagement_email", name: "Re-engagement Email", icon: "🔄", defaultSubject: "We miss you! Special discount inside" },
-        { id: "08_cancellation_confirmation", name: "Cancellation Confirmation Email", icon: "❌", defaultSubject: "Booking Cancellation Confirmed" },
-        { id: "09_daily_schedule_staff", name: "Daily Schedule Email (Staff)", icon: "📅", defaultSubject: "Your Schedule for Today" },
-        { id: "10_shift_reminder_staff", name: "Shift Reminder Email (Staff)", icon: "🔔", defaultSubject: "Upcoming Shift Reminder" },
-        { id: "11_policy_update_staff", name: "Policy Update Email", icon: "📋", defaultSubject: "Important Policy Updates" },
-        { id: "12_payslip_info", name: "Payslip Info Email", icon: "💰", defaultSubject: "Your Payslip Has Been Generated" },
-        { id: "13_reset_password", name: "Reset Password Email", icon: "🔑", defaultSubject: "Reset Your Password" },
-        { id: "14_invoice_email", name: "Invoice Email", icon: "📑", defaultSubject: "Invoice for Your Service" },
-        { id: "15_account_confirmation", name: "Account Confirmation Email", icon: "👤", defaultSubject: "Confirm Your Account" },
-        { id: "16_subscription_renewal", name: "Subscription Renewal Email", icon: "🔄", defaultSubject: "Your Subscription is Ready for Renewal" },
-        { id: "default", name: "Default Template", icon: "📄", defaultSubject: "New Email Notification" },
-    ];
+    const [templatesList, setTemplatesList] = useState<any[]>([]);
+
+    useEffect(() => {
+        const fetchTemplates = async () => {
+            try {
+                const res = await fetch('/api/email-templates');
+                const json = await res.json();
+                if (json.success) {
+                    setTemplatesList(json.data);
+                }
+            } catch (error) {
+                toast.error("Failed to load templates");
+            }
+        };
+        fetchTemplates();
+        fetchEmails();
+    }, []);
 
     const handleConfirmTemplate = () => {
         if (!selectedTemplateId) {
@@ -214,11 +212,14 @@ export default function EmailBuilderListPage() {
         const template = templatesList.find(t => t.id === selectedTemplateId);
         const subject = template?.defaultSubject || "";
 
-        if (selectedTemplateId === "default") {
-            router.push(`/dashboard/add-email-builder?subject=${encodeURIComponent(subject)}`);
-        } else {
-            router.push(`/dashboard/add-email-builder?template=${selectedTemplateId}.html&subject=${encodeURIComponent(subject)}`);
-        }
+        console.log('[EmailBuilder] Selected template ID:', selectedTemplateId);
+        console.log('[EmailBuilder] Template:', template);
+
+        // Pass template parameter for ALL templates (including default)
+        const url = `/dashboard/add-email-builder?template=${selectedTemplateId}&subject=${encodeURIComponent(subject)}`;
+        console.log('[EmailBuilder] Navigating to:', url);
+        
+        router.push(url);
         setIsTemplateDialogOpen(false);
     };
 

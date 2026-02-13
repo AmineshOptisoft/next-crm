@@ -17,8 +17,21 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Console log for now
-    console.log("Booking confirmed:", bookingId);
+    // Find and update the booking status
+    const booking = await Booking.findOneAndUpdate(
+      { orderId: bookingId }, // Search by orderId (the friendly ID shown to users)
+      { status: "confirmed" },
+      { new: true } // Return the updated document
+    );
+
+    if (!booking) {
+      return NextResponse.json(
+        { error: "Booking not found" },
+        { status: 404 }
+      );
+    }
+
+    console.log(`Booking ${bookingId} confirmed. New status:`, booking.status);
 
     // Optional: Update EmailActivity if userId and campaignId are provided
     if (userId && campaignId) {
@@ -38,6 +51,12 @@ export async function POST(request: NextRequest) {
       success: true,
       message: "Booking confirmed successfully",
       bookingId,
+      booking: {
+        id: booking._id,
+        orderId: booking.orderId,
+        status: booking.status,
+        startDateTime: booking.startDateTime
+      }
     });
   } catch (error: any) {
     console.error("Error confirming booking:", error);
@@ -65,8 +84,56 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Console log for now
-    console.log("Booking confirmed:", bookingId);
+    // Find and update the booking status
+    const booking = await Booking.findOneAndUpdate(
+      { orderId: bookingId },
+      { status: "confirmed" },
+      { new: true }
+    );
+
+    if (!booking) {
+      return new Response(
+        `
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <title>Booking Not Found</title>
+            <style>
+              body {
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                height: 100vh;
+                margin: 0;
+                background: #fee;
+              }
+              .container {
+                background: white;
+                padding: 40px;
+                border-radius: 16px;
+                box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+                text-align: center;
+              }
+              h1 { color: #ef4444; }
+            </style>
+          </head>
+          <body>
+            <div class="container">
+              <h1>❌ Booking Not Found</h1>
+              <p>The booking ID "${bookingId}" could not be found.</p>
+            </div>
+          </body>
+        </html>
+        `,
+        {
+          status: 404,
+          headers: { "Content-Type": "text/html" }
+        }
+      );
+    }
+
+    console.log(`Booking ${bookingId} confirmed via email link. New status:`, booking.status);
 
     // Optional: Update EmailActivity if userId and campaignId are provided
     if (userId && campaignId) {

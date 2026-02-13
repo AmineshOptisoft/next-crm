@@ -58,6 +58,7 @@ export async function PATCH(
                 ...(content && { html: content }),
                 ...(reminders && { reminders }),
                 ...(status && { status }),
+                ...(body.templateId && { templateId: body.templateId }),
                 companyId: user.companyId,
                 createdBy: user.userId
             },

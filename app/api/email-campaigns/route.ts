@@ -29,7 +29,9 @@ export async function POST(req: NextRequest) {
     try {
         const body = await req.json();
         console.log("POST /api/email-campaigns body:", JSON.stringify(body).substring(0, 200) + "...");
-        const { name, subject, content, design, reminders, status } = body;
+        const { name, subject, content, design, reminders, status, templateId } = body;
+        
+        console.log('[API] Creating email campaign with templateId:', templateId);
 
         if (!subject) {
             return NextResponse.json({ error: "Subject is required" }, { status: 400 });
@@ -48,8 +50,11 @@ export async function POST(req: NextRequest) {
             html: content,
             design: design, // Schema.Types.Mixed handles objects
             reminders: reminders || [],
-            status: status || "draft"
+            status: status || "draft",
+            templateId: templateId
         });
+        
+        console.log('[API] Campaign created with templateId:', campaign.templateId);
 
         return NextResponse.json({ success: true, data: campaign }, { status: 201 });
     } catch (error: any) {

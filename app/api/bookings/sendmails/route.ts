@@ -2,10 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { connectDB } from "@/lib/db";
 import { Booking } from "@/app/models/Booking";
-import EmailCampaign from "@/app/models/EmailCampaign";
-import { sendBulkEmails } from "@/lib/sendmailhelper";
+import { sendEmailsByTemplate, EMAIL_TEMPLATES } from "@/lib/emailTemplateHelper";
 
-// POST - Send reminder emails for bookings happening today or tomorrow
+// POST - Send reminder emails for bookings happening today or in the future
 export async function POST(_req: NextRequest) {
   try {
     const user = await getCurrentUser();
@@ -53,30 +52,30 @@ export async function POST(_req: NextRequest) {
       });
     }
 
-    // Find the latest active email campaign for this company (created via Email Builder)
-    const campaign = await EmailCampaign.findOne({
-      companyId: user.companyId,
-      status: "active",
-    }).sort({ updatedAt: -1 });
+    // Use the context-aware helper to send ONLY booking reminder emails
+    const result = await sendEmailsByTemplate({
+      companyId: user.companyId.toString(),
+      templateId: EMAIL_TEMPLATES.BOOKING_REMINDER,
+      recipients: emails,
+      bookingMap,
+    });
 
-    if (!campaign) {
+    if (!result.success) {
       return NextResponse.json(
-        { error: "No active email campaign found for this company" },
+        { error: result.error },
         { status: 400 }
       );
     }
 
-    // Use the helper to send bulk emails with booking data
-    const results = await sendBulkEmails(String(campaign._id), emails, bookingMap);
-
     return NextResponse.json({
-      message: "Reminder emails processed.",
+      message: "Booking reminder emails processed successfully.",
       dateRange: {
         today: startOfToday,
       },
       totalBookingsChecked: bookings.length,
       uniqueEmailsTargeted: emails.length,
-      results,
+      templateUsed: EMAIL_TEMPLATES.BOOKING_REMINDER,
+      results: result.results,
     });
   } catch (error: any) {
     console.error("Error sending booking reminder emails:", error);

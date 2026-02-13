@@ -105,3 +105,68 @@ export async function sendBulkEmails(
     return error;
   }
 }
+
+// Helper to send a single transactional email based on templateId
+export async function sendTransactionalEmail(
+  templateId: string,
+  to: string,
+  data: any, // Contains bookingId, user details, etc.
+  companyId: string
+) {
+  try {
+    await connectDB();
+
+    // Find the most recent active campaign for this template
+    const campaign = await EmailCampaign.findOne({
+        companyId,
+        templateId,
+        status: 'active'
+    }).sort({ updatedAt: -1 });
+
+    if (!campaign) {
+      console.warn(`[Transactional Mail] No active campaign found for template: ${templateId}`);
+      return { sent: false, error: "No active campaign found" };
+    }
+
+    const { subject, html } = campaign;
+    const { personalizeEmail } = await import("@/lib/mail");
+    const { sendMailWithCompanyProvider } = await import("@/lib/mail");
+    const EmailActivity = await import("@/app/models/EmailActivity");
+    const { User } = await import("@/app/models/User");
+
+    // Get recipient user if exists
+    const recipientUser = await User.findOne({ email: to, companyId });
+
+    // Personalize content
+    const personalizedHtml = personalizeEmail(html, recipientUser || { email: to, ...data }, {
+      ...data,
+      campaignId: campaign._id.toString()
+    });
+
+    // Send email
+    const result = await sendMailWithCompanyProvider({
+      companyId,
+      to,
+      subject: personalizeEmail(subject, recipientUser || { email: to, ...data }, data), // Also personalize subject
+      html: personalizedHtml,
+    });
+
+    console.log(`[Transactional Mail] Sent ${templateId} to ${to}`);
+
+    // Log activity if user exists
+    if (recipientUser?._id) {
+        await EmailActivity.default.create({
+            userId: recipientUser._id,
+            campaignId: campaign._id,
+            companyId: campaign.companyId,
+            isAction: false,
+        });
+    }
+
+    return { sent: true, messageId: result.messageId };
+
+  } catch (error: any) {
+    console.error(`[Transactional Mail Error] template=${templateId} to=${to}:`, error);
+    return { sent: false, error: error.message };
+  }
+}

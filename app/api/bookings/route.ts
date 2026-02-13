@@ -7,6 +7,7 @@ import { User } from "@/app/models/User";
 import mongoose from "mongoose";
 import bcrypt from "bcryptjs";
 import { v4 as uuidv4 } from "uuid";
+import { EMAIL_TEMPLATES } from "@/lib/emailTemplateHelper";
 
 // Helper to generate unique Order ID
 function generateOrderId() {
@@ -153,6 +154,42 @@ export async function POST(req: NextRequest) {
 
             await session.commitTransaction();
             session.endSession();
+
+            // Send confirmation emails
+            try {
+                const { sendTransactionalEmail } = await import("@/lib/sendmailhelper");
+                
+                if (allCreatedBookings.length > 0) {
+                    const primaryBooking = allCreatedBookings[0];
+                    let contactEmail = newContact?.email;
+                    
+                    if (!contactEmail && primaryBooking.contactId) {
+                         const contact = await User.findById(primaryBooking.contactId);
+                         contactEmail = contact?.email;
+                    }
+
+                    if (contactEmail) {
+                        const service = await Service.findById(serviceId);
+                        
+                        await sendTransactionalEmail(
+                            EMAIL_TEMPLATES.BOOKING_CONFIRMATION,
+                            contactEmail,
+                            {
+                                bookingId: primaryBooking.orderId,
+                                service_name: service?.name || "Service",
+                                booking_date: new Date(startDateTime).toLocaleDateString(),
+                                booking_time: new Date(startDateTime).toLocaleTimeString(),
+                                price: pricing?.totalAmount || 0,
+                                units: 1, 
+                                company_name: user?.companyName,
+                            },
+                            user?.companyId?.toString() || ""
+                        );
+                    }
+                }
+            } catch (emailError) {
+                console.error("Failed to send booking confirmation email:", emailError);
+            }
 
             return NextResponse.json({
                 message: `Created ${allCreatedBookings.length} bookings for ${techIdsToProcess.length} technicians`,
