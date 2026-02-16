@@ -4,7 +4,7 @@ import { connectDB } from "@/lib/db";
 import { Booking } from "@/app/models/Booking";
 import { sendEmailsByTemplate, EMAIL_TEMPLATES } from "@/lib/emailTemplateHelper";
 
-// POST - Send reminder emails for bookings happening today or in the future
+// POST - Send reminder emails for bookings happening today or tomorrow only
 export async function POST(_req: NextRequest) {
   try {
     const user = await getCurrentUser();
@@ -16,14 +16,19 @@ export async function POST(_req: NextRequest) {
 
     const now = new Date();
 
-    // Define start of today (00:00). We will include all bookings from today onwards.
+    // Define start of today (00:00:00)
     const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    
+    // Define end of tomorrow (23:59:59)
+    const endOfTomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 2);
+    endOfTomorrow.setMilliseconds(-1); // Set to 23:59:59.999 of tomorrow
 
-    // Find all bookings for this company where startDateTime is today or in the future
+    // Find bookings for this company where startDateTime is today or tomorrow
     const bookings = await Booking.find({
       companyId: user.companyId,
       startDateTime: {
         $gte: startOfToday,
+        $lt: endOfTomorrow,
       },
     })
       .populate("contactId", "email")
@@ -37,7 +42,7 @@ export async function POST(_req: NextRequest) {
       const contact = booking.contactId as { email?: string } | undefined;
       if (contact?.email) {
         emailSet.add(contact.email);
-        // Store the most recent booking for each email
+        // Store the earliest booking for each email (for today/tomorrow)
         if (!bookingMap.has(contact.email)) {
           bookingMap.set(contact.email, booking._id.toString());
         }
@@ -48,7 +53,7 @@ export async function POST(_req: NextRequest) {
 
     if (emails.length === 0) {
       return NextResponse.json({
-        message: "No bookings found from today onwards with customer emails.",
+        message: "No bookings found for today or tomorrow with customer emails.",
       });
     }
 
@@ -70,7 +75,9 @@ export async function POST(_req: NextRequest) {
     return NextResponse.json({
       message: "Booking reminder emails processed successfully.",
       dateRange: {
-        today: startOfToday,
+        start: startOfToday,
+        end: endOfTomorrow,
+        description: "Today and Tomorrow only"
       },
       totalBookingsChecked: bookings.length,
       uniqueEmailsTargeted: emails.length,

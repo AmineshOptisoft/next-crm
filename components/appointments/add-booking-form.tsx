@@ -62,6 +62,8 @@ export function AddBookingForm({ open, onOpenChange, initialData }: AddBookingFo
         personal: true,
         service: false
     });
+    const [emailError, setEmailError] = useState("");
+    const [isCheckingEmail, setIsCheckingEmail] = useState(false);
 
     // Data states
     const [contacts, setContacts] = useState<any[]>([]);
@@ -208,6 +210,38 @@ export function AddBookingForm({ open, onOpenChange, initialData }: AddBookingFo
             }
         }
     }, [selectedService, subServiceQuantities, addonQuantities, bookingStart]);
+
+    // Real-time email validation with debouncing
+    useEffect(() => {
+        // Only check if userType is "new" and email is provided
+        if (userType !== "new" || !formData.email) {
+            setEmailError("");
+            setIsCheckingEmail(false);
+            return;
+        }
+
+        // Debounce the email check
+        const timeoutId = setTimeout(async () => {
+            setIsCheckingEmail(true);
+            try {
+                const response = await fetch(`/api/users/check-email?email=${encodeURIComponent(formData.email)}`);
+                const data = await response.json();
+                
+                if (data.exists) {
+                    setEmailError("This email is already registered. Please use a different email or select 'Existing User'.");
+                } else {
+                    setEmailError("");
+                }
+            } catch (error) {
+                console.error("Error checking email:", error);
+                // Don't show error to user for API failures
+            } finally {
+                setIsCheckingEmail(false);
+            }
+        }, 500); // 500ms debounce
+
+        return () => clearTimeout(timeoutId);
+    }, [formData.email, userType]);
 
     // Filter technicians based on clicked technician's zone and selected service
     useEffect(() => {
@@ -404,6 +438,12 @@ export function AddBookingForm({ open, onOpenChange, initialData }: AddBookingFo
 
             // Prepare new contact data if userType is "new"
             if (userType === "new") {
+                // Check if email is already taken
+                if (emailError) {
+                    toast.error("Please fix the email error before submitting");
+                    return;
+                }
+
                 // Validate required fields
                 if (!formData.email || !formData.password || !formData.firstName || !formData.lastName) {
                     toast.error("Please fill all required fields (Email, Password, First Name, Last Name)");
@@ -596,12 +636,23 @@ export function AddBookingForm({ open, onOpenChange, initialData }: AddBookingFo
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div className="space-y-1">
                                     <Label>Preferred Email</Label>
-                                    <Input
-                                        placeholder="Enter email"
-                                        value={formData.email}
-                                        onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                                        disabled={userType === "existing"}
-                                    />
+                                    <div className="relative">
+                                        <Input
+                                            placeholder="Enter email"
+                                            value={formData.email}
+                                            onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                                            disabled={userType === "existing"}
+                                            className={emailError ? "border-red-500" : ""}
+                                        />
+                                        {isCheckingEmail && userType === "new" && (
+                                            <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                                                <div className="animate-spin h-4 w-4 border-2 border-primary border-t-transparent rounded-full"></div>
+                                            </div>
+                                        )}
+                                    </div>
+                                    {emailError && userType === "new" && (
+                                        <p className="text-sm text-red-500 mt-1">{emailError}</p>
+                                    )}
                                 </div>
                                 {userType === "new" && (
                                     <div className="space-y-1">

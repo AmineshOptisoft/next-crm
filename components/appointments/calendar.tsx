@@ -17,6 +17,7 @@ import { Card } from "@/components/ui/card";
 import { EventEditForm } from "./event-edit-form";
 import { AppointmentDetailsSheet, type AppointmentDetails } from "./appointment-details-sheet";
 import { AddBookingForm } from "./add-booking-form";
+import { toast } from "sonner";
 
 
 export default function Calendar() {
@@ -143,7 +144,29 @@ export default function Calendar() {
     // Logic for updating event (would need API call)
   };
 
+
   const handleDateSelect = (info: DateSelectArg) => {
+    // Check if the selected slot overlaps with any unavailability event
+    const isUnavailable = events.some((event: any) => {
+      // Check if event belongs to the selected resource
+      if (event.resourceId !== info.resource?.id) return false;
+
+      // Check if the event is an unavailability type
+      if (event.type !== "unavailability" && event.type !== "unavailability_timed") return false;
+
+      // Check for time overlap
+      const eventStart = new Date(event.start);
+      const eventEnd = new Date(event.end);
+      
+      // Overlap condition: (StartA < EndB) and (EndA > StartB)
+      return info.start < eventEnd && info.end > eventStart;
+    });
+
+    if (isUnavailable) {
+      toast.error("Technician is unavailable at this time.");
+      return;
+    }
+
     setSelectedStart(info.start);
     setSelectedEnd(info.end);
     setSelectedTechnicianId(info.resource?.id); // Capture technician ID from resource

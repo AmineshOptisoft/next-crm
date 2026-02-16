@@ -63,7 +63,7 @@ export interface UserData {
 
     // Working Area
     zone?: string;
-    workingZipCodes?: string[]; // stored as array
+    workingZipCodes?: string[]; // Array of ZipCode IDs
     timesheetEnabled?: boolean;
     bookingEnabled?: boolean;
     availabilityEnabled?: boolean;
@@ -112,7 +112,9 @@ export function UserForm({ user, onSave, loading }: UserFormProps) {
     const [roles, setRoles] = useState<{ _id: string; name: string }[]>([]);
     const [availableServices, setAvailableServices] = useState<{ _id: string; name: string }[]>([]);
     const [serviceAreas, setServiceAreas] = useState<{ _id: string; name: string }[]>([]);
+    const [availableZipCodes, setAvailableZipCodes] = useState<{ _id: string; code: string; serviceAreaId: string | { _id: string; name: string } }[]>([]);
     const [openServiceCombobox, setOpenServiceCombobox] = useState(false);
+    const [openZipCodeCombobox, setOpenZipCodeCombobox] = useState(false);
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const [isUploading, setIsUploading] = useState(false);
 
@@ -155,12 +157,24 @@ export function UserForm({ user, onSave, loading }: UserFormProps) {
             }
         };
 
+        const fetchZipCodes = async () => {
+            try {
+                const response = await fetch("/api/zip-codes");
+                if (response.ok) {
+                    const data = await response.json();
+                    setAvailableZipCodes(data);
+                }
+            } catch (error) {
+                console.error("Failed to fetch zip codes:", error);
+            }
+        };
+
         fetchRoles();
         fetchServices();
         fetchServiceAreas();
+        fetchZipCodes();
     }, []);
-    // Local state for zip codes area to handle text input
-    const [zipCodesText, setZipCodesText] = useState(user.workingZipCodes?.join(", ") || "");
+
 
     // Cascading Location Logic
     const countries = Country.getAllCountries();
@@ -177,13 +191,7 @@ export function UserForm({ user, onSave, loading }: UserFormProps) {
         setFormData((prev) => ({ ...prev, [field]: value }));
     };
 
-    const handleZipCodeChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-        const val = e.target.value;
-        setZipCodesText(val);
-        // Parse into array
-        const zips = val.split(",").map(s => s.trim()).filter(Boolean);
-        handleChange("workingZipCodes", zips);
-    };
+
 
     const handleAddTag = (e: React.KeyboardEvent) => {
         if (e.key === "Enter" && newTag.trim()) {
@@ -474,7 +482,7 @@ export function UserForm({ user, onSave, loading }: UserFormProps) {
                                     <div className="space-y-2">
                                         <Label>Services</Label>
                                         <Popover open={openServiceCombobox} onOpenChange={setOpenServiceCombobox}>
-                                            <PopoverTrigger asChild>
+                                            <PopoverTrigger asChild className="bg-muted/50">
                                                 <div
                                                     role="combobox"
                                                     aria-expanded={openServiceCombobox}
@@ -611,7 +619,11 @@ export function UserForm({ user, onSave, loading }: UserFormProps) {
                                             <Label>Zone</Label>
                                             <Select
                                                 value={formData.zone || ""}
-                                                onValueChange={(val) => handleChange("zone", val)}
+                                                onValueChange={(val) => {
+                                                    handleChange("zone", val);
+                                                    // Clear selected zip codes when zone changes
+                                                    handleChange("workingZipCodes", []);
+                                                }}
                                             >
                                                 <SelectTrigger className="w-full">
                                                     <SelectValue placeholder="Select Zone" />
@@ -632,13 +644,113 @@ export function UserForm({ user, onSave, loading }: UserFormProps) {
                                             </Select>
                                         </div>
                                         <div className="space-y-2">
-                                            <Label>Zip Code</Label>
-                                            <Textarea
-                                                value={zipCodesText}
-                                                onChange={handleZipCodeChange}
-                                                className="h-24 font-mono text-xs"
-                                                placeholder="Enter zip codes separated by commas..."
-                                            />
+                                            <Label>Zip Codes</Label>
+                                            <Popover open={openZipCodeCombobox} onOpenChange={setOpenZipCodeCombobox}>
+                                                <PopoverTrigger asChild className="bg-muted/50">
+                                                    <div
+                                                        role="combobox"
+                                                        aria-expanded={openZipCodeCombobox}
+                                                        className="flex h-auto min-h-[40px] w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"
+                                                        onClick={() => setOpenZipCodeCombobox(!openZipCodeCombobox)}
+                                                    >
+                                                        <div className="flex flex-wrap gap-1">
+                                                            {formData.workingZipCodes && formData.workingZipCodes.length > 0 ? (
+                                                                formData.workingZipCodes.map((zipCodeId) => {
+                                                                    const zipCode = availableZipCodes.find((z) => z._id === zipCodeId);
+                                                                    return zipCode ? (
+                                                                        <Badge key={zipCodeId} variant="secondary" className="mr-1 mb-1 hover:bg-secondary/80 ">
+                                                                            {zipCode.code}
+                                                                            <button
+                                                                                type="button"
+                                                                                className="ml-1 rounded-full outline-none ring-offset-background focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                                                                                onKeyDown={(e) => {
+                                                                                    if (e.key === "Enter") {
+                                                                                        e.stopPropagation();
+                                                                                        const newZipCodes = formData.workingZipCodes?.filter((id) => id !== zipCodeId);
+                                                                                        handleChange("workingZipCodes", newZipCodes);
+                                                                                    }
+                                                                                }}
+                                                                                onMouseDown={(e) => {
+                                                                                    e.preventDefault();
+                                                                                    e.stopPropagation();
+                                                                                }}
+                                                                                onClick={(e) => {
+                                                                                    e.preventDefault();
+                                                                                    e.stopPropagation();
+                                                                                    const newZipCodes = formData.workingZipCodes?.filter((id) => id !== zipCodeId);
+                                                                                    handleChange("workingZipCodes", newZipCodes);
+                                                                                }}
+                                                                            >
+                                                                                <X className="h-3 w-3 text-muted-foreground hover:text-foreground" />
+                                                                            </button>
+                                                                        </Badge>
+                                                                    ) : null;
+                                                                })
+                                                            ) : (
+                                                                <span className="text-muted-foreground">Select zip codes...</span>
+                                                            )}
+                                                        </div>
+                                                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                                    </div>
+                                                </PopoverTrigger>
+                                                <PopoverContent className="w-[400px] p-0">
+                                                    <Command>
+                                                        <CommandInput placeholder="Search zip code..." />
+                                                        <CommandList>
+                                                            <CommandEmpty>No zip code found.</CommandEmpty>
+                                                            <CommandGroup>
+                                                                {(() => {
+                                                                    // Get the selected zone's ID
+                                                                    const selectedZone = serviceAreas.find((area) => area.name === formData.zone);
+                                                                    const selectedZoneId = selectedZone?._id;
+
+                                                                    // Filter zip codes by selected zone
+                                                                    const filteredZipCodes = selectedZoneId
+                                                                        ? availableZipCodes.filter((zipCode) => {
+                                                                            const serviceAreaId = typeof zipCode.serviceAreaId === 'object'
+                                                                                ? zipCode.serviceAreaId._id
+                                                                                : zipCode.serviceAreaId;
+                                                                            return serviceAreaId === selectedZoneId;
+                                                                        })
+                                                                        : [];
+
+                                                                    if (filteredZipCodes.length === 0) {
+                                                                        return <CommandItem disabled>No zip codes available for this zone</CommandItem>;
+                                                                    }
+
+                                                                    return filteredZipCodes.map((zipCode) => (
+                                                                        <CommandItem
+                                                                            key={zipCode._id}
+                                                                            value={zipCode.code}
+                                                                            onSelect={() => {
+                                                                                const currentZipCodes = formData.workingZipCodes || [];
+                                                                                const isSelected = currentZipCodes.includes(zipCode._id);
+                                                                                let newZipCodes;
+                                                                                if (isSelected) {
+                                                                                    newZipCodes = currentZipCodes.filter((id) => id !== zipCode._id);
+                                                                                } else {
+                                                                                    newZipCodes = [...currentZipCodes, zipCode._id];
+                                                                                }
+                                                                                handleChange("workingZipCodes", newZipCodes);
+                                                                            }}
+                                                                        >
+                                                                            <Check
+                                                                                className={cn(
+                                                                                    "mr-2 h-4 w-4",
+                                                                                    formData.workingZipCodes?.includes(zipCode._id)
+                                                                                        ? "opacity-100"
+                                                                                        : "opacity-0"
+                                                                                )}
+                                                                            />
+                                                                            {zipCode.code}
+                                                                        </CommandItem>
+                                                                    ));
+                                                                })()}
+                                                            </CommandGroup>
+                                                        </CommandList>
+                                                    </Command>
+                                                </PopoverContent>
+                                            </Popover>
                                         </div>
                                     </div>
 

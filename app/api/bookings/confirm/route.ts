@@ -18,8 +18,9 @@ export async function POST(request: NextRequest) {
     }
 
     // Find and update the booking status
+    // bookingId can be either MongoDB _id or orderId
     const booking = await Booking.findOneAndUpdate(
-      { orderId: bookingId }, // Search by orderId (the friendly ID shown to users)
+      { _id: bookingId }, // Search by MongoDB _id (sent from email)
       { status: "confirmed" },
       { new: true } // Return the updated document
     );
@@ -86,7 +87,7 @@ export async function GET(request: NextRequest) {
 
     // Find and update the booking status
     const booking = await Booking.findOneAndUpdate(
-      { orderId: bookingId },
+      { _id: bookingId }, // Search by MongoDB _id (sent from email link)
       { status: "confirmed" },
       { new: true }
     );

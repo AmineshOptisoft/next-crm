@@ -18,8 +18,9 @@ export async function POST(request: NextRequest) {
     }
 
     // Find and update the booking status
+    // bookingId is the MongoDB _id sent from email
     const booking = await Booking.findOneAndUpdate(
-      { orderId: bookingId },
+      { _id: bookingId },
       { status: "cancelled" },
       { new: true }
     );
@@ -86,7 +87,7 @@ export async function GET(request: NextRequest) {
 
     // Find and update the booking status
     const booking = await Booking.findOneAndUpdate(
-      { orderId: bookingId },
+      { _id: bookingId },
       { status: "cancelled" },
       { new: true }
     );

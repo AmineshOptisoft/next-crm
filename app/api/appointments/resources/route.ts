@@ -7,8 +7,11 @@ import { Company } from "@/app/models/Company";
 import { Booking } from "@/app/models/Booking";
 import { Service } from "@/app/models/Service";
 
+// ULTRA OPTIMIZATION: Reduce availability generation from 30 weeks to 8 weeks
+// This alone can reduce 70% of processing time
+const WEEKS_TO_GENERATE = 8; // 4 weeks back + 4 weeks forward
 
-// GET - Fetch resources (service areas + technicians) and availability events
+// GET - Fetch resources and availability events (ULTRA OPTIMIZED)
 export async function GET(req: NextRequest) {
     try {
         const user = await getCurrentUser();
@@ -18,70 +21,64 @@ export async function GET(req: NextRequest) {
 
         await connectDB();
 
-        // Fetch service areas
-        const serviceAreas = await ServiceArea.find({ companyId: user.companyId }).sort({ name: 1 });
-        console.log("Service Areas found:", serviceAreas.length, serviceAreas.map(a => a.name));
+        // Get date range for bookings (only fetch relevant bookings)
+        const today = new Date();
+        const startDate = new Date(today);
+        startDate.setDate(today.getDate() - 28);
+        const endDate = new Date(today);
+        endDate.setDate(today.getDate() + 56); // 8 weeks forward
 
-        // Fetch all technicians
-        const technicians = await User.find({
-            companyId: user.companyId,
-            role: "company_user",
-            isTechnicianActive: true
-        }).select('firstName lastName zone availability services').lean();
-        console.log("Technicians found:", technicians.length, technicians.map((t: any) => ({ name: `${t.firstName} ${t.lastName}`, zone: t.zone })));
-
-        // Fetch master availability (use default when empty so week/month don't show all red)
-        const company = await Company.findById(user.companyId).lean();
-        let masterAvailability = normalizeAvailability(company?.masterAvailability);
-        if (masterAvailability.length === 0) {
-            masterAvailability = getDefaultMasterAvailability();
-        }
-        console.log("Master availability:", masterAvailability.length);
-
-        // Build resources array (technicians grouped by service area)
-        const resources: any[] = [];
-        const availabilityEvents: any[] = [];
-
-        // Group technicians by service area
-        const techniciansByZone = new Map<string, any[]>();
-
-        technicians.forEach(tech => {
-            const zone = tech.zone || "Unassigned";
-            if (!techniciansByZone.has(zone)) {
-                techniciansByZone.set(zone, []);
-            }
-            techniciansByZone.get(zone)!.push(tech);
-        });
-
-        // Add service areas and their technicians (Unassigned zone excluded from appointments)
-        serviceAreas.forEach(area => {
-            const zoneTechs = techniciansByZone.get(area.name) || [];
-
-            zoneTechs.forEach(tech => {
-                resources.push({
-                    id: tech._id.toString(),
-                    title: `${tech.firstName} ${tech.lastName}`,
-                    group: area.name,
-                    services: tech.services || [] // Include assigned services
-                });
-
-                // Generate availability blocks (normalize tech availability from DB)
-                const blocks = generateAvailabilityBlocks(
-                    tech._id.toString(),
-                    masterAvailability,
-                    normalizeAvailability(tech.availability)
-                );
-                availabilityEvents.push(...blocks);
-            });
-        });
-
-        // Fetch bookings and add them as yellow events
-        const bookings = await Booking.find({ companyId: user.companyId })
+        // CRITICAL: Run ALL queries in parallel with optimized filters
+        const [serviceAreas, technicians, company, bookings] = await Promise.all([
+            // Only fetch name - nothing else needed
+            ServiceArea.find({ companyId: user.companyId })
+                .select('name')
+                .sort({ name: 1 })
+                .lean()
+                .exec(),
+            
+            // Only active technicians with minimal fields
+            User.find({
+                companyId: user.companyId,
+                role: "company_user",
+                isTechnicianActive: true
+            })
+            .select('firstName lastName zone availability services')
+            .lean()
+            .exec(),
+            
+            // Only master availability
+            Company.findById(user.companyId)
+                .select('masterAvailability')
+                .lean()
+                .exec(),
+            
+            // CRITICAL: Only fetch bookings in date range
+            Booking.find({ 
+                companyId: user.companyId,
+                startDateTime: { 
+                    $gte: startDate,
+                    $lte: endDate 
+                }
+            })
             .populate('contactId', 'firstName lastName email phone')
             .populate('serviceId', 'name')
-            .lean();
+            .select('technicianId startDateTime endDateTime status subServices addons notes pricing shippingAddress')
+            .lean()
+            .exec()
+        ]);
 
-        // Collect all unique service IDs from subServices and addons
+        // Fast master availability setup
+        let masterAvailability = normalizeAvailability(company?.masterAvailability);
+        if (masterAvailability.length === 0) {
+            masterAvailability = DEFAULT_MASTER_AVAILABILITY;
+        }
+
+        // Pre-build maps for O(1) lookups
+        const masterMap = new Map(masterAvailability.map(m => [m.day, m]));
+        const serviceAreaMap = new Map(serviceAreas.map(sa => [sa.name, sa]));
+
+        // Collect service IDs (if needed)
         const serviceIds = new Set<string>();
         bookings.forEach((booking: any) => {
             booking.subServices?.forEach((sub: any) => {
@@ -92,47 +89,78 @@ export async function GET(req: NextRequest) {
             });
         });
 
-        // Fetch all services in one query
-        const services = await Service.find({ _id: { $in: Array.from(serviceIds) } }).select('_id name').lean();
-        const serviceMap = new Map(services.map((s: any) => [s._id.toString(), s.name]));
+        // Fetch services only if needed
+        const serviceMap = serviceIds.size > 0 
+            ? new Map((await Service.find({ _id: { $in: Array.from(serviceIds) } })
+                .select('_id name')
+                .lean()
+                .exec()).map((s: any) => [s._id.toString(), s.name]))
+            : new Map();
 
+        // Build resources and availability events efficiently
+        const resources: any[] = [];
+        const availabilityEvents: any[] = [];
+
+        // Group technicians by zone (single pass)
+        const techniciansByZone = new Map<string, any[]>();
+        technicians.forEach(tech => {
+            const zone = tech.zone || "Unassigned";
+            const list = techniciansByZone.get(zone);
+            if (list) {
+                list.push(tech);
+            } else {
+                techniciansByZone.set(zone, [tech]);
+            }
+        });
+
+        // Process each service area and its technicians
+        serviceAreas.forEach(area => {
+            const zoneTechs = techniciansByZone.get(area.name) || [];
+
+            zoneTechs.forEach(tech => {
+                resources.push({
+                    id: tech._id.toString(),
+                    title: `${tech.firstName} ${tech.lastName}`,
+                    group: area.name,
+                    services: tech.services || []
+                });
+
+                // Generate availability blocks (reduced weeks)
+                const techAvailability = normalizeAvailability(tech.availability);
+                const effectiveAvailability = techAvailability.length > 0 ? techAvailability : masterAvailability;
+                const techMap = new Map(effectiveAvailability.map(t => [t.day, t]));
+
+                const blocks = generateAvailabilityBlocksFast(
+                    tech._id.toString(),
+                    masterMap,
+                    techMap
+                );
+                availabilityEvents.push(...blocks);
+            });
+        });
+
+        // Process booking events
         const bookingEvents = bookings.map((booking: any) => {
-            // Format address
             const addr = booking.shippingAddress;
-            const formattedAddress = addr ? `${addr.street || ''}, ${addr.city || ''}, ${addr.state || ''} ${addr.zipCode || ''}` : '';
+            const formattedAddress = addr 
+                ? `${addr.street || ''}, ${addr.city || ''}, ${addr.state || ''} ${addr.zipCode || ''}`.trim() 
+                : '';
 
-            // Format units (sub-services) with service names from map
-            const units = booking.subServices?.map((sub: any) => {
-                const serviceName = serviceMap.get(sub.serviceId?.toString()) || 'Unknown';
-                return `${serviceName} (x${sub.quantity})`;
-            }).join(', ') || '';
+            const units = booking.subServices?.map((sub: any) => 
+                `${serviceMap.get(sub.serviceId?.toString()) || 'Unknown'} (x${sub.quantity})`
+            ).join(', ') || '';
 
-            // Format addons with service names from map
-            const addons = booking.addons?.map((addon: any) => {
-                const serviceName = serviceMap.get(addon.serviceId?.toString()) || 'Unknown';
-                return `${serviceName} (x${addon.quantity})`;
-            }).join(', ') || '';
+            const addons = booking.addons?.map((addon: any) => 
+                `${serviceMap.get(addon.serviceId?.toString()) || 'Unknown'} (x${addon.quantity})`
+            ).join(', ') || '';
 
             return {
                 id: `booking-${booking._id}`,
                 resourceId: booking.technicianId?.toString(),
                 title: `${booking.contactId?.firstName || ''} ${booking.contactId?.lastName || ''} - ${booking.serviceId?.name || 'Service'}`,
-                start: new Date(booking.startDateTime),
-                end: new Date(booking.endDateTime),
-                backgroundColor: (() => {
-                    switch (booking.status) {
-                        case 'unconfirmed': return '#ea580c'; // Orange
-                        case 'confirmed':
-                        case 'scheduled': return '#eab308'; // Yellow
-                        case 'invoice_sent': return '#2563eb'; // Blue
-                        case 'paid': return '#16a34a'; // Green
-                        case 'closed': return '#4b5563'; // Gray
-                        case 'rejected':
-                        case 'cancelled': return '#dc2626'; // Red
-                        case 'completed': return '#10b981'; // Teal
-                        default: return '#eab308';
-                    }
-                })(),
+                start: booking.startDateTime,
+                end: booking.endDateTime,
+                backgroundColor: STATUS_COLORS[booking.status] || '#eab308',
                 borderColor: "#ca8a04",
                 textColor: "#000000",
                 type: "booking",
@@ -140,23 +168,19 @@ export async function GET(req: NextRequest) {
                     bookingId: booking._id,
                     bookingStatus: booking.status,
                     service: booking.serviceId?.name,
-                    units: units,
-                    addons: addons,
+                    units,
+                    addons,
                     notes: booking.notes,
                     bookingPrice: booking.pricing?.finalAmount ? `$${booking.pricing.finalAmount.toFixed(2)}` : '-',
                     bookingDiscount: booking.pricing?.discount ? `$${booking.pricing.discount}` : '-',
-
                     customerName: `${booking.contactId?.firstName || ''} ${booking.contactId?.lastName || ''}`,
                     customerEmail: booking.contactId?.email,
                     customerPhone: booking.contactId?.phone,
                     customerAddress: formattedAddress,
-
-                    // Maps to Calendar.tsx mapping
                     status: booking.status
                 }
             };
         });
-
 
         return NextResponse.json({
             resources,
@@ -171,166 +195,184 @@ export async function GET(req: NextRequest) {
     }
 }
 
-// Helper function to generate availability blocks (supports multiple weeks for calendar navigation)
-function generateAvailabilityBlocks(
+// Status colors lookup (constant)
+const STATUS_COLORS: Record<string, string> = {
+    'unconfirmed': '#ea580c',
+    'confirmed': '#eab308',
+    'scheduled': '#eab308',
+    'invoice_sent': '#2563eb',
+    'paid': '#16a34a',
+    'closed': '#4b5563',
+    'rejected': '#dc2626',
+    'cancelled': '#dc2626',
+    'completed': '#10b981'
+};
+
+// Default master availability (constant)
+const DEFAULT_MASTER_AVAILABILITY = [
+    { day: "Monday", isOpen: true, startTime: "09:00 AM", endTime: "06:00 PM" },
+    { day: "Tuesday", isOpen: true, startTime: "09:00 AM", endTime: "06:00 PM" },
+    { day: "Wednesday", isOpen: true, startTime: "09:00 AM", endTime: "06:00 PM" },
+    { day: "Thursday", isOpen: true, startTime: "09:00 AM", endTime: "06:00 PM" },
+    { day: "Friday", isOpen: true, startTime: "09:00 AM", endTime: "06:00 PM" },
+    { day: "Saturday", isOpen: false, startTime: "09:00 AM", endTime: "06:00 PM" },
+    { day: "Sunday", isOpen: false, startTime: "09:00 AM", endTime: "06:00 PM" }
+];
+
+// Day names constant
+const DAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+
+// ULTRA FAST: Generate availability blocks with reduced week range
+function generateAvailabilityBlocksFast(
     technicianId: string,
-    masterAvailability: any[],
-    technicianAvailability: any[]
+    masterMap: Map<string, any>,
+    techMap: Map<string, any>
 ) {
     const blocks: any[] = [];
-    const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
-
-    // When technician has no availability set, use master so company hours show as available
-    const effectiveTechAvailability =
-        technicianAvailability && technicianAvailability.length > 0
-            ? technicianAvailability
-            : masterAvailability;
-
-    // Generate blocks for a wide date range so calendar shows availability when navigating
+    
+    // Calculate date range once
     const today = new Date();
     const startRange = new Date(today);
     startRange.setDate(today.getDate() - 28); // 4 weeks back
 
-    // Monday = 0 for alignment with days[] (index 0 = Monday)
-    const getMondayOfWeek = (d: Date) => {
-        const m = new Date(d);
-        const day = m.getDay();
-        const diff = day === 0 ? -6 : 1 - day; // Sunday -> previous Monday
-        m.setDate(m.getDate() + diff);
-        m.setHours(0, 0, 0, 0);
-        return m;
-    };
-
+    // Get Monday of the start week
     const weekStart = getMondayOfWeek(startRange);
-    const totalWeeks = 30; // ~4 weeks back + ~26 forward so calendar always has blocks
 
-    for (let weekIndex = 0; weekIndex < totalWeeks; weekIndex++) {
-        const w = new Date(weekStart);
-        w.setDate(weekStart.getDate() + weekIndex * 7);
-        days.forEach((day, index) => {
-            const date = new Date(w);
-            date.setDate(w.getDate() + index);
+    // CRITICAL: Reduced from 30 weeks to 8 weeks (70% reduction in processing)
+    for (let weekIndex = 0; weekIndex < WEEKS_TO_GENERATE; weekIndex++) {
+        const weekOffset = weekIndex * 7;
+        
+        for (let dayIndex = 0; dayIndex < 7; dayIndex++) {
+            const date = new Date(weekStart);
+            date.setDate(weekStart.getDate() + weekOffset + dayIndex);
+            
+            const day = DAY_NAMES[dayIndex];
+            const masterDay = masterMap.get(day);
+            const techDay = techMap.get(day);
 
-            const masterDay = masterAvailability.find((m: any) => m.day === day);
-            const techDay = effectiveTechAvailability.find((t: any) => t.day === day);
-
-            // If either master or technician is closed, mark entire day as unavailable
+            // If closed, create single unavailable block for entire day
             if (!masterDay?.isOpen || !techDay?.isOpen) {
-                const blockStart = new Date(date);
-                blockStart.setHours(0, 0, 0, 0);
-                const blockEnd = new Date(date);
-                blockEnd.setHours(23, 59, 59, 999);
                 blocks.push({
-                    id: `unavailable-${technicianId}-${date.toISOString().slice(0, 10)}-${day}`,
+                    id: `unavail-${technicianId}-${date.toISOString().slice(0, 10)}`,
                     resourceId: technicianId,
-                    start: blockStart,
-                    end: blockEnd,
+                    start: new Date(date.setHours(0, 0, 0, 0)),
+                    end: new Date(date.setHours(23, 59, 59, 999)),
                     title: "Not Available",
                     backgroundColor: "#ef4444",
                     display: "background",
                     type: "unavailability"
                 });
             } else {
-                // DAY VIEW FIX:
-                // For days that are open, we create time-based unavailability
-                // blocks ONLY for the day view (before/after working hours).
-                // Week/Month views will ignore these via the calendar filter.
+                // Calculate effective working hours
+                const masterStart = parseTimeFast(masterDay.startTime);
+                const masterEnd = parseTimeFast(masterDay.endTime);
+                const techStart = parseTimeFast(techDay.startTime);
+                const techEnd = parseTimeFast(techDay.endTime);
 
-                const masterStart = parseTime(masterDay.startTime);
-                const masterEnd = parseTime(masterDay.endTime);
-                const techStart = parseTime(techDay.startTime);
-                const techEnd = parseTime(techDay.endTime);
-
-                // Effective working window is the intersection of company + tech hours
                 const effectiveStart = Math.max(masterStart, techStart);
                 const effectiveEnd = Math.min(masterEnd, techEnd);
 
                 // Block before working hours
                 if (effectiveStart > 0) {
-                    const blockStart = new Date(date);
-                    blockStart.setHours(0, 0, 0, 0);
-                    const blockEnd = new Date(date);
-                    blockEnd.setHours(Math.floor(effectiveStart / 60), effectiveStart % 60, 0, 0);
-
+                    const startHour = Math.floor(effectiveStart / 60);
+                    const startMin = effectiveStart % 60;
+                    
                     blocks.push({
-                        id: `unavailable-${technicianId}-${date.toISOString().slice(0, 10)}-${day}-before`,
+                        id: `unavail-${technicianId}-${date.toISOString().slice(0, 10)}-before`,
                         resourceId: technicianId,
-                        start: blockStart,
-                        end: blockEnd,
+                        start: new Date(new Date(date).setHours(0, 0, 0, 0)),
+                        end: new Date(new Date(date).setHours(startHour, startMin, 0, 0)),
                         title: "Not Available",
                         backgroundColor: "#ef4444",
                         display: "background",
-                        type: "unavailability_timed", // used only in Day view
+                        type: "unavailability_timed"
                     });
                 }
 
                 // Block after working hours
                 if (effectiveEnd < 1440) {
-                    const blockStart = new Date(date);
-                    blockStart.setHours(Math.floor(effectiveEnd / 60), effectiveEnd % 60, 0, 0);
-                    const blockEnd = new Date(date);
-                    blockEnd.setHours(23, 59, 59, 999);
-
+                    const endHour = Math.floor(effectiveEnd / 60);
+                    const endMin = effectiveEnd % 60;
+                    
                     blocks.push({
-                        id: `unavailable-${technicianId}-${date.toISOString().slice(0, 10)}-${day}-after`,
+                        id: `unavail-${technicianId}-${date.toISOString().slice(0, 10)}-after`,
                         resourceId: technicianId,
-                        start: blockStart,
-                        end: blockEnd,
+                        start: new Date(new Date(date).setHours(endHour, endMin, 0, 0)),
+                        end: new Date(new Date(date).setHours(23, 59, 59, 999)),
                         title: "Not Available",
                         backgroundColor: "#ef4444",
                         display: "background",
-                        type: "unavailability_timed", // used only in Day view
+                        type: "unavailability_timed"
                     });
                 }
             }
-        });
+        }
     }
 
     return blocks;
 }
 
-// Normalize availability array from DB (plain objects, consistent day names: Monday-Sunday)
+// Get Monday of week
+function getMondayOfWeek(d: Date): Date {
+    const m = new Date(d);
+    const day = m.getDay();
+    const diff = day === 0 ? -6 : 1 - day;
+    m.setDate(m.getDate() + diff);
+    m.setHours(0, 0, 0, 0);
+    return m;
+}
+
+// Time parsing cache
+const TIME_CACHE = new Map<string, number>();
+
+// ULTRA FAST: Parse time with caching and regex
+function parseTimeFast(timeStr: string | undefined): number {
+    if (!timeStr) return 0;
+    
+    // Check cache
+    const cached = TIME_CACHE.get(timeStr);
+    if (cached !== undefined) return cached;
+
+    // Fast regex parse
+    const match = timeStr.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+    if (!match) {
+        TIME_CACHE.set(timeStr, 0);
+        return 0;
+    }
+
+    let hours = parseInt(match[1], 10);
+    const minutes = parseInt(match[2], 10);
+    const period = match[3].toUpperCase();
+
+    if (period === "PM" && hours !== 12) hours += 12;
+    if (period === "AM" && hours === 12) hours = 0;
+
+    const result = hours * 60 + minutes;
+    TIME_CACHE.set(timeStr, result);
+    
+    return result;
+}
+
+// Normalize availability with Set for O(1) lookup
+const DAY_SET = new Set(DAY_NAMES);
+
 function normalizeAvailability(arr: any): { day: string; isOpen: boolean; startTime: string; endTime: string }[] {
     if (!Array.isArray(arr) || arr.length === 0) return [];
-    const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
-    const toDay = (s: string) => s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
+    
     return arr
         .map((item: any) => {
-            const rawDay = typeof item?.day === "string" ? item.day.trim() : "";
-            const day = toDay(rawDay);
+            const day = item?.day?.trim();
+            if (!day) return null;
+            
+            const normalized = day.charAt(0).toUpperCase() + day.slice(1).toLowerCase();
+            if (!DAY_SET.has(normalized)) return null;
+            
             return {
-                day: days.includes(day) ? day : "",
+                day: normalized,
                 isOpen: Boolean(item?.isOpen),
-                startTime: typeof item?.startTime === "string" ? item.startTime : "09:00 AM",
-                endTime: typeof item?.endTime === "string" ? item.endTime : "06:00 PM"
+                startTime: item?.startTime || "09:00 AM",
+                endTime: item?.endTime || "06:00 PM"
             };
         })
-        .filter((item: any) => item.day);
-}
-
-// Default master availability when company has none set (matches company-settings behavior)
-function getDefaultMasterAvailability() {
-    const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
-    return days.map(day => ({
-        day,
-        isOpen: day !== "Saturday" && day !== "Sunday",
-        startTime: "09:00 AM",
-        endTime: "06:00 PM"
-    }));
-}
-
-// Helper to convert time string to minutes (e.g. "09:00 AM"); returns 0-1440, default 0 for invalid
-function parseTime(timeStr: string | undefined): number {
-    if (typeof timeStr !== "string" || !timeStr.trim()) return 0;
-    const parts = timeStr.trim().split(" ");
-    const period = parts[1];
-    const timePart = parts[0];
-    if (!timePart || !period) return 0;
-    const [h, m] = timePart.split(":").map(Number);
-    if (Number.isNaN(h)) return 0;
-    let hours = h;
-    const minutes = Number.isNaN(m) ? 0 : m;
-    if (period.toUpperCase() === "PM" && hours !== 12) hours += 12;
-    if (period.toUpperCase() === "AM" && hours === 12) hours = 0;
-    return Math.min(1440, Math.max(0, hours * 60 + minutes));
+        .filter(Boolean) as any[];
 }
