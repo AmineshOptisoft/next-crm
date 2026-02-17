@@ -20,10 +20,11 @@ import {
 } from "@/components/ui/popover";
 import { DateTimePicker } from "@/components/ui/date-time-picker";
 import { Check, ChevronsUpDown, X, Calendar as CalendarIcon, DollarSign, Clock, ChevronDown, ChevronUp, Plus, Minus } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { Country, State, City } from "country-state-city";
+import { Promocode } from "@/components/company-settings/types";
 
 // Accordion Item component
 function AccordionItem({ title, isOpen, onToggle, children }: any) {
@@ -62,23 +63,24 @@ export function AddBookingForm({ open, onOpenChange, initialData }: AddBookingFo
         personal: true,
         service: false
     });
+
+    // ── FIX: Separate email into its own state so the debounce effect
+    //    only fires when email changes, not on every other field keystroke.
+    const [email, setEmail] = useState("");
     const [emailError, setEmailError] = useState("");
     const [isCheckingEmail, setIsCheckingEmail] = useState(false);
 
     // Data states
     const [contacts, setContacts] = useState<any[]>([]);
     const [services, setServices] = useState<any[]>([]);
-    const [technicians, setTechnicians] = useState<any[]>([]);
-    const [allTechnicians, setAllTechnicians] = useState<any[]>([]); // Store all technicians
-    const [filteredTechnicians, setFilteredTechnicians] = useState<any[]>([]); // Filtered list
+    const [allTechnicians, setAllTechnicians] = useState<any[]>([]);
     const [selectedContact, setSelectedContact] = useState<any>(null);
     const [selectedService, setSelectedService] = useState<any>(null);
     const [selectedTechnicianIds, setSelectedTechnicianIds] = useState<string[]>([]);
 
-    // Form states
-    const [formData, setFormData] = useState({
-        // Personal details
-        email: "",
+    // ── FIX: Split formData into two objects so that typing in personal
+    //    fields doesn't re-run shipping-related memos and vice-versa.
+    const [personalData, setPersonalData] = useState({
         password: "",
         firstName: "",
         lastName: "",
@@ -89,26 +91,24 @@ export function AddBookingForm({ open, onOpenChange, initialData }: AddBookingFo
         state: "California",
         zipCode: "",
         gender: "Prefer not to say",
+    });
 
-        // Shipping address
+    const [shippingData, setShippingData] = useState({
         shippingAddress: "",
         shippingCountry: "United States",
         shippingCity: "",
         shippingState: "California",
         shippingZipCode: "",
-
-        // Appointment
-        notes: ""
     });
+
+    const [notes, setNotes] = useState("");
 
     const [bookingType, setBookingType] = useState<"once" | "recurring">("once");
     const [frequency, setFrequency] = useState<"weekly" | "monthly">("weekly");
     const [selectedDays, setSelectedDays] = useState<number[]>([]);
-    // For monthly recurrence: specific week-of-month + weekday pairs
     const [monthlyWeeks, setMonthlyWeeks] = useState<{ week: number; dayOfWeek: number }[]>([]);
     const [recurringEndDate, setRecurringEndDate] = useState("");
 
-    // Date/Time States (Local)
     const [bookingStart, setBookingStart] = useState<Date | undefined>(initialData?.start);
     const [bookingEnd, setBookingEnd] = useState<Date | undefined>(initialData?.end);
 
@@ -117,37 +117,34 @@ export function AddBookingForm({ open, onOpenChange, initialData }: AddBookingFo
         if (initialData?.end) setBookingEnd(initialData.end);
     }, [initialData]);
 
-    // Sub-services and addons with quantities
     const [subServiceQuantities, setSubServiceQuantities] = useState<Record<string, number>>({});
     const [addonQuantities, setAddonQuantities] = useState<Record<string, number>>({});
 
-    // Pricing
     const [discount, setDiscount] = useState(0);
+    const [promocodes, setPromocodes] = useState<Promocode[]>([]);
+    const [selectedPromocode, setSelectedPromocode] = useState<string>("");
 
-    const toggleSection = (key: keyof typeof sections) => {
+    // ── FIX: useCallback prevents AccordionItem's onToggle from being a
+    //    new reference on every render, stopping unnecessary re-renders.
+    const toggleSection = useCallback((key: keyof typeof sections) => {
         setSections(prev => ({ ...prev, [key]: !prev[key] }));
-    };
+    }, []);
 
-    // Fetch contacts on mount
     useEffect(() => {
-        if (open && userType === "existing") {
-            fetchContacts();
-        }
+        if (open && userType === "existing") fetchContacts();
     }, [open, userType]);
 
-    // Fetch services when technician is selected (using the primary/initial technician)
     useEffect(() => {
         if (open && initialData?.technicianId) {
             fetchTechnicianServices(initialData.technicianId);
-            // Initialize selected technicians with the clicked one
             setSelectedTechnicianIds([initialData.technicianId]);
         }
     }, [open, initialData?.technicianId]);
 
-    // Fetch all technicians
     useEffect(() => {
         if (open) {
             fetchTechnicians();
+            fetchPromocodes();
         }
     }, [open]);
 
@@ -155,135 +152,95 @@ export function AddBookingForm({ open, onOpenChange, initialData }: AddBookingFo
         try {
             const res = await fetch('/api/appointments/resources');
             const data = await res.json();
-            // Store all technicians for filtering
             setAllTechnicians(data.resources || []);
-            setTechnicians(data.resources || []);
         } catch (error) {
             console.error("Failed to fetch technicians:", error);
         }
     };
 
-    // Auto-calculate end time based on estimated times of selected services
+    const fetchPromocodes = async () => {
+        try {
+            const res = await fetch('/api/promocodes');
+            const data = await res.json();
+            setPromocodes(data);
+        } catch (error) {
+            console.error("Failed to fetch promocodes:", error);
+        }
+    };
+
+    // Auto-calculate end time
     useEffect(() => {
         if (!selectedService || !bookingStart) return;
 
         let totalMinutes = 0;
 
-        // Add estimated time from sub-services
         selectedService.subServices?.forEach((sub: any) => {
             const qty = subServiceQuantities[sub._id] || 0;
-            if (qty > 0 && sub.estimatedTime) {
-                totalMinutes += sub.estimatedTime * qty;
-            }
+            if (qty > 0 && sub.estimatedTime) totalMinutes += sub.estimatedTime * qty;
         });
 
-        // Add estimated time from addons
         selectedService.addons?.forEach((addon: any) => {
             const qty = addonQuantities[addon._id] || 0;
-            if (qty > 0 && addon.estimatedTime) {
-                totalMinutes += addon.estimatedTime * qty;
-            }
+            if (qty > 0 && addon.estimatedTime) totalMinutes += addon.estimatedTime * qty;
         });
 
-        // Calculate new end time
-        // Default duration if no estimated time is 60 minutes (or keep existing logic)
-        // If totalMinutes is 0, we can default to 1 hour or just keep current end time difference?
-        // Let's assume if totalMinutes > 0 we update.
-
         if (totalMinutes > 0) {
-            const newEndTime = new Date(bookingStart.getTime() + totalMinutes * 60 * 1000);
-            setBookingEnd(newEndTime);
-        } else if (bookingStart) {
-            // Default 1 hour if nothing selected? Or keep original gap?
-            // Lets keep original logic: if totalMinutes is 0, maybe don't change end time unless start changed?
-            // If start changed, we want to maintain the DURATION or reset it?
-            // Usually reset to +1 hour or similar.
-            // For now, if totalMinutes is 0, we'll set it to Start + 1 hour as fallback or Start + Service Base Time?
-            // Service might have `estimatedTime`.
-            if (selectedService.estimatedTime) {
-                const newEndTime = new Date(bookingStart.getTime() + selectedService.estimatedTime * 60 * 1000);
-                setBookingEnd(newEndTime);
-            } else {
-                // Fallback 1 hour
-                const newEndTime = new Date(bookingStart.getTime() + 60 * 60 * 1000);
-                setBookingEnd(newEndTime);
-            }
+            setBookingEnd(new Date(bookingStart.getTime() + totalMinutes * 60 * 1000));
+        } else if (selectedService.estimatedTime) {
+            setBookingEnd(new Date(bookingStart.getTime() + selectedService.estimatedTime * 60 * 1000));
+        } else {
+            setBookingEnd(new Date(bookingStart.getTime() + 60 * 60 * 1000));
         }
     }, [selectedService, subServiceQuantities, addonQuantities, bookingStart]);
 
-    // Real-time email validation with debouncing
+    // ── FIX: Effect now only depends on `email` (its own state) and
+    //    `userType`, so typing in password/name/phone no longer triggers it.
     useEffect(() => {
-        // Only check if userType is "new" and email is provided
-        if (userType !== "new" || !formData.email) {
+        if (userType !== "new" || !email) {
             setEmailError("");
             setIsCheckingEmail(false);
             return;
         }
 
-        // Debounce the email check
         const timeoutId = setTimeout(async () => {
             setIsCheckingEmail(true);
             try {
-                const response = await fetch(`/api/users/check-email?email=${encodeURIComponent(formData.email)}`);
+                const response = await fetch(`/api/users/check-email?email=${encodeURIComponent(email)}`);
                 const data = await response.json();
-                
-                if (data.exists) {
-                    setEmailError("This email is already registered. Please use a different email or select 'Existing User'.");
-                } else {
-                    setEmailError("");
-                }
+                setEmailError(
+                    data.exists
+                        ? "This email is already registered. Please use a different email or select 'Existing User'."
+                        : ""
+                );
             } catch (error) {
                 console.error("Error checking email:", error);
-                // Don't show error to user for API failures
             } finally {
                 setIsCheckingEmail(false);
             }
-        }, 500); // 500ms debounce
+        }, 2000);
 
         return () => clearTimeout(timeoutId);
-    }, [formData.email, userType]);
+    }, [email, userType]);
 
-    // Filter technicians based on clicked technician's zone and selected service
-    useEffect(() => {
-        if (!selectedService || !bookingStart || !bookingEnd) {
-            setFilteredTechnicians([]);
-            return;
-        }
+    // ── FIX: Memoize filtered technicians — only recomputes when its
+    //    actual dependencies change, not on every keystroke.
+    const filteredTechnicians = useMemo(() => {
+        if (!selectedService || !bookingStart || !bookingEnd) return [];
 
-        // Find the clicked technician's zone from initialData
-        const clickedTechnicianId = initialData?.technicianId;
-        const clickedTechnician = allTechnicians.find(t => t.id === clickedTechnicianId);
+        const clickedTechnician = allTechnicians.find(t => t.id === initialData?.technicianId);
         const targetZone = clickedTechnician?.group;
 
-        if (!targetZone) {
-            // If no zone found, show all technicians (fallback)
-            setFilteredTechnicians(allTechnicians);
-            return;
-        }
+        if (!targetZone) return allTechnicians;
 
-        // Filter technicians who:
-        // 1. Are in the same zone as the clicked technician
-        // 2. Have the selected service assigned to them
-        const filtered = allTechnicians.filter(tech => {
-            // Check if technician is in the same service area (zone)
-            if (tech.group !== targetZone) {
-                return false;
-            }
-
-            // Check if technician has the selected service assigned
+        return allTechnicians.filter(tech => {
+            if (tech.group !== targetZone) return false;
             if (tech.services && Array.isArray(tech.services)) {
-                const hasService = tech.services.some((serviceId: any) =>
+                return tech.services.some((serviceId: any) =>
                     serviceId.toString() === selectedService._id.toString()
                 );
-                if (!hasService) {
-                    return false;
-                }
             }
-
             return true;
         });
-
-        setFilteredTechnicians(filtered);
     }, [selectedService, bookingStart, bookingEnd, allTechnicians, initialData?.technicianId]);
 
     const fetchContacts = async () => {
@@ -306,13 +263,14 @@ export function AddBookingForm({ open, onOpenChange, initialData }: AddBookingFo
         }
     };
 
-    const handleContactSelect = (contactId: string) => {
+    // ── FIX: useCallback so this handler isn't re-created on every render.
+    const handleContactSelect = useCallback((contactId: string) => {
         const contact = contacts.find(c => c._id === contactId);
         if (contact) {
             setSelectedContact(contact);
-            setFormData({
-                ...formData,
-                email: contact.email || "",
+            setEmail(contact.email || "");
+            setPersonalData(prev => ({
+                ...prev,
                 firstName: contact.firstName || "",
                 lastName: contact.lastName || "",
                 phoneNumber: contact.phoneNumber || "",
@@ -320,110 +278,108 @@ export function AddBookingForm({ open, onOpenChange, initialData }: AddBookingFo
                 city: contact.city || "",
                 state: contact.state || "California",
                 zipCode: contact.zipCode || "",
-                country: contact.country || "United States"
-            });
+                country: contact.country || "United States",
+            }));
         }
-    };
+    }, [contacts]);
 
-    const handleSameAsAbove = () => {
-        setFormData({
-            ...formData,
-            shippingCountry: formData.country,
-            shippingAddress: formData.address,
-            shippingCity: formData.city,
-            shippingState: formData.state,
-            shippingZipCode: formData.zipCode
+    const handleSameAsAbove = useCallback(() => {
+        setShippingData({
+            shippingCountry: personalData.country,
+            shippingAddress: personalData.address,
+            shippingCity: personalData.city,
+            shippingState: personalData.state,
+            shippingZipCode: personalData.zipCode,
         });
-    };
+    }, [personalData]);
 
-    const handleServiceSelect = (serviceId: string) => {
+    const handleServiceSelect = useCallback((serviceId: string) => {
         const service = services.find(s => s._id === serviceId);
         if (service) {
             setSelectedService(service);
 
-            // Initialize sub-services quantities
             const subServicesQty: Record<string, number> = {};
-            service.subServices?.forEach((sub: any) => {
-                subServicesQty[sub._id] = 0;
-            });
+            service.subServices?.forEach((sub: any) => { subServicesQty[sub._id] = 0; });
             setSubServiceQuantities(subServicesQty);
 
-            // Initialize addons quantities
             const addonsQty: Record<string, number> = {};
-            service.addons?.forEach((addon: any) => {
-                addonsQty[addon._id] = 0;
-            });
+            service.addons?.forEach((addon: any) => { addonsQty[addon._id] = 0; });
             setAddonQuantities(addonsQty);
         }
-    };
+    }, [services]);
 
-    const updateQuantity = (id: string, delta: number, type: "sub" | "addon") => {
+    // ── FIX: useCallback so quantity buttons don't recreate handlers each render.
+    const updateQuantity = useCallback((id: string, delta: number, type: "sub" | "addon") => {
         if (type === "sub") {
-            setSubServiceQuantities(prev => ({
-                ...prev,
-                [id]: Math.max(0, (prev[id] || 0) + delta)
-            }));
+            setSubServiceQuantities(prev => ({ ...prev, [id]: Math.max(0, (prev[id] || 0) + delta) }));
         } else {
-            setAddonQuantities(prev => ({
-                ...prev,
-                [id]: Math.max(0, (prev[id] || 0) + delta)
-            }));
+            setAddonQuantities(prev => ({ ...prev, [id]: Math.max(0, (prev[id] || 0) + delta) }));
         }
-    };
+    }, []);
 
-    const toggleDay = (day: number) => {
-        setSelectedDays(prev =>
-            prev.includes(day) ? prev.filter(d => d !== day) : [...prev, day]
-        );
-    };
+    const toggleDay = useCallback((day: number) => {
+        setSelectedDays(prev => prev.includes(day) ? prev.filter(d => d !== day) : [...prev, day]);
+    }, []);
 
-    // Toggle a specific (week, dayOfWeek) combination for monthly recurrence
-    const toggleMonthlyWeekDay = (week: number, dayOfWeek: number) => {
+    const toggleMonthlyWeekDay = useCallback((week: number, dayOfWeek: number) => {
         setMonthlyWeeks(prev => {
             const exists = prev.some(w => w.week === week && w.dayOfWeek === dayOfWeek);
-            if (exists) {
-                return prev.filter(w => !(w.week === week && w.dayOfWeek === dayOfWeek));
-            }
-            return [...prev, { week, dayOfWeek }];
+            return exists
+                ? prev.filter(w => !(w.week === week && w.dayOfWeek === dayOfWeek))
+                : [...prev, { week, dayOfWeek }];
         });
-    };
+    }, []);
 
-    const calculatePrice = () => {
+    // ── FIX: Memoize price calculation so it only reruns when pricing
+    //    inputs change, not on personal-field keystrokes.
+    const { total, subTotal, addonsTotal } = useMemo(() => {
         if (!selectedService) return { total: 0, subTotal: 0, addonsTotal: 0 };
 
-        // Calculate hours from start and end time
-        const hours = bookingStart && bookingEnd
+        const totalBookingHours = bookingStart && bookingEnd
             ? (bookingEnd.getTime() - bookingStart.getTime()) / (1000 * 60 * 60)
             : 0;
 
-        let total = 0; // Main service has no price
+        const calculateItemPrice = (item: any, quantity: number = 1, defaultHours: number = 0) => {
+            const B = Number(item.basePrice) || 0;
+            const H = Number(item.hourlyRate) || 0;
+            const R = Number(item.rangePercentage) || 0;
+            const T_minutes = item.estimatedTime ? Number(item.estimatedTime) : defaultHours * 60;
+            const hoursPerUnit = T_minutes / 60;
+            const totalLaborCost = H * hoursPerUnit * quantity;
+            const subtotal = B + totalLaborCost;
+            return subtotal * (1 + R / 100);
+        };
+
         let subTotal = 0;
         let addonsTotal = 0;
 
-        // Add sub-services: basePrice + (hours × hourlyRate)
         selectedService.subServices?.forEach((sub: any) => {
             const qty = subServiceQuantities[sub._id] || 0;
-            if (qty > 0) {
-                const subServicePrice = (sub.basePrice || 0) + (hours * (sub.hourlyRate || 0));
-                subTotal += subServicePrice * qty;
-            }
+            if (qty > 0) subTotal += calculateItemPrice(sub, qty, totalBookingHours);
         });
 
-        // Add addons: basePrice + (hours × hourlyRate)
         selectedService.addons?.forEach((addon: any) => {
             const qty = addonQuantities[addon._id] || 0;
-            if (qty > 0) {
-                const addonPrice = (addon.basePrice || 0) + (hours * (addon.hourlyRate || 0));
-                addonsTotal += addonPrice * qty;
-            }
+            if (qty > 0) addonsTotal += calculateItemPrice(addon, qty, totalBookingHours);
         });
 
-        total = subTotal + addonsTotal;
+        return { total: subTotal + addonsTotal, subTotal, addonsTotal };
+    }, [selectedService, subServiceQuantities, addonQuantities, bookingStart, bookingEnd]);
 
-        return { total, subTotal, addonsTotal };
-    };
+    useEffect(() => {
+        if (selectedPromocode && selectedPromocode !== "none") {
+            const promo = promocodes.find(p => p.code === selectedPromocode);
+            if (promo) {
+                let val = promo.type === 'percentage'
+                    ? total * (Number(promo.value) / 100)
+                    : Number(promo.value);
+                setDiscount(Number(Math.min(val, total).toFixed(2)));
+            }
+        } else if (selectedPromocode === "none") {
+            setDiscount(0);
+        }
+    }, [selectedPromocode, total, promocodes]);
 
-    const { total, subTotal, addonsTotal } = calculatePrice();
     const finalAmount = total - discount;
 
     const durationInHours = bookingStart && bookingEnd
@@ -431,65 +387,106 @@ export function AddBookingForm({ open, onOpenChange, initialData }: AddBookingFo
         : 0;
     const effectiveRate = durationInHours > 0 ? finalAmount / durationInHours : 0;
 
+    // ── FIX: Memoize country/state/city lookups — these iterate large
+    //    datasets and were recalculating on every single keystroke before.
+    const countries = useMemo(() => Country.getAllCountries(), []);
+
+    const { states, cities } = useMemo(() => {
+        const selectedCountry = countries.find(c => c.name === personalData.country);
+        const countryCode = selectedCountry?.isoCode;
+        const states = countryCode ? State.getStatesOfCountry(countryCode) : [];
+        const selectedState = states.find(s => s.name === personalData.state);
+        const stateCode = selectedState?.isoCode;
+        const cities = (countryCode && stateCode) ? City.getCitiesOfState(countryCode, stateCode) : [];
+        return { states, cities };
+    }, [personalData.country, personalData.state, countries]);
+
+    const { shippingStates, shippingCities } = useMemo(() => {
+        const selectedCountry = countries.find(c => c.name === shippingData.shippingCountry);
+        const countryCode = selectedCountry?.isoCode;
+        const shippingStates = countryCode ? State.getStatesOfCountry(countryCode) : [];
+        const selectedState = shippingStates.find(s => s.name === shippingData.shippingState);
+        const stateCode = selectedState?.isoCode;
+        const shippingCities = (countryCode && stateCode) ? City.getCitiesOfState(countryCode, stateCode) : [];
+        return { shippingStates, shippingCities };
+    }, [shippingData.shippingCountry, shippingData.shippingState, countries]);
+
+    // Memoize Options to prevent re-rendering massive lists on every keystroke
+    const contactOptions = useMemo(() => contacts.map(contact => (
+        <SelectItem key={contact._id} value={contact._id}>
+            {contact.firstName} {contact.lastName} - {contact.email}
+        </SelectItem>
+    )), [contacts]);
+
+    const countryOptions = useMemo(() => countries.map((country) => (
+        <SelectItem key={country.isoCode} value={country.name}>{country.name}</SelectItem>
+    )), [countries]);
+
+    const stateOptions = useMemo(() => states.map((state) => (
+        <SelectItem key={state.isoCode} value={state.name}>{state.name}</SelectItem>
+    )), [states]);
+
+    const cityOptions = useMemo(() => cities.map((city) => (
+        <SelectItem key={city.name} value={city.name}>{city.name}</SelectItem>
+    )), [cities]);
+
+    const shippingStateOptions = useMemo(() => shippingStates.map((state) => (
+        <SelectItem key={state.isoCode} value={state.name}>{state.name}</SelectItem>
+    )), [shippingStates]);
+
+    const shippingCityOptions = useMemo(() => shippingCities.map((city) => (
+        <SelectItem key={city.name} value={city.name}>{city.name}</SelectItem>
+    )), [shippingCities]);
+
     const handleSubmit = async () => {
         try {
             let contactId = selectedContact?._id;
             let newContactData = null;
 
-            // Prepare new contact data if userType is "new"
             if (userType === "new") {
-                // Check if email is already taken
                 if (emailError) {
                     toast.error("Please fix the email error before submitting");
                     return;
                 }
-
-                // Validate required fields
-                if (!formData.email || !formData.password || !formData.firstName || !formData.lastName) {
+                if (!email || !personalData.password || !personalData.firstName || !personalData.lastName) {
                     toast.error("Please fill all required fields (Email, Password, First Name, Last Name)");
                     return;
                 }
-
                 newContactData = {
-                    email: formData.email,
-                    password: formData.password,
-                    firstName: formData.firstName,
-                    lastName: formData.lastName,
-                    phone: formData.phoneNumber,
-                    streetAddress: formData.address,
-                    country: formData.country,
-                    city: formData.city,
-                    state: formData.state,
-                    zipCode: formData.zipCode,
-                    gender: formData.gender
+                    email,
+                    password: personalData.password,
+                    firstName: personalData.firstName,
+                    lastName: personalData.lastName,
+                    phone: personalData.phoneNumber,
+                    streetAddress: personalData.address,
+                    country: personalData.country,
+                    city: personalData.city,
+                    state: personalData.state,
+                    zipCode: personalData.zipCode,
+                    gender: personalData.gender,
                 };
             }
 
-
-            // Validate booking data
             if ((!contactId && !newContactData) || !selectedService) {
                 toast.error("Please select a contact and service");
                 return;
             }
+
             if (bookingType === "recurring") {
-                if (!recurringEndDate || !recurringEndDate.trim()) {
+                if (!recurringEndDate?.trim()) {
                     toast.error("Please set a recurring end date");
                     return;
                 }
-                if (frequency === "monthly") {
-                    if (!monthlyWeeks.length) {
-                        toast.error("Please select at least one week/day combination");
-                        return;
-                    }
-                } else {
-                    if (!selectedDays.length) {
-                        toast.error("Please select at least one day for recurrence");
-                        return;
-                    }
+                if (frequency === "monthly" && !monthlyWeeks.length) {
+                    toast.error("Please select at least one week/day combination");
+                    return;
+                }
+                if (frequency === "weekly" && !selectedDays.length) {
+                    toast.error("Please select at least one day for recurrence");
+                    return;
                 }
             }
 
-            // Prepare sub-services and addons arrays
             const subServices = Object.entries(subServiceQuantities)
                 .filter(([_, qty]) => qty > 0)
                 .map(([serviceId, quantity]) => ({ serviceId, quantity }));
@@ -498,10 +495,9 @@ export function AddBookingForm({ open, onOpenChange, initialData }: AddBookingFo
                 .filter(([_, qty]) => qty > 0)
                 .map(([serviceId, quantity]) => ({ serviceId, quantity }));
 
-            // Create booking payload
             const bookingData = {
-                newContact: newContactData, // Send new contact data if applicable
-                contactId, // Will be null if new contact
+                newContact: newContactData,
+                contactId,
                 technicianId: initialData?.technicianId,
                 technicianIds: selectedTechnicianIds,
                 serviceId: selectedService._id,
@@ -512,25 +508,19 @@ export function AddBookingForm({ open, onOpenChange, initialData }: AddBookingFo
                 customRecurrence:
                     bookingType === "recurring"
                         ? frequency === "monthly"
-                            ? {
-                                monthlyWeeks,
-                                endDate: recurringEndDate
-                            }
-                            : {
-                                selectedDays,
-                                endDate: recurringEndDate
-                            }
+                            ? { monthlyWeeks, endDate: recurringEndDate }
+                            : { selectedDays, endDate: recurringEndDate }
                         : undefined,
                 startDateTime: bookingStart,
                 endDateTime: bookingEnd,
                 shippingAddress: {
-                    street: formData.shippingAddress,
-                    country: formData.shippingCountry,
-                    city: formData.shippingCity,
-                    state: formData.shippingState,
-                    zipCode: formData.shippingZipCode
+                    street: shippingData.shippingAddress,
+                    country: shippingData.shippingCountry,
+                    city: shippingData.shippingCity,
+                    state: shippingData.shippingState,
+                    zipCode: shippingData.shippingZipCode,
                 },
-                notes: formData.notes,
+                notes,
                 pricing: {
                     baseAmount: selectedService.basePrice || selectedService.hourlyRate || 0,
                     subServicesAmount: subTotal,
@@ -538,14 +528,14 @@ export function AddBookingForm({ open, onOpenChange, initialData }: AddBookingFo
                     totalAmount: total,
                     discount,
                     finalAmount,
-                    billedHours: 0
-                }
+                    billedHours: 0,
+                },
             };
 
             const bookingRes = await fetch('/api/bookings', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(bookingData)
+                body: JSON.stringify(bookingData),
             });
 
             if (!bookingRes.ok) {
@@ -558,35 +548,12 @@ export function AddBookingForm({ open, onOpenChange, initialData }: AddBookingFo
                 : "Recurring bookings created successfully!");
 
             onOpenChange(false);
-            // Refresh calendar
             window.location.reload();
         } catch (error: any) {
             console.error("Booking creation error:", error);
             toast.error(error.message || "Failed to create booking. Please try again.");
         }
     };
-
-    const startDate = initialData?.start ? format(initialData.start, "dd-MM-yyyy HH:mm") : "";
-    const endDate = initialData?.end ? format(initialData.end, "dd-MM-yyyy HH:mm") : "";
-
-    // Derived Locations
-    const countries = Country.getAllCountries();
-
-    // Personal Details Logic
-    const selectedCountry = countries.find(c => c.name === formData.country);
-    const selectedCountryCode = selectedCountry?.isoCode;
-    const states = selectedCountryCode ? State.getStatesOfCountry(selectedCountryCode) : [];
-    const selectedState = states.find(s => s.name === formData.state);
-    const selectedStateCode = selectedState?.isoCode;
-    const cities = (selectedCountryCode && selectedStateCode) ? City.getCitiesOfState(selectedCountryCode, selectedStateCode) : [];
-
-    // Shipping Logic
-    const shippingSelectedCountry = countries.find(c => c.name === formData.shippingCountry);
-    const shippingSelectedCountryCode = shippingSelectedCountry?.isoCode;
-    const shippingStates = shippingSelectedCountryCode ? State.getStatesOfCountry(shippingSelectedCountryCode) : [];
-    const shippingSelectedState = shippingStates.find(s => s.name === formData.shippingState);
-    const shippingSelectedStateCode = shippingSelectedState?.isoCode;
-    const shippingCities = (shippingSelectedCountryCode && shippingSelectedStateCode) ? City.getCitiesOfState(shippingSelectedCountryCode, shippingSelectedStateCode) : [];
 
     return (
         <Sheet open={open} onOpenChange={onOpenChange}>
@@ -623,11 +590,7 @@ export function AddBookingForm({ open, onOpenChange, initialData }: AddBookingFo
                                             <SelectValue placeholder="Choose a contact" />
                                         </SelectTrigger>
                                         <SelectContent className="z-[150]" position="popper">
-                                            {contacts.map(contact => (
-                                                <SelectItem key={contact._id} value={contact._id}>
-                                                    {contact.firstName} {contact.lastName} - {contact.email}
-                                                </SelectItem>
-                                            ))}
+                                            {contactOptions}
                                         </SelectContent>
                                     </Select>
                                 </div>
@@ -639,8 +602,8 @@ export function AddBookingForm({ open, onOpenChange, initialData }: AddBookingFo
                                     <div className="relative">
                                         <Input
                                             placeholder="Enter email"
-                                            value={formData.email}
-                                            onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                                            value={email}
+                                            onChange={(e) => setEmail(e.target.value)}
                                             disabled={userType === "existing"}
                                             className={emailError ? "border-red-500" : ""}
                                         />
@@ -660,8 +623,8 @@ export function AddBookingForm({ open, onOpenChange, initialData }: AddBookingFo
                                         <Input
                                             type="password"
                                             placeholder="Enter password"
-                                            value={formData.password}
-                                            onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                                            value={personalData.password}
+                                            onChange={(e) => setPersonalData(prev => ({ ...prev, password: e.target.value }))}
                                         />
                                     </div>
                                 )}
@@ -669,8 +632,8 @@ export function AddBookingForm({ open, onOpenChange, initialData }: AddBookingFo
                                     <Label>First Name</Label>
                                     <Input
                                         placeholder="First Name"
-                                        value={formData.firstName}
-                                        onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
+                                        value={personalData.firstName}
+                                        onChange={(e) => setPersonalData(prev => ({ ...prev, firstName: e.target.value }))}
                                         disabled={userType === "existing"}
                                     />
                                 </div>
@@ -678,8 +641,8 @@ export function AddBookingForm({ open, onOpenChange, initialData }: AddBookingFo
                                     <Label>Last Name</Label>
                                     <Input
                                         placeholder="Last Name"
-                                        value={formData.lastName}
-                                        onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
+                                        value={personalData.lastName}
+                                        onChange={(e) => setPersonalData(prev => ({ ...prev, lastName: e.target.value }))}
                                         disabled={userType === "existing"}
                                     />
                                 </div>
@@ -687,8 +650,8 @@ export function AddBookingForm({ open, onOpenChange, initialData }: AddBookingFo
                                     <Label>Phone Number</Label>
                                     <Input
                                         placeholder="Phone Number"
-                                        value={formData.phoneNumber}
-                                        onChange={(e) => setFormData({ ...formData, phoneNumber: e.target.value })}
+                                        value={personalData.phoneNumber}
+                                        onChange={(e) => setPersonalData(prev => ({ ...prev, phoneNumber: e.target.value }))}
                                         disabled={userType === "existing"}
                                     />
                                 </div>
@@ -698,8 +661,8 @@ export function AddBookingForm({ open, onOpenChange, initialData }: AddBookingFo
                                 <Label>Street Address</Label>
                                 <Input
                                     placeholder="Street Address"
-                                    value={formData.address}
-                                    onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                                    value={personalData.address}
+                                    onChange={(e) => setPersonalData(prev => ({ ...prev, address: e.target.value }))}
                                     disabled={userType === "existing"}
                                 />
                             </div>
@@ -708,51 +671,45 @@ export function AddBookingForm({ open, onOpenChange, initialData }: AddBookingFo
                                 <div className="space-y-1">
                                     <Label>Country</Label>
                                     <Select
-                                        value={formData.country}
-                                        onValueChange={(value) => setFormData({ ...formData, country: value, state: "", city: "" })}
+                                        value={personalData.country}
+                                        onValueChange={(value) => setPersonalData(prev => ({ ...prev, country: value, state: "", city: "" }))}
                                         disabled={userType === "existing"}
                                     >
                                         <SelectTrigger className="w-full">
                                             <SelectValue placeholder="Select Country" />
                                         </SelectTrigger>
                                         <SelectContent className="z-[150]">
-                                            {countries.map((country) => (
-                                                <SelectItem key={country.isoCode} value={country.name}>{country.name}</SelectItem>
-                                            ))}
+                                            {countryOptions}
                                         </SelectContent>
                                     </Select>
                                 </div>
                                 <div className="space-y-1">
                                     <Label>State</Label>
                                     <Select
-                                        value={formData.state}
-                                        onValueChange={(value) => setFormData({ ...formData, state: value, city: "" })}
-                                        disabled={userType === "existing" || !selectedCountryCode}
+                                        value={personalData.state}
+                                        onValueChange={(value) => setPersonalData(prev => ({ ...prev, state: value, city: "" }))}
+                                        disabled={userType === "existing" || !personalData.country}
                                     >
                                         <SelectTrigger className="w-full">
                                             <SelectValue placeholder="Select State" />
                                         </SelectTrigger>
                                         <SelectContent className="z-[150]">
-                                            {states.map((state) => (
-                                                <SelectItem key={state.isoCode} value={state.name}>{state.name}</SelectItem>
-                                            ))}
+                                            {stateOptions}
                                         </SelectContent>
                                     </Select>
                                 </div>
                                 <div className="space-y-1">
                                     <Label>City</Label>
                                     <Select
-                                        value={formData.city}
-                                        onValueChange={(value) => setFormData({ ...formData, city: value })}
-                                        disabled={userType === "existing" || !selectedStateCode}
+                                        value={personalData.city}
+                                        onValueChange={(value) => setPersonalData(prev => ({ ...prev, city: value }))}
+                                        disabled={userType === "existing" || !personalData.state}
                                     >
                                         <SelectTrigger className="w-full">
                                             <SelectValue placeholder="Select City" />
                                         </SelectTrigger>
                                         <SelectContent className="z-[150]">
-                                            {cities.map((city) => (
-                                                <SelectItem key={city.name} value={city.name}>{city.name}</SelectItem>
-                                            ))}
+                                            {cityOptions}
                                         </SelectContent>
                                     </Select>
                                 </div>
@@ -760,8 +717,8 @@ export function AddBookingForm({ open, onOpenChange, initialData }: AddBookingFo
                                     <Label>Zip Code</Label>
                                     <Input
                                         placeholder="Zip"
-                                        value={formData.zipCode}
-                                        onChange={(e) => setFormData({ ...formData, zipCode: e.target.value })}
+                                        value={personalData.zipCode}
+                                        onChange={(e) => setPersonalData(prev => ({ ...prev, zipCode: e.target.value }))}
                                         disabled={userType === "existing"}
                                     />
                                 </div>
@@ -786,58 +743,52 @@ export function AddBookingForm({ open, onOpenChange, initialData }: AddBookingFo
                                         <Label>Street Address</Label>
                                         <Input
                                             placeholder="Street Address"
-                                            value={formData.shippingAddress}
-                                            onChange={(e) => setFormData({ ...formData, shippingAddress: e.target.value })}
+                                            value={shippingData.shippingAddress}
+                                            onChange={(e) => setShippingData(prev => ({ ...prev, shippingAddress: e.target.value }))}
                                         />
                                     </div>
                                     <div className="grid grid-cols-2 gap-4">
                                         <div className="space-y-1">
                                             <Label>Country</Label>
                                             <Select
-                                                value={formData.shippingCountry}
-                                                onValueChange={(value) => setFormData({ ...formData, shippingCountry: value, shippingState: "", shippingCity: "" })}
+                                                value={shippingData.shippingCountry}
+                                                onValueChange={(value) => setShippingData(prev => ({ ...prev, shippingCountry: value, shippingState: "", shippingCity: "" }))}
                                             >
                                                 <SelectTrigger className="w-full">
                                                     <SelectValue placeholder="Select Country" />
                                                 </SelectTrigger>
                                                 <SelectContent className="z-[150]">
-                                                    {countries.map((country) => (
-                                                        <SelectItem key={country.isoCode} value={country.name}>{country.name}</SelectItem>
-                                                    ))}
+                                                    {countryOptions}
                                                 </SelectContent>
                                             </Select>
                                         </div>
                                         <div className="space-y-1">
                                             <Label>State</Label>
                                             <Select
-                                                value={formData.shippingState}
-                                                onValueChange={(value) => setFormData({ ...formData, shippingState: value, shippingCity: "" })}
-                                                disabled={!shippingSelectedCountryCode}
+                                                value={shippingData.shippingState}
+                                                onValueChange={(value) => setShippingData(prev => ({ ...prev, shippingState: value, shippingCity: "" }))}
+                                                disabled={!shippingData.shippingCountry}
                                             >
                                                 <SelectTrigger className="w-full">
                                                     <SelectValue placeholder="Select State" />
                                                 </SelectTrigger>
                                                 <SelectContent className="z-[150]">
-                                                    {shippingStates.map((state) => (
-                                                        <SelectItem key={state.isoCode} value={state.name}>{state.name}</SelectItem>
-                                                    ))}
+                                                    {shippingStateOptions}
                                                 </SelectContent>
                                             </Select>
                                         </div>
                                         <div className="space-y-1">
                                             <Label>City</Label>
                                             <Select
-                                                value={formData.shippingCity}
-                                                onValueChange={(value) => setFormData({ ...formData, shippingCity: value })}
-                                                disabled={!shippingSelectedStateCode}
+                                                value={shippingData.shippingCity}
+                                                onValueChange={(value) => setShippingData(prev => ({ ...prev, shippingCity: value }))}
+                                                disabled={!shippingData.shippingState}
                                             >
                                                 <SelectTrigger className="w-full">
                                                     <SelectValue placeholder="Select City" />
                                                 </SelectTrigger>
                                                 <SelectContent className="z-[150]">
-                                                    {shippingCities.map((city) => (
-                                                        <SelectItem key={city.name} value={city.name}>{city.name}</SelectItem>
-                                                    ))}
+                                                    {shippingCityOptions}
                                                 </SelectContent>
                                             </Select>
                                         </div>
@@ -845,8 +796,8 @@ export function AddBookingForm({ open, onOpenChange, initialData }: AddBookingFo
                                             <Label>Zip Code</Label>
                                             <Input
                                                 placeholder="Zip"
-                                                value={formData.shippingZipCode}
-                                                onChange={(e) => setFormData({ ...formData, shippingZipCode: e.target.value })}
+                                                value={shippingData.shippingZipCode}
+                                                onChange={(e) => setShippingData(prev => ({ ...prev, shippingZipCode: e.target.value }))}
                                             />
                                         </div>
                                     </div>
@@ -895,7 +846,6 @@ export function AddBookingForm({ open, onOpenChange, initialData }: AddBookingFo
 
                             {bookingType === "recurring" && (
                                 <div className="space-y-4">
-                                    {/* Frequency */}
                                     <div className="space-y-1">
                                         <Label>Frequency</Label>
                                         <Select value={frequency} onValueChange={(value: any) => setFrequency(value)}>
@@ -909,7 +859,6 @@ export function AddBookingForm({ open, onOpenChange, initialData }: AddBookingFo
                                         </Select>
                                     </div>
 
-                                    {/* Weekly: simple day-of-week selector */}
                                     {frequency === "weekly" && (
                                         <div className="space-y-1">
                                             <Label>Select Days</Label>
@@ -928,7 +877,6 @@ export function AddBookingForm({ open, onOpenChange, initialData }: AddBookingFo
                                         </div>
                                     )}
 
-                                    {/* Monthly: Day of week in Months (multi-select, per week-of-month) */}
                                     {frequency === "monthly" && (
                                         <div className="space-y-2">
                                             <Label>Day of week in Months</Label>
@@ -936,8 +884,7 @@ export function AddBookingForm({ open, onOpenChange, initialData }: AddBookingFo
                                                 {[1, 2, 3, 4, 5].map((weekNumber) => (
                                                     <div key={weekNumber} className="flex gap-2">
                                                         {["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"].map((dayLabel, idx) => {
-                                                            // Our selectedDays uses 0=Su,... so map labels accordingly
-                                                            const dayIndexMap = [1, 2, 3, 4, 5, 6, 0]; // Mo->1,...,Su->0
+                                                            const dayIndexMap = [1, 2, 3, 4, 5, 6, 0];
                                                             const dayIndex = dayIndexMap[idx];
                                                             const isSelected = monthlyWeeks.some(
                                                                 (w) => w.week === weekNumber && w.dayOfWeek === dayIndex
@@ -959,7 +906,6 @@ export function AddBookingForm({ open, onOpenChange, initialData }: AddBookingFo
                                         </div>
                                     )}
 
-                                    {/* End date (shared, date-only using shadcn Calendar) */}
                                     <div className="space-y-1">
                                         <Label>Recurring End Date</Label>
                                         <Popover>
@@ -982,9 +928,7 @@ export function AddBookingForm({ open, onOpenChange, initialData }: AddBookingFo
                                                     mode="single"
                                                     selected={recurringEndDate ? new Date(recurringEndDate) : undefined}
                                                     onSelect={(date) => {
-                                                        if (date) {
-                                                            setRecurringEndDate(format(date, "yyyy-MM-dd"));
-                                                        }
+                                                        if (date) setRecurringEndDate(format(date, "yyyy-MM-dd"));
                                                     }}
                                                     initialFocus
                                                 />
@@ -1073,8 +1017,8 @@ export function AddBookingForm({ open, onOpenChange, initialData }: AddBookingFo
                         <Textarea
                             placeholder="Add any special notes here..."
                             className="min-h-[100px] resize-none shadow-none"
-                            value={formData.notes}
-                            onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                            value={notes}
+                            onChange={(e) => setNotes(e.target.value)}
                         />
                     </div>
 
@@ -1112,14 +1056,30 @@ export function AddBookingForm({ open, onOpenChange, initialData }: AddBookingFo
                                     </div>
                                 </div>
                                 <div className="space-y-1">
+                                    <Label>Promo Code</Label>
+                                    <Select value={selectedPromocode} onValueChange={setSelectedPromocode}>
+                                        <SelectTrigger className="w-full">
+                                            <SelectValue placeholder="Select Promo Code" />
+                                        </SelectTrigger>
+                                        <SelectContent className="z-[150]" position="popper">
+                                            <SelectItem value="none">None</SelectItem>
+                                            {promocodes.map((promo) => (
+                                                <SelectItem key={promo._id} value={promo.code}>
+                                                    {promo.code} - {promo.type === 'percentage' ? `${promo.value}%` : `$${promo.value}`}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div className="space-y-1">
                                     <Label>Total Discount</Label>
                                     <div className="relative">
                                         <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
                                         <Input
                                             type="number"
                                             value={discount}
-                                            onChange={(e) => setDiscount(Number(e.target.value))}
-                                            className="pl-7"
+                                            readOnly
+                                            className="pl-7 bg-muted"
                                         />
                                     </div>
                                 </div>

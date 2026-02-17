@@ -153,6 +153,10 @@ export default function Calendar() {
 
       // Check if the event is an unavailability type
       if (event.type !== "unavailability" && event.type !== "unavailability_timed") return false;
+      
+      // In Week/Month views, ignore timed unavailability (blockers) because the user selects a whole day
+      // and might want to book a specific time slot that IS available.
+      if (event.type === "unavailability_timed" && currentView !== "resourceTimelineDay") return false;
 
       // Check for time overlap
       const eventStart = new Date(event.start);
