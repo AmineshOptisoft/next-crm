@@ -530,6 +530,7 @@ export function AddBookingForm({ open, onOpenChange, initialData }: AddBookingFo
                     finalAmount,
                     billedHours: 0,
                 },
+                promoCode: selectedPromocode !== "none" ? selectedPromocode : undefined,
             };
 
             const bookingRes = await fetch('/api/bookings', {

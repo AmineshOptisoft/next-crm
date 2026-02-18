@@ -8,6 +8,7 @@ import mongoose from "mongoose";
 import bcrypt from "bcryptjs";
 import { v4 as uuidv4 } from "uuid";
 import { EMAIL_TEMPLATES } from "@/lib/emailTemplateHelper";
+import { Promocode } from "@/app/models/Promocode";
 
 // Helper to generate unique Order ID
 function generateOrderId() {
@@ -48,7 +49,8 @@ export async function POST(req: NextRequest) {
                 endDateTime,
                 shippingAddress,
                 notes,
-                pricing
+                pricing,
+                promoCode
             } = body;
 
             // --- 1. Handle Contact Creation (if needed) ---
@@ -149,6 +151,22 @@ export async function POST(req: NextRequest) {
 
                     const created = await Booking.insertMany(bookingsData, { session });
                     allCreatedBookings.push(...created);
+                }
+            }
+            // --- 3. Handle Promo Code Usage ---
+            if (promoCode) {
+                const promo = await Promocode.findOne({
+                    code: promoCode,
+                    companyId: user.companyId
+                }).session(session);
+
+                if (promo) {
+                    // Assuming limit 0 means unlimited, otherwise decrement
+                    if (promo.limit > 0) {
+                        promo.limit -= 1;
+                    }
+                    promo.usageCount += 1;
+                    await promo.save({ session });
                 }
             }
 
@@ -447,11 +465,55 @@ export async function GET(req: NextRequest) {
 
         await connectDB();
 
-        const bookings = await Booking.find({ companyId: user.companyId })
+        const { searchParams } = new URL(req.url);
+        const technicianId = searchParams.get('technicianId');
+        const page = parseInt(searchParams.get('page') || '0');
+        const limit = parseInt(searchParams.get('limit') || '0');
+        const sortBy = searchParams.get('sortBy') || 'startDateTime';
+        const sortOrder = searchParams.get('sortOrder') || 'asc';
+
+        let query: any = { companyId: user.companyId };
+        
+        if (technicianId) {
+            query.technicianId = technicianId;
+        }
+
+        // Build sort object
+        const sortDirection = sortOrder === 'desc' ? -1 : 1;
+        const sortObj: any = { [sortBy]: sortDirection };
+
+        // Paginated response
+        if (page > 0 && limit > 0) {
+            const skip = (page - 1) * limit;
+            
+            // Use Promise.all for parallel execution + lean() for performance
+            const [bookings, total] = await Promise.all([
+                Booking.find(query)
+                    .populate('contactId', 'firstName lastName email')
+                    .populate('technicianId', 'firstName lastName')
+                    .populate('serviceId', 'name')
+                    .sort(sortObj)
+                    .skip(skip)
+                    .limit(limit)
+                    .lean(), // ← Optimization: returns plain JS objects, ~5x faster
+                Booking.countDocuments(query)
+            ]);
+
+            return NextResponse.json({
+                bookings,
+                total,
+                page,
+                totalPages: Math.ceil(total / limit)
+            });
+        }
+
+        // Non-paginated response (for calendar views, etc.)
+        const bookings = await Booking.find(query)
             .populate('contactId', 'firstName lastName email')
             .populate('technicianId', 'firstName lastName')
             .populate('serviceId', 'name')
-            .sort({ startDateTime: 1 });
+            .sort(sortObj)
+            .lean(); // ← Optimization
 
         return NextResponse.json(bookings);
     } catch (error: any) {

@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -11,28 +10,58 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Search, Trash2 } from "lucide-react"; // Importing Trash2 as standard trash icon
+import { Search, Trash2 } from "lucide-react";
+import { useState, useEffect } from "react";
 
-// Mock data for Off Time table
-const INITIAL_OFF_TIMES = [
-  { id: 2112, startDate: "May-17-2021", startTime: "12:00 AM", endDate: "May-17-2021", endTime: "11:59 PM", status: "APPROVED", notes: "" },
-  { id: 2114, startDate: "May-18-2021", startTime: "12:00 AM", endDate: "May-18-2021", endTime: "11:59 PM", status: "APPROVED", notes: "" },
-  { id: 2183, startDate: "Jun-10-2021", startTime: "12:00 AM", endDate: "Jun-10-2021", endTime: "11:59 PM", status: "APPROVED", notes: "" },
-  { id: 42, startDate: "Aug-06-2021", startTime: "8:00 AM", endDate: "Aug-06-2021", endTime: "8:00 PM", status: "APPROVED", notes: "" },
-  { id: 45, startDate: "Aug-13-2021", startTime: "8:00 AM", endDate: "Aug-13-2021", endTime: "8:00 PM", status: "APPROVED", notes: "" },
-    { id: 46, startDate: "Aug-15-2021", startTime: "8:00 AM", endDate: "Aug-15-2021", endTime: "8:00 PM", status: "APPROVED", notes: "" },
-    { id: 125, startDate: "Aug-16-2021", startTime: "5:17 PM", endDate: "Sep-14-2021", endTime: "5:17 PM", status: "APPROVED", notes: "" },
-    { id: 122, startDate: "Sep-24-2021", startTime: "8:00 AM", endDate: "Sep-24-2021", endTime: "6:00 PM", status: "APPROVED", notes: "" },
-    { id: 170, startDate: "Oct-09-2021", startTime: "8:00 AM", endDate: "Oct-09-2021", endTime: "9:00 PM", status: "APPROVED", notes: "" },
-    { id: 197, startDate: "Oct-22-2021", startTime: "8:00 AM", endDate: "Oct-22-2021", endTime: "5:00 PM", status: "APPROVED", notes: "" },
-];
+export interface OffTime {
+    id: number | string;
+    startDate: string;
+    startTime: string;
+    endDate: string;
+    endTime: string;
+    status: string;
+    notes: string;
+    reason?: string;
+}
 
-export function UserOffTime() {
-    const [offTimes, setOffTimes] = useState(INITIAL_OFF_TIMES);
+interface UserOffTimeProps {
+    data: OffTime[];
+    onDelete?: (id: number | string) => void;
+}
 
-    const handleDelete = (id: number) => {
-        setOffTimes(offTimes.filter(item => item.id !== id));
-    };
+export function UserOffTime({ data, onDelete }: UserOffTimeProps) {
+  const [searchQuery, setSearchQuery] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
+
+  // 1. Filter
+  const filteredData = data.filter((item) => {
+    const query = searchQuery.toLowerCase();
+    return (
+      item.reason?.toLowerCase().includes(query) ||
+      item.notes?.toLowerCase().includes(query) ||
+      String(item.id).toLowerCase().includes(query)
+    );
+  });
+
+  // 2. Sort (Most recent start date first)
+  // Note: dates are strings in "MMM-dd-yyyy" format. We need to parse them for sorting.
+  // Ideally, parent should provide raw dates, but we can parse here.
+  const sortedData = [...filteredData].sort((a, b) => {
+      const dateA = new Date(a.startDate);
+      const dateB = new Date(b.startDate);
+      return dateB.getTime() - dateA.getTime();
+  });
+
+  // 3. Paginate
+  const totalPages = Math.ceil(sortedData.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const paginatedData = sortedData.slice(startIndex, startIndex + itemsPerPage);
+
+  // Reset to page 1 when search query changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery]);
 
   return (
     <div className="space-y-6">
@@ -40,7 +69,12 @@ export function UserOffTime() {
           <div className="flex justify-start">
               <div className="relative w-64">
                   <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                  <Input placeholder="Keywords..." className="pl-8" />
+                  <Input 
+                    placeholder="Keywords..." 
+                    className="pl-8" 
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                  />
               </div>
           </div>
 
@@ -60,14 +94,17 @@ export function UserOffTime() {
                       </TableRow>
                   </TableHeader>
                   <TableBody>
-                      {offTimes.map((time) => (
+                      {paginatedData.length > 0 ? (
+                        paginatedData.map((time) => (
                           <TableRow key={time.id}>
-                              <TableCell className="font-medium">{time.id}</TableCell>
+                              <TableCell className="font-medium">
+                                <span className="truncate max-w-[80px] block" title={String(time.id)}>{String(time.id).slice(-6)}</span>
+                              </TableCell>
                               <TableCell>{time.startDate}</TableCell>
                               <TableCell>{time.startTime}</TableCell>
                               <TableCell>{time.endDate}</TableCell>
                               <TableCell>{time.endTime}</TableCell>
-                              <TableCell></TableCell>
+                              <TableCell>{time.reason || "-"}</TableCell>
                               <TableCell>{time.status}</TableCell>
                               <TableCell>{time.notes}</TableCell>
                               <TableCell>
@@ -75,31 +112,71 @@ export function UserOffTime() {
                                     variant="destructive" 
                                     size="icon" 
                                     className="h-8 w-8"
-                                    onClick={() => handleDelete(time.id)}
+                                    onClick={() => onDelete && onDelete(time.id)}
                                   >
                                       <Trash2 className="h-4 w-4" />
                                   </Button>
                               </TableCell>
                           </TableRow>
-                      ))}
+                        ))
+                      ) : (
+                          <TableRow>
+                              <TableCell colSpan={9} className="h-24 text-center">
+                                  No results.
+                              </TableCell>
+                          </TableRow>
+                      )}
                   </TableBody>
               </Table>
           </div>
            
-           {/* Pagination (Visual Mockup) */}
+           {/* Pagination */}
            <div className="flex flex-col sm:flex-row items-center justify-between text-sm text-muted-foreground mt-4 gap-4 sm:gap-0">
               <div className="flex items-center gap-2">
-                   <span className="bg-primary/10 text-primary px-2 py-1 rounded text-xs px-3">10</span>
-                   <span>Showing rows 1 to 10 of 152</span>
+                   <span className="bg-primary/10 text-primary px-2 py-1 rounded text-xs px-3">{itemsPerPage}</span>
+                   <span>
+                       Showing rows {Math.min(startIndex + 1, sortedData.length)} to {Math.min(startIndex + itemsPerPage, sortedData.length)} of {sortedData.length}
+                   </span>
               </div>
                <div className="flex gap-1 flex-wrap justify-center">
-                  <Button variant="outline" size="sm" disabled>Back</Button>
-                  <Button variant="default" size="sm">1</Button>
-                  <Button variant="outline" size="sm">2</Button>
-                  <Button variant="outline" size="sm">3</Button>
-                  <Button variant="outline" size="sm">4</Button>
-                  <Button variant="outline" size="sm">5</Button>
-                  <Button variant="outline" size="sm">Next</Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    disabled={currentPage === 1}
+                    onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                  >
+                    Back
+                  </Button>
+                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                      // Simple logic to show a window of pages, or just first few for now as simplest implementation
+                      // Better to just show current page context if many pages, but simple 1..N is fine for small N.
+                      // Let's implement a simple sliding window or just 1 ... Total logic if complex.
+                      // Given constraints, let's keep it simple: Show valid pages around current.
+                      let p = i + 1;
+                      if (totalPages > 5 && currentPage > 3) {
+                          p = currentPage - 2 + i;
+                      }
+                      if (p > totalPages) return null;
+                      
+                      return (
+                        <Button 
+                            key={p} 
+                            variant={currentPage === p ? "default" : "outline"} 
+                            size="sm"
+                            onClick={() => setCurrentPage(p)}
+                        >
+                            {p}
+                        </Button>
+                      );
+                  })}
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    disabled={currentPage === totalPages || totalPages === 0}
+                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                  >
+                    Next
+                  </Button>
                </div>
            </div>
 

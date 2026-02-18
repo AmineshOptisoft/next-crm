@@ -6,6 +6,7 @@ import { User } from "@/app/models/User";
 import { Company } from "@/app/models/Company";
 import { Booking } from "@/app/models/Booking";
 import { Service } from "@/app/models/Service";
+import { TechnicianTimeOff } from "@/app/models/TechnicianTimeOff";
 
 // ULTRA OPTIMIZATION: Reduce availability generation from 30 weeks to 8 weeks
 // This alone can reduce 70% of processing time
@@ -29,7 +30,7 @@ export async function GET(req: NextRequest) {
         endDate.setDate(today.getDate() + 56); // 8 weeks forward
 
         // CRITICAL: Run ALL queries in parallel with optimized filters
-        const [serviceAreas, technicians, company, bookings] = await Promise.all([
+        const [serviceAreas, technicians, company, bookings, timeOffs] = await Promise.all([
             // Only fetch name - nothing else needed
             ServiceArea.find({ companyId: user.companyId })
                 .select('name')
@@ -65,7 +66,14 @@ export async function GET(req: NextRequest) {
             .populate('serviceId', 'name')
             .select('technicianId startDateTime endDateTime status subServices addons notes pricing shippingAddress')
             .lean()
-            .exec()
+            .exec(),
+
+            // Fetch Technician Time Offs
+            TechnicianTimeOff.find({
+                startDate: { $gte: startDate },
+                endDate: { $lte: endDate },
+                status: "APPROVED"
+            }).lean().exec()
         ]);
 
         // Fast master availability setup
@@ -182,9 +190,39 @@ export async function GET(req: NextRequest) {
             };
         });
 
+        // Process time-off events
+        const timeOffEvents = timeOffs.map((off: any) => {
+            const start = new Date(off.startDate);
+            const startTimeMinutes = parseTimeFast(off.startTime);
+            start.setHours(Math.floor(startTimeMinutes / 60), startTimeMinutes % 60, 0, 0);
+
+            const end = new Date(off.endDate);
+            const endTimeMinutes = parseTimeFast(off.endTime);
+            end.setHours(Math.floor(endTimeMinutes / 60), endTimeMinutes % 60, 0, 0);
+
+            return {
+                id: `timeoff-${off._id}`,
+                resourceId: off.technicianId.toString(),
+                title: `Off: ${off.reason}`,
+                start: start,
+                end: end,
+                backgroundColor: "#71717a", 
+                borderColor: "#52525b",
+                textColor: "#ffffff",
+                display: "background",
+                type: "unavailability", 
+                extendedProps: {
+                    type: "time_off",
+                    notes: off.notes,
+                    reason: off.reason,
+                    status: off.status
+                }
+            };
+        });
+
         return NextResponse.json({
             resources,
-            events: [...availabilityEvents, ...bookingEvents]
+            events: [...availabilityEvents, ...bookingEvents, ...timeOffEvents]
         });
     } catch (error: any) {
         console.error("Error fetching appointment resources:", error);

@@ -35,10 +35,12 @@ import { cn } from "@/lib/utils";
 
 import { UserBookings } from "./user-bookings";
 import { UserAvailability } from "./user-availability";
-import { UserOffTime } from "./user-off-time";
+import { UserOffTime, OffTime } from "./user-off-time"; // Ensure OffTime is exported from user-off-time
 import { UserSecurity } from "./user-security";
 import { UserReviews } from "./user-reviews";
 import { Country, State, City } from "country-state-city";
+import { AddBreakDialog } from "./add-break-dialog";
+import { format } from "date-fns";
 
 // Define a frontend interface that matches the API response
 export interface UserData {
@@ -94,6 +96,8 @@ interface UserFormProps {
     loading?: boolean;
 }
 
+
+
 export function UserForm({ user, onSave, loading }: UserFormProps) {
     const [formData, setFormData] = useState<Partial<UserData>>({
         ...user,
@@ -118,7 +122,78 @@ export function UserForm({ user, onSave, loading }: UserFormProps) {
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const [isUploading, setIsUploading] = useState(false);
 
+    // Off Time State
+    const [offTimes, setOffTimes] = useState<OffTime[]>([]);
+    const [addBreakDialogOpen, setAddBreakDialogOpen] = useState(false);
+    const [isSavingBreak, setIsSavingBreak] = useState(false);
+
+    const handleSaveBreak = async (data: any) => {
+        setIsSavingBreak(true);
+        try {
+            const userId = user._id || formData._id;
+            if (!userId) return;
+
+            const response = await fetch(`/api/users/${userId}/time-off`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(data),
+            });
+
+            if (response.ok) {
+                const newBreak = await response.json();
+                const formattedBreak = {
+                    ...newBreak,
+                    id: newBreak._id,
+                    startDate: format(new Date(newBreak.startDate), "MMM-dd-yyyy"),
+                    endDate: format(new Date(newBreak.endDate), "MMM-dd-yyyy"),
+                };
+                setOffTimes((prev) => [formattedBreak, ...prev]);
+                setAddBreakDialogOpen(false);
+            }
+        } catch (error) {
+            console.error("Failed to save break:", error);
+        } finally {
+            setIsSavingBreak(false);
+        }
+    };
+
+    const handleDeleteBreak = async (id: number | string) => {
+        try {
+            const response = await fetch(`/api/time-off/${id}`, {
+                method: "DELETE",
+            });
+
+            if (response.ok) {
+                setOffTimes((prev) => prev.filter((t) => t.id !== id));
+            }
+        } catch (error) {
+            console.error("Failed to delete break:", error);
+        }
+    };
+
     useEffect(() => {
+        const fetchOffTimes = async () => {
+             const userId = user._id || formData._id;
+             if (!userId) return;
+             
+             try {
+                 const response = await fetch(`/api/users/${userId}/time-off`);
+                 if (response.ok) {
+                     const data = await response.json();
+                     // Map _id to id for the table and format dates
+                     const mapped = data.map((d: any) => ({ 
+                        ...d, 
+                        id: d._id,
+                        startDate: format(new Date(d.startDate), "MMM-dd-yyyy"),
+                        endDate: format(new Date(d.endDate), "MMM-dd-yyyy"),
+                     }));
+                     setOffTimes(mapped);
+                 }
+             } catch (error) {
+                 console.error("Failed to fetch off times:", error);
+             }
+        };
+
         const fetchRoles = async () => {
             try {
                 const response = await fetch("/api/roles?creator=me");
@@ -144,6 +219,8 @@ export function UserForm({ user, onSave, loading }: UserFormProps) {
                 console.error("Failed to fetch services:", error);
             }
         };
+
+        fetchOffTimes();
 
         const fetchServiceAreas = async () => {
             try {
@@ -832,7 +909,7 @@ export function UserForm({ user, onSave, loading }: UserFormProps) {
                             <CardDescription>View and manage technician bookings</CardDescription>
                         </CardHeader>
                         <CardContent>
-                            <UserBookings />
+                            <UserBookings technicianId={user._id} />
                         </CardContent>
                     </Card>
                 </TabsContent>
@@ -863,12 +940,18 @@ export function UserForm({ user, onSave, loading }: UserFormProps) {
                                     <CardTitle>Off Time</CardTitle>
                                     <CardDescription>Manage technician off-time requests</CardDescription>
                                 </div>
-                                <Button>Add Break</Button>
+                                <Button onClick={() => setAddBreakDialogOpen(true)}>Add Break</Button>
                             </div>
 
                         </CardHeader>
                         <CardContent>
-                            <UserOffTime />
+                            <UserOffTime data={offTimes} onDelete={handleDeleteBreak} />
+                            <AddBreakDialog 
+                                open={addBreakDialogOpen} 
+                                onOpenChange={setAddBreakDialogOpen} 
+                                onSave={handleSaveBreak}
+                                loading={isSavingBreak}
+                            />
                         </CardContent>
                     </Card>
                 </TabsContent>
