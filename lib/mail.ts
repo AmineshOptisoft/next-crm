@@ -22,23 +22,32 @@ export function getLegacyTransporter() {
 /**
  * Personalize email content with user data and optional booking data
  */
-export function personalizeEmail(html: string, user: any, bookingData?: {
-  bookingId?: string;
-  campaignId?: string;
-}): string {
+export function personalizeEmail(html: string, user: any, bookingData?: any): string {
   if (!html) return "";
   
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
   
   if (!user) {
     // Basic cleanup of common tags if no user provided
-    return html
+    let result = html
       .replace(/\{\{\s*(firstname|first_name)\s*\}\}/gi, "User")
       .replace(/\{\{\s*(lastname|last_name)\s*\}\}/gi, "")
       .replace(/\{\{\s*email\s*\}\}/gi, "")
       .replace(/\{\{\s*url\s*\}\}/gi, `${baseUrl}/api/bookings/cancel`)
       .replace(/\{\{\s*cancel_url\s*\}\}/gi, `${baseUrl}/api/bookings/cancel`)
       .replace(/\{\{\s*confirm_url\s*\}\}/gi, `${baseUrl}/api/bookings/confirm`);
+
+    // Attempt dynamic replacement from bookingData even if user is missing
+    if (bookingData) {
+        Object.keys(bookingData).forEach(key => {
+            const val = bookingData[key];
+            if (val !== undefined && val !== null) {
+                const regex = new RegExp(`\\{\\{\\s*${key}\\s*\\}\\}`, "gi");
+                result = result.replace(regex, String(val));
+            }
+        });
+    }
+    return result;
   }
   
   // Build confirm and cancel URLs with query parameters
@@ -58,7 +67,7 @@ export function personalizeEmail(html: string, user: any, bookingData?: {
     }
   }
   
-  return html
+  let result = html
     .replace(/\{\{\s*(firstname|first_name)\s*\}\}/gi, user.firstName || "")
     .replace(/\{\{\s*(lastname|last_name)\s*\}\}/gi, user.lastName || "")
     .replace(/\{\{\s*email\s*\}\}/gi, user.email || "")
@@ -73,6 +82,23 @@ export function personalizeEmail(html: string, user: any, bookingData?: {
     // Legacy support
     .replace(/\{\{\s*cancel_booking\s*\}\}/gi, cancelUrl)
     .replace(/\{\{\s*confirm_booking\s*\}\}/gi, confirmUrl);
+
+  // Dynamic replacement for additional data fields (e.g. customer_name, addons, etc.)
+  if (bookingData) {
+      Object.keys(bookingData).forEach(key => {
+          // Skip keys that might overwrite standard ones improperly if collision, 
+          // but essentially we want to support any key passed in bookingData.
+          const val = bookingData[key];
+          // We only replace if the placeholder exists in the string to save perf, 
+          // actually regex replace is fast enough.
+          if (val !== undefined && val !== null && typeof val !== 'object') {
+              const regex = new RegExp(`\\{\\{\\s*${key}\\s*\\}\\}`, "gi");
+              result = result.replace(regex, String(val));
+          }
+      });
+  }
+
+  return result;
 }
 
 /**

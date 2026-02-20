@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
 import { User } from "../../../models/User";
+import { createDefaultRoles } from "../../../models/Role";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { loginSchema } from "@/app/(auth)/login/schema";
@@ -37,6 +38,20 @@ export async function POST(req: NextRequest) {
   const isMatch = await bcrypt.compare(password, user.passwordHash);
   if (!isMatch) {
     return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
+  }
+
+  // Ensure default roles exist for the company whenever a company_admin logs in.
+  // createDefaultRoles uses upsert, so existing roles are never duplicated.
+  if (
+    (user.role === "company_admin" || user.role === "super_admin") &&
+    user.companyId
+  ) {
+    try {
+      await createDefaultRoles(user.companyId.toString(), user._id.toString());
+    } catch (err) {
+      // Non-fatal — log the error but don't block the login
+      console.error("Failed to seed default roles on login:", err);
+    }
   }
 
   const token = jwt.sign(

@@ -7,26 +7,51 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 
 export default function AppointmentsPage() {
-  const [sendingReminders, setSendingReminders] = useState(false);
+  const [sending, setSending] = useState(false);
 
-  const handleSendReminders = async () => {
-    setSendingReminders(true);
+  const handleSendEmails = async () => {
+    setSending(true);
     try {
-      const res = await fetch("/api/bookings/sendmails", {
-        method: "POST",
-      });
-      const json = await res.json();
+      // Fire both API calls in parallel
+      const [remindersRes, scheduleRes] = await Promise.all([
+        fetch("/api/bookings/sendmails", { method: "POST" }),
+        fetch("/api/bookings/daily-schedule", { method: "POST" }),
+      ]);
 
-      if (!res.ok || json.error) {
-        toast.error(json.error || "Failed to send booking reminder emails.");
+      const [remindersJson, scheduleJson] = await Promise.all([
+        remindersRes.json(),
+        scheduleRes.json(),
+      ]);
+
+      const remindersOk = remindersRes.ok && !remindersJson.error;
+      const scheduleOk = scheduleRes.ok && !scheduleJson.error;
+
+      if (!remindersOk && !scheduleOk) {
+        toast.error("Failed to send both reminder and schedule emails.");
         return;
       }
 
-      toast.success(json.message || "Booking reminder emails sent.");
+      if (!remindersOk) {
+        toast.warning(
+          `Schedule emails sent, but reminders failed: ${remindersJson.error || "Unknown error"}`
+        );
+        return;
+      }
+
+      if (!scheduleOk) {
+        toast.warning(
+          `Reminder emails sent, but schedule failed: ${scheduleJson.error || "Unknown error"}`
+        );
+        return;
+      }
+
+      toast.success(
+        `Emails sent — ${scheduleJson.details?.sent ?? 0} staff schedule email(s) & ${remindersJson.uniqueEmailsTargeted ?? 0} client reminder(s).`
+      );
     } catch (error) {
-      toast.error("Failed to send booking reminder emails.");
+      toast.error("Failed to send emails.");
     } finally {
-      setSendingReminders(false);
+      setSending(false);
     }
   };
 
@@ -38,10 +63,10 @@ export default function AppointmentsPage() {
           <Button
             size="sm"
             variant="default"
-            onClick={handleSendReminders}
-            disabled={sendingReminders}
+            onClick={handleSendEmails}
+            disabled={sending}
           >
-            {sendingReminders ? "Sending reminders..." : "Send booking reminders"}
+            {sending ? "Sending emails..." : "Send Today's Emails"}
           </Button>
         </div>
         <div className="flex-1">

@@ -79,13 +79,21 @@ export async function createDefaultRoles(companyId: string, adminId: string) {
       isSystemRole: true,
       createdBy: adminId,
       permissions: [
-        { module: "dashboard", canView: true, canCreate: false, canEdit: false, canDelete: false, canExport: false },
-        { module: "contacts", canView: true, canCreate: true, canEdit: true, canDelete: true, canExport: true },
-        { module: "deals", canView: true, canCreate: true, canEdit: true, canDelete: true, canExport: true },
-        { module: "activities", canView: true, canCreate: true, canEdit: true, canDelete: true, canExport: false },
-        { module: "meetings", canView: true, canCreate: true, canEdit: true, canDelete: true, canExport: false },
-        { module: "tasks", canView: true, canCreate: true, canEdit: true, canDelete: false, canExport: false },
-        { module: "analytics", canView: true, canCreate: false, canEdit: false, canDelete: false, canExport: true },
+        { module: "dashboard",     canView: true,  canCreate: false, canEdit: false, canDelete: false, canExport: false },
+        { module: "contacts",      canView: true,  canCreate: true,  canEdit: true,  canDelete: true,  canExport: true  },
+        { module: "deals",         canView: true,  canCreate: true,  canEdit: true,  canDelete: true,  canExport: true  },
+        { module: "activities",    canView: true,  canCreate: true,  canEdit: true,  canDelete: true,  canExport: false },
+        { module: "meetings",      canView: true,  canCreate: true,  canEdit: true,  canDelete: true,  canExport: false },
+        { module: "tasks",         canView: true,  canCreate: true,  canEdit: true,  canDelete: false, canExport: false },
+        { module: "invoices",      canView: true,  canCreate: true,  canEdit: true,  canDelete: false, canExport: true  },
+        { module: "products",      canView: true,  canCreate: false, canEdit: false, canDelete: false, canExport: false },
+        { module: "appointments",  canView: true,  canCreate: true,  canEdit: true,  canDelete: false, canExport: false },
+        { module: "email-builder", canView: true,  canCreate: false, canEdit: false, canDelete: false, canExport: false },
+        { module: "roles",         canView: false, canCreate: false, canEdit: false, canDelete: false, canExport: false },
+        { module: "users",         canView: true,  canCreate: false, canEdit: false, canDelete: false, canExport: false },
+        { module: "services",      canView: true,  canCreate: false, canEdit: false, canDelete: false, canExport: false },
+        { module: "industries",    canView: true,  canCreate: false, canEdit: false, canDelete: false, canExport: false },
+        { module: "companies",     canView: false, canCreate: false, canEdit: false, canDelete: false, canExport: false },
       ],
     },
     {
@@ -95,12 +103,21 @@ export async function createDefaultRoles(companyId: string, adminId: string) {
       isSystemRole: true,
       createdBy: adminId,
       permissions: [
-        { module: "dashboard", canView: true, canCreate: false, canEdit: false, canDelete: false, canExport: false },
-        { module: "contacts", canView: true, canCreate: true, canEdit: true, canDelete: false, canExport: false },
-        { module: "deals", canView: true, canCreate: true, canEdit: true, canDelete: false, canExport: false },
-        { module: "activities", canView: true, canCreate: true, canEdit: true, canDelete: false, canExport: false },
-        { module: "meetings", canView: true, canCreate: true, canEdit: true, canDelete: false, canExport: false },
-        { module: "tasks", canView: true, canCreate: true, canEdit: true, canDelete: false, canExport: false },
+        { module: "dashboard",     canView: true,  canCreate: false, canEdit: false, canDelete: false, canExport: false },
+        { module: "contacts",      canView: true,  canCreate: true,  canEdit: true,  canDelete: false, canExport: false },
+        { module: "deals",         canView: true,  canCreate: true,  canEdit: true,  canDelete: false, canExport: false },
+        { module: "activities",    canView: true,  canCreate: true,  canEdit: true,  canDelete: false, canExport: false },
+        { module: "meetings",      canView: true,  canCreate: true,  canEdit: true,  canDelete: false, canExport: false },
+        { module: "tasks",         canView: true,  canCreate: true,  canEdit: true,  canDelete: false, canExport: false },
+        { module: "invoices",      canView: true,  canCreate: true,  canEdit: true,  canDelete: false, canExport: true  },
+        { module: "products",      canView: true,  canCreate: false, canEdit: false, canDelete: false, canExport: false },
+        { module: "appointments",  canView: true,  canCreate: false, canEdit: false, canDelete: false, canExport: false },
+        { module: "email-builder", canView: true,  canCreate: false, canEdit: false, canDelete: false, canExport: false },
+        { module: "roles",         canView: false, canCreate: false, canEdit: false, canDelete: false, canExport: false },
+        { module: "users",         canView: false, canCreate: false, canEdit: false, canDelete: false, canExport: false },
+        { module: "services",      canView: true,  canCreate: false, canEdit: false, canDelete: false, canExport: false },
+        { module: "industries",    canView: true,  canCreate: false, canEdit: false, canDelete: false, canExport: false },
+        { module: "companies",     canView: false, canCreate: false, canEdit: false, canDelete: false, canExport: false },
       ],
     },
     {
@@ -110,11 +127,21 @@ export async function createDefaultRoles(companyId: string, adminId: string) {
       isSystemRole: true,
       createdBy: adminId,
       permissions: [
-        { module: "dashboard", canView: true, canCreate: false, canEdit: false, canDelete: false, canExport: false },
-        { module: "invoices", canView: true, canCreate: true, canEdit: true, canDelete: false, canExport: true },
-        { module: "products", canView: true, canCreate: true, canEdit: true, canDelete: false, canExport: true },
-        { module: "contacts", canView: true, canCreate: false, canEdit: false, canDelete: false, canExport: false },
-        { module: "deals", canView: true, canCreate: false, canEdit: false, canDelete: false, canExport: false },
+        { module: "dashboard",     canView: true,  canCreate: false, canEdit: false, canDelete: false, canExport: false },
+        { module: "contacts",      canView: true,  canCreate: false, canEdit: false, canDelete: false, canExport: false },
+        { module: "deals",         canView: true,  canCreate: false, canEdit: false, canDelete: false, canExport: false },
+        { module: "activities",    canView: true,  canCreate: false, canEdit: false, canDelete: false, canExport: false },
+        { module: "meetings",      canView: true,  canCreate: false, canEdit: false, canDelete: false, canExport: false },
+        { module: "tasks",         canView: true,  canCreate: false, canEdit: false, canDelete: false, canExport: false },
+        { module: "invoices",      canView: true,  canCreate: true,  canEdit: true,  canDelete: false, canExport: true  },
+        { module: "products",      canView: true,  canCreate: true,  canEdit: true,  canDelete: false, canExport: true  },
+        { module: "appointments",  canView: true,  canCreate: false, canEdit: false, canDelete: false, canExport: false },
+        { module: "email-builder", canView: false, canCreate: false, canEdit: false, canDelete: false, canExport: false },
+        { module: "roles",         canView: false, canCreate: false, canEdit: false, canDelete: false, canExport: false },
+        { module: "users",         canView: false, canCreate: false, canEdit: false, canDelete: false, canExport: false },
+        { module: "services",      canView: true,  canCreate: false, canEdit: false, canDelete: false, canExport: false },
+        { module: "industries",    canView: true,  canCreate: false, canEdit: false, canDelete: false, canExport: false },
+        { module: "companies",     canView: false, canCreate: false, canEdit: false, canDelete: false, canExport: false },
       ],
     },
     {
@@ -124,15 +151,37 @@ export async function createDefaultRoles(companyId: string, adminId: string) {
       isSystemRole: true,
       createdBy: adminId,
       permissions: [
-        { module: "dashboard", canView: true, canCreate: false, canEdit: false, canDelete: false, canExport: false },
-        { module: "contacts", canView: true, canCreate: false, canEdit: false, canDelete: false, canExport: false },
-        { module: "deals", canView: true, canCreate: false, canEdit: false, canDelete: false, canExport: false },
-        { module: "tasks", canView: true, canCreate: false, canEdit: false, canDelete: false, canExport: false },
-        { module: "activities", canView: true, canCreate: false, canEdit: false, canDelete: false, canExport: false },
-        { module: "analytics", canView: true, canCreate: false, canEdit: false, canDelete: false, canExport: false },
+        { module: "dashboard",     canView: true,  canCreate: false, canEdit: false, canDelete: false, canExport: false },
+        { module: "contacts",      canView: true,  canCreate: false, canEdit: false, canDelete: false, canExport: false },
+        { module: "deals",         canView: true,  canCreate: false, canEdit: false, canDelete: false, canExport: false },
+        { module: "activities",    canView: true,  canCreate: false, canEdit: false, canDelete: false, canExport: false },
+        { module: "meetings",      canView: true,  canCreate: false, canEdit: false, canDelete: false, canExport: false },
+        { module: "tasks",         canView: true,  canCreate: false, canEdit: false, canDelete: false, canExport: false },
+        { module: "invoices",      canView: true,  canCreate: false, canEdit: false, canDelete: false, canExport: false },
+        { module: "products",      canView: true,  canCreate: false, canEdit: false, canDelete: false, canExport: false },
+        { module: "appointments",  canView: true,  canCreate: false, canEdit: false, canDelete: false, canExport: false },
+        { module: "email-builder", canView: true,  canCreate: false, canEdit: false, canDelete: false, canExport: false },
+        { module: "roles",         canView: false, canCreate: false, canEdit: false, canDelete: false, canExport: false },
+        { module: "users",         canView: false, canCreate: false, canEdit: false, canDelete: false, canExport: false },
+        { module: "services",      canView: true,  canCreate: false, canEdit: false, canDelete: false, canExport: false },
+        { module: "industries",    canView: true,  canCreate: false, canEdit: false, canDelete: false, canExport: false },
+        { module: "companies",     canView: false, canCreate: false, canEdit: false, canDelete: false, canExport: false },
       ],
     },
   ];
 
-  await Role.insertMany(defaultRoles);
+  // Upsert each default role:
+  // - If it doesn't exist yet → create it ($setOnInsert sets all fields)
+  // - If it already exists → update its permissions so new modules are applied ($set)
+  for (const roleData of defaultRoles) {
+    const { companyId: cId, name, ...rest } = roleData;
+    await Role.updateOne(
+      { companyId: cId, name },
+      {
+        $set: { permissions: rest.permissions },          // always refresh permissions
+        $setOnInsert: { companyId: cId, name, ...rest },  // only on first creation
+      },
+      { upsert: true }
+    );
+  }
 }

@@ -63,16 +63,19 @@ interface Role {
   createdAt: string;
 }
 
+// Modules that are admin-only and should never appear in the role permissions UI
+const ADMIN_ONLY_MODULES = ["roles", "users", "services", "industries", "companies"];
+
 const MODULES = [
   "dashboard",
-  "tasks",
   "contacts",
   "deals",
+  "activities",
+  "meetings",
+  "tasks",
   "products",
   "appointments",
   "invoices",
-  "meetings",
-  "activities",
   "email-builder",
 ];
 
@@ -539,7 +542,9 @@ export default function RolesPage() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {viewRole.permissions.map((permission) => (
+                      {viewRole.permissions
+                        .filter((p) => !ADMIN_ONLY_MODULES.includes(p.module))
+                        .map((permission) => (
                         <TableRow key={permission.module}>
                           <TableCell className="font-medium capitalize">
                             {permission.module}
