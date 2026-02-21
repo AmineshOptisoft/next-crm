@@ -15,7 +15,7 @@ const TechnicianTimeOffSchema = new Schema(
     status: {
       type: String,
       enum: ["PENDING", "APPROVED", "REJECTED"],
-      default: "APPROVED", // Defaulting to APPROVED as per screen mock, or PENDING if workflow requires
+      default: "PENDING",
     },
     notes: { type: String },
     createdBy: { type: Types.ObjectId, ref: "User" }, // Who created this request

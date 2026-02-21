@@ -45,11 +45,11 @@ const RoleSchema = new Schema(
     // System roles cannot be deleted
     isSystemRole: { type: Boolean, default: false },
 
+    // Default roles are auto-created for every company and shown to all admins
+    isDefaultRole: { type: Boolean, default: false },
+
     // Status
     isActive: { type: Boolean, default: true },
-
-    // Role hierarchy fields removed
-    // isParent and parentRoleId are no longer used
 
     // Created by
     createdBy: { type: Schema.Types.ObjectId, ref: "User" },
@@ -62,7 +62,6 @@ RoleSchema.index({ companyId: 1, name: 1 }, { unique: true });
 RoleSchema.index({ companyId: 1, isActive: 1 });
 
 // Prevent Mongoose OverwriteModelError
-// Delete the model if it exists to allow recompilation with new schema changes in dev
 if (models.Role) {
   delete models.Role;
 }
@@ -73,11 +72,8 @@ export const Role = model("Role", RoleSchema);
 export async function createDefaultRoles(companyId: string, adminId: string) {
   const defaultRoles = [
     {
-      companyId,
       name: "Sales Manager",
       description: "Can manage contacts, deals, and activities",
-      isSystemRole: true,
-      createdBy: adminId,
       permissions: [
         { module: "dashboard",     canView: true,  canCreate: false, canEdit: false, canDelete: false, canExport: false },
         { module: "contacts",      canView: true,  canCreate: true,  canEdit: true,  canDelete: true,  canExport: true  },
@@ -97,11 +93,8 @@ export async function createDefaultRoles(companyId: string, adminId: string) {
       ],
     },
     {
-      companyId,
       name: "Sales Representative",
       description: "Can view and create contacts and deals",
-      isSystemRole: true,
-      createdBy: adminId,
       permissions: [
         { module: "dashboard",     canView: true,  canCreate: false, canEdit: false, canDelete: false, canExport: false },
         { module: "contacts",      canView: true,  canCreate: true,  canEdit: true,  canDelete: false, canExport: false },
@@ -121,11 +114,8 @@ export async function createDefaultRoles(companyId: string, adminId: string) {
       ],
     },
     {
-      companyId,
       name: "Accountant",
       description: "Can manage invoices and products",
-      isSystemRole: true,
-      createdBy: adminId,
       permissions: [
         { module: "dashboard",     canView: true,  canCreate: false, canEdit: false, canDelete: false, canExport: false },
         { module: "contacts",      canView: true,  canCreate: false, canEdit: false, canDelete: false, canExport: false },
@@ -145,11 +135,8 @@ export async function createDefaultRoles(companyId: string, adminId: string) {
       ],
     },
     {
-      companyId,
       name: "Viewer",
       description: "Read-only access to most modules",
-      isSystemRole: true,
-      createdBy: adminId,
       permissions: [
         { module: "dashboard",     canView: true,  canCreate: false, canEdit: false, canDelete: false, canExport: false },
         { module: "contacts",      canView: true,  canCreate: false, canEdit: false, canDelete: false, canExport: false },
@@ -170,18 +157,40 @@ export async function createDefaultRoles(companyId: string, adminId: string) {
     },
   ];
 
-  // Upsert each default role:
-  // - If it doesn't exist yet → create it ($setOnInsert sets all fields)
-  // - If it already exists → update its permissions so new modules are applied ($set)
+  // Upsert each default role.
+  //
+  // KEY RULE: $set and $setOnInsert MUST NOT share the same field paths.
+  // When MongoDB executes an upsert that inserts a new document, it applies
+  // BOTH operators simultaneously. If the same path appears in both, MongoDB
+  // throws "Updating the path '...' would create a conflict" — which was
+  // the silent bug causing default roles to never be created for new companies.
+  //
+  // Fix: $set   → only the fields that should refresh on every call (permissions + flags)
+  //      $setOnInsert → only the identity/metadata fields set once on creation
   for (const roleData of defaultRoles) {
-    const { companyId: cId, name, ...rest } = roleData;
-    await Role.updateOne(
-      { companyId: cId, name },
-      {
-        $set: { permissions: rest.permissions },          // always refresh permissions
-        $setOnInsert: { companyId: cId, name, ...rest },  // only on first creation
-      },
-      { upsert: true }
-    );
+    try {
+      await Role.updateOne(
+        { companyId, name: roleData.name },
+        {
+          // Refreshed on every upsert (update or insert)
+          $set: {
+            permissions: roleData.permissions,
+            isSystemRole: true,
+            isDefaultRole: true,
+            isActive: true,
+          },
+          // Written ONLY when a brand-new document is inserted
+          $setOnInsert: {
+            companyId,
+            name: roleData.name,
+            description: roleData.description,
+            createdBy: adminId,
+          },
+        },
+        { upsert: true }
+      );
+    } catch (err) {
+      console.error(`createDefaultRoles: failed to upsert "${roleData.name}":`, err);
+    }
   }
 }

@@ -63,6 +63,9 @@ export interface AppointmentDetails {
   // Staff Details
   assignedStaff?: DisplayValue;
   preferredTechnician?: DisplayValue;
+
+  // Co-technicians on shared bookings
+  coTechnicians?: string[];
 }
 
 interface AppointmentDetailsSheetProps {
@@ -189,6 +192,15 @@ export function AppointmentDetailsSheet({
             </div>
             <KeyValueRow label="Start" value={formatDateTime(appointment.start)} />
             <KeyValueRow label="End" value={formatDateTime(appointment.end)} />
+            {appointment.coTechnicians && appointment.coTechnicians.length > 0 && (
+              <div className="grid grid-cols-[190px_10px_1fr] gap-x-2 text-sm">
+                <div className="text-foreground">Working With</div>
+                <div className="text-muted-foreground">:</div>
+                <div className="text-foreground font-medium">
+                  {appointment.coTechnicians.join(", ")}
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="space-y-2">

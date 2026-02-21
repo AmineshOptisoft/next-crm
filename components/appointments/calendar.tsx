@@ -41,11 +41,20 @@ export default function Calendar() {
   const [resources, setResources] = useState([]);
   const [events, setEvents] = useState([]);
   const [currentView, setCurrentView] = useState<string>("resourceTimelineDay");
+  const [visibleRange, setVisibleRange] = useState<{ start: Date; end: Date } | null>(null);
 
-  // Fetch data from real API
-  const fetchCalendarData = async () => {
+  // Fetch data from real API for the given date range
+  const fetchCalendarData = async (start?: Date, end?: Date) => {
     try {
-      const res = await fetch('/api/appointments/resources');
+      let url = '/api/appointments/resources';
+      if (start && end) {
+        const params = new URLSearchParams({
+          start: start.toISOString(),
+          end: end.toISOString(),
+        });
+        url = `${url}?${params.toString()}`;
+      }
+      const res = await fetch(url);
       const data = await res.json();
       setResources(data.resources);
       setEvents(data.events);
@@ -54,10 +63,12 @@ export default function Calendar() {
     }
   };
 
-  // Fetch data from real API
+  // Re-fetch whenever the visible date range changes
   useEffect(() => {
-    fetchCalendarData();
-  }, []);
+    if (visibleRange) {
+      fetchCalendarData(visibleRange.start, visibleRange.end);
+    }
+  }, [visibleRange?.start?.toISOString(), visibleRange?.end?.toISOString()]);
 
   // Filter events per view:
   // - bookings always visible
@@ -119,6 +130,9 @@ export default function Calendar() {
 
         assignedStaff: props.assignedStaff,
         preferredTechnician: props.preferredTechnician,
+
+        // Co-technicians on shared bookings
+        coTechnicians: props.coTechnicians,
       };
 
       setSelectedAppointment(appointment);
@@ -226,6 +240,7 @@ export default function Calendar() {
           eventChange={handleEventChange}
           datesSet={(arg: DatesSetArg) => {
             setCurrentView(arg.view.type);
+            setVisibleRange({ start: arg.start, end: arg.end });
           }}
           views={{
             resourceTimelineDay: {

@@ -35,7 +35,7 @@ export function AddBreakDialog({ open, onOpenChange, onSave, loading }: AddBreak
             endDate: endDate,     // Send Date object for DB
             endTime: format(endDate, "hh:mm a"),
             reason,
-            status: "APPROVED",
+            status: "PENDING",
             notes
         };
 

@@ -7,410 +7,525 @@ import { Company } from "@/app/models/Company";
 import { Booking } from "@/app/models/Booking";
 import { Service } from "@/app/models/Service";
 import { TechnicianTimeOff } from "@/app/models/TechnicianTimeOff";
+import mongoose from "mongoose";
 
-// ULTRA OPTIMIZATION: Reduce availability generation from 30 weeks to 8 weeks
-// This alone can reduce 70% of processing time
-const WEEKS_TO_GENERATE = 8; // 4 weeks back + 4 weeks forward
+// ─── Constants (module-level, never re-created) ───────────────────────────────
 
-// GET - Fetch resources and availability events (ULTRA OPTIMIZED)
+const STATUS_COLORS: Record<string, string> = {
+    unconfirmed:  '#ea580c',
+    confirmed:    '#eab308',
+    scheduled:    '#eab308',
+    invoice_sent: '#2563eb',
+    paid:         '#16a34a',
+    closed:       '#4b5563',
+    rejected:     '#dc2626',
+    cancelled:    '#dc2626',
+    completed:    '#10b981',
+};
+
+const DEFAULT_MASTER_AVAILABILITY = [
+    { day: "Monday",    isOpen: true,  startTime: "09:00 AM", endTime: "06:00 PM" },
+    { day: "Tuesday",   isOpen: true,  startTime: "09:00 AM", endTime: "06:00 PM" },
+    { day: "Wednesday", isOpen: true,  startTime: "09:00 AM", endTime: "06:00 PM" },
+    { day: "Thursday",  isOpen: true,  startTime: "09:00 AM", endTime: "06:00 PM" },
+    { day: "Friday",    isOpen: true,  startTime: "09:00 AM", endTime: "06:00 PM" },
+    { day: "Saturday",  isOpen: false, startTime: "09:00 AM", endTime: "06:00 PM" },
+    { day: "Sunday",    isOpen: false, startTime: "09:00 AM", endTime: "06:00 PM" },
+];
+
+// Monday-first day index → name (matches JS getDay() remapped below)
+const DAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+const DAY_SET   = new Set(DAY_NAMES);
+
+// Module-level time-string parse cache (persists across requests in the same worker)
+const TIME_CACHE = new Map<string, number>();
+
+// ─── GET handler ──────────────────────────────────────────────────────────────
+
 export async function GET(req: NextRequest) {
     try {
+        // 1. Auth + URL parsing (no DB yet)
         const user = await getCurrentUser();
         if (!user || !user.companyId) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 
+        const { searchParams } = new URL(req.url);
+        const paramStart = searchParams.get("start");
+        const paramEnd   = searchParams.get("end");
+
+        const today = new Date();
+        const startDate = paramStart
+            ? new Date(paramStart)
+            : new Date(today.getFullYear(), today.getMonth(), today.getDate() - 28);
+        const endDate = paramEnd
+            ? new Date(paramEnd)
+            : new Date(today.getFullYear(), today.getMonth(), today.getDate() + 56);
+
         await connectDB();
 
-        // Get date range for bookings (only fetch relevant bookings)
-        const today = new Date();
-        const startDate = new Date(today);
-        startDate.setDate(today.getDate() - 28);
-        const endDate = new Date(today);
-        endDate.setDate(today.getDate() + 56); // 8 weeks forward
+        const companyObjId = new mongoose.Types.ObjectId(user.companyId);
 
-        // CRITICAL: Run ALL queries in parallel with optimized filters
-        const [serviceAreas, technicians, company, bookings, timeOffs] = await Promise.all([
-            // Only fetch name - nothing else needed
+        // 2. All DB work in ONE parallel round ─────────────────────────────────
+        //    Bookings now use $lookup aggregation instead of .populate()
+        //    so contact + service data arrive in a single query (no hidden N+1).
+        const [serviceAreas, technicians, company, bookingsRaw, timeOffs] = await Promise.all([
+
             ServiceArea.find({ companyId: user.companyId })
-                .select('name')
+                .select("name")
                 .sort({ name: 1 })
                 .lean()
                 .exec(),
-            
-            // Only active technicians with minimal fields
+
             User.find({
                 companyId: user.companyId,
                 role: "company_user",
-                isTechnicianActive: true
+                isTechnicianActive: true,
             })
-            .select('firstName lastName zone availability services')
-            .lean()
-            .exec(),
-            
-            // Only master availability
-            Company.findById(user.companyId)
-                .select('masterAvailability')
+                .select("firstName lastName zone availability services")
                 .lean()
                 .exec(),
-            
-            // CRITICAL: Only fetch bookings in date range
-            Booking.find({ 
-                companyId: user.companyId,
-                startDateTime: { 
-                    $gte: startDate,
-                    $lte: endDate 
-                }
-            })
-            .populate('contactId', 'firstName lastName email phone')
-            .populate('serviceId', 'name')
-            .select('technicianId startDateTime endDateTime status subServices addons notes pricing shippingAddress')
-            .lean()
-            .exec(),
 
-            // Fetch Technician Time Offs
+            Company.findById(user.companyId)
+                .select("masterAvailability")
+                .lean()
+                .exec(),
+
+            // Single aggregation replaces two .populate() calls
+            Booking.aggregate([
+                {
+                    $match: {
+                        companyId: companyObjId,
+                        startDateTime: { $gte: startDate, $lte: endDate },
+                    },
+                },
+                {
+                    $lookup: {
+                        from: "users",
+                        localField: "contactId",
+                        foreignField: "_id",
+                        pipeline: [{ $project: {
+                            firstName: 1,
+                            lastName: 1,
+                            email: 1,
+                            phoneNumber: 1,
+                            familyInfo: 1,
+                            parkingAccess: 1,
+                            clientNotesFromTech: 1,
+                            specialInstructionsClient: 1,
+                            specialInstructionsAdmin: 1,
+                            billingNotes: 1,
+                            preferences: 1,
+                            preferredTechnician: 1,
+                        }}],
+                        as: "_contact",
+                    },
+                },
+                {
+                    $lookup: {
+                        from: "services",
+                        localField: "serviceId",
+                        foreignField: "_id",
+                        pipeline: [{ $project: { name: 1 } }],
+                        as: "_service",
+                    },
+                },
+                {
+                    $project: {
+                        technicianId: 1,
+                        startDateTime: 1,
+                        endDateTime: 1,
+                        status: 1,
+                        subServices: 1,
+                        addons: 1,
+                        notes: 1,
+                        pricing: 1,
+                        shippingAddress: 1,
+                        recurringGroupId: 1,
+                        contact: { $arrayElemAt: ["$_contact", 0] },
+                        service:  { $arrayElemAt: ["$_service",  0] },
+                    },
+                },
+            ]),
+
+            // Time-offs that overlap the range (not just fully contained)
             TechnicianTimeOff.find({
-                startDate: { $gte: startDate },
-                endDate: { $lte: endDate },
-                status: "APPROVED"
-            }).lean().exec()
+                startDate: { $lte: endDate },
+                endDate:   { $gte: startDate },
+                status: "APPROVED",
+            })
+                .select("technicianId startDate endDate startTime endTime reason notes status")
+                .lean()
+                .exec(),
         ]);
 
-        // Fast master availability setup
-        let masterAvailability = normalizeAvailability(company?.masterAvailability);
-        if (masterAvailability.length === 0) {
-            masterAvailability = DEFAULT_MASTER_AVAILABILITY;
+        // 3. Collect unique sub-service / addon service IDs from bookings ───────
+        const serviceIds = new Set<string>();
+        for (const b of bookingsRaw as any[]) {
+            b.subServices?.forEach((s: any) => s.serviceId && serviceIds.add(s.serviceId.toString()));
+            b.addons?.forEach((a: any)       => a.serviceId && serviceIds.add(a.serviceId.toString()));
         }
 
-        // Pre-build maps for O(1) lookups
-        const masterMap = new Map(masterAvailability.map(m => [m.day, m]));
-        const serviceAreaMap = new Map(serviceAreas.map(sa => [sa.name, sa]));
+        // 4. Fetch sub-service names only if any exist (still parallel-able but ─
+        //    usually small; keep separate to avoid bloating main round)
+        const serviceMap: Map<string, string> =
+            serviceIds.size > 0
+                ? new Map(
+                      (
+                          await Service.find({ _id: { $in: [...serviceIds] } })
+                              .select("_id name")
+                              .lean()
+                              .exec()
+                      ).map((s: any) => [s._id.toString(), s.name])
+                  )
+                : new Map();
 
-        // Collect service IDs (if needed)
-        const serviceIds = new Set<string>();
-        bookings.forEach((booking: any) => {
-            booking.subServices?.forEach((sub: any) => {
-                if (sub.serviceId) serviceIds.add(sub.serviceId.toString());
-            });
-            booking.addons?.forEach((addon: any) => {
-                if (addon.serviceId) serviceIds.add(addon.serviceId.toString());
-            });
-        });
+        // 5. Master availability → precomputed numeric tuple map ───────────────
+        //    { day → [effectiveStartMin, effectiveEndMin, isOpen] }
+        let masterAvailability = normalizeAvailability((company as any)?.masterAvailability);
+        if (masterAvailability.length === 0) masterAvailability = DEFAULT_MASTER_AVAILABILITY;
 
-        // Fetch services only if needed
-        const serviceMap = serviceIds.size > 0 
-            ? new Map((await Service.find({ _id: { $in: Array.from(serviceIds) } })
-                .select('_id name')
-                .lean()
-                .exec()).map((s: any) => [s._id.toString(), s.name]))
-            : new Map();
+        // masterNumericMap: day → { isOpen, start, end } in minutes
+        const masterNumericMap = buildNumericMap(masterAvailability);
 
-        // Build resources and availability events efficiently
-        const resources: any[] = [];
-        const availabilityEvents: any[] = [];
-
-        // Group technicians by zone (single pass)
-        const techniciansByZone = new Map<string, any[]>();
-        technicians.forEach(tech => {
+        // 6. Group technicians by zone (single pass) ───────────────────────────
+        const techsByZone = new Map<string, any[]>();
+        for (const tech of technicians as any[]) {
             const zone = tech.zone || "Unassigned";
-            const list = techniciansByZone.get(zone);
-            if (list) {
-                list.push(tech);
-            } else {
-                techniciansByZone.set(zone, [tech]);
-            }
-        });
+            const arr  = techsByZone.get(zone);
+            arr ? arr.push(tech) : techsByZone.set(zone, [tech]);
+        }
 
-        // Process each service area and its technicians
-        serviceAreas.forEach(area => {
-            const zoneTechs = techniciansByZone.get(area.name) || [];
+        // 7. Build resources + availability blocks ────────────────────────────
+        const resources: any[]           = [];
+        const availabilityEvents: any[]  = [];
 
-            zoneTechs.forEach(tech => {
+        // Precompute range timestamps to avoid repeated .getTime() calls
+        const rangeStartMs = getMondayOfWeekMs(startDate.getTime());
+        const rangeEndMs   = endDate.getTime();
+        const ONE_DAY_MS   = 86_400_000;
+
+        for (const area of serviceAreas as any[]) {
+            const zoneTechs = techsByZone.get(area.name) || [];
+
+            for (const tech of zoneTechs) {
+                const techId = tech._id.toString();
+
                 resources.push({
-                    id: tech._id.toString(),
-                    title: `${tech.firstName} ${tech.lastName}`,
-                    group: area.name,
-                    services: tech.services || []
+                    id:       techId,
+                    title:    `${tech.firstName} ${tech.lastName}`,
+                    group:    area.name,
+                    services: tech.services || [],
                 });
 
-                // Generate availability blocks (reduced weeks)
-                const techAvailability = normalizeAvailability(tech.availability);
-                const effectiveAvailability = techAvailability.length > 0 ? techAvailability : masterAvailability;
-                const techMap = new Map(effectiveAvailability.map(t => [t.day, t]));
+                // Per-tech numeric availability map (7 entries max)
+                const techNorm    = normalizeAvailability(tech.availability);
+                const effectiveNorm = techNorm.length > 0 ? techNorm : masterAvailability;
+                const techNumericMap = buildNumericMap(effectiveNorm);
 
-                const blocks = generateAvailabilityBlocksFast(
-                    tech._id.toString(),
-                    masterMap,
-                    techMap
+                const blocks = generateAvailabilityBlocks(
+                    techId,
+                    masterNumericMap,
+                    techNumericMap,
+                    rangeStartMs,
+                    rangeEndMs,
+                    ONE_DAY_MS
                 );
                 availabilityEvents.push(...blocks);
-            });
-        });
+            }
+        }
 
-        // Process booking events
-        const bookingEvents = bookings.map((booking: any) => {
+        // 8. Build co-technician lookup for multi-tech bookings ──────────────────
+        //    All technicians work simultaneously (same start/end), so we keep
+        //    the original times and just expose who else is on the booking.
+
+        // techId → full name (from the already-fetched technicians array, no extra DB call)
+        const techNameMap = new Map<string, string>();
+        for (const tech of technicians as any[]) {
+            techNameMap.set(
+                tech._id.toString(),
+                `${tech.firstName || ""} ${tech.lastName || ""}`.trim()
+            );
+        }
+
+        // Group by recurringGroupId + startDateTime to find shared appointments
+        // booking._id (string) → names of ALL other techs in the same slot
+        const coTechMap = new Map<string, string[]>();
+
+        if ((bookingsRaw as any[]).some((b: any) => b.recurringGroupId)) {
+            const groupMap = new Map<string, any[]>();
+            for (const booking of bookingsRaw as any[]) {
+                if (!booking.recurringGroupId) continue;
+                const key = `${booking.recurringGroupId}::${new Date(booking.startDateTime).toISOString()}`;
+                const arr = groupMap.get(key);
+                arr ? arr.push(booking) : groupMap.set(key, [booking]);
+            }
+
+            for (const group of groupMap.values()) {
+                if (group.length <= 1) continue; // single-tech booking — nothing to do
+
+                // For each booking in the group, collect the OTHER technicians' names
+                group.forEach((booking: any) => {
+                    const others = group
+                        .filter((b: any) => b._id.toString() !== booking._id.toString())
+                        .map((b: any) => {
+                            const id = b.technicianId?.toString();
+                            return id ? (techNameMap.get(id) || "Unknown") : "Unknown";
+                        });
+                    coTechMap.set(booking._id.toString(), others);
+                });
+            }
+        }
+
+        // 9. Map booking events ────────────────────────────────────────────────
+        const bookingEvents = (bookingsRaw as any[]).map((booking) => {
             const addr = booking.shippingAddress;
-            const formattedAddress = addr 
-                ? `${addr.street || ''}, ${addr.city || ''}, ${addr.state || ''} ${addr.zipCode || ''}`.trim() 
-                : '';
+            const formattedAddress = addr
+                ? `${addr.street || ""}, ${addr.city || ""}, ${addr.state || ""} ${addr.zipCode || ""}`.trim()
+                : "";
 
-            const units = booking.subServices?.map((sub: any) => 
-                `${serviceMap.get(sub.serviceId?.toString()) || 'Unknown'} (x${sub.quantity})`
-            ).join(', ') || '';
+            const units = booking.subServices
+                ?.map((s: any) => `${serviceMap.get(s.serviceId?.toString()) || "Unknown"} (x${s.quantity})`)
+                .join(", ") || "";
 
-            const addons = booking.addons?.map((addon: any) => 
-                `${serviceMap.get(addon.serviceId?.toString()) || 'Unknown'} (x${addon.quantity})`
-            ).join(', ') || '';
+            const addons = booking.addons
+                ?.map((a: any) => `${serviceMap.get(a.serviceId?.toString()) || "Unknown"} (x${a.quantity})`)
+                .join(", ") || "";
+
+            const contact = booking.contact || {};
+            const service = booking.service  || {};
+
+            // Co-technicians on this booking (empty array = solo booking)
+            const coTechnicians = coTechMap.get(booking._id.toString()) ?? [];
+
+            // Assigned staff = this technician + all co-technicians
+            const thisName = techNameMap.get(booking.technicianId?.toString()) ?? "";
+            const assignedStaff = [thisName, ...coTechnicians].filter(Boolean).join(", ");
 
             return {
-                id: `booking-${booking._id}`,
-                resourceId: booking.technicianId?.toString(),
-                title: `${booking.contactId?.firstName || ''} ${booking.contactId?.lastName || ''} - ${booking.serviceId?.name || 'Service'}`,
-                start: booking.startDateTime,
-                end: booking.endDateTime,
-                backgroundColor: STATUS_COLORS[booking.status] || '#eab308',
-                borderColor: "#ca8a04",
-                textColor: "#000000",
-                type: "booking",
+                id:              `booking-${booking._id}`,
+                resourceId:      booking.technicianId?.toString(),
+                title:           `${contact.firstName || ""} ${contact.lastName || ""} - ${service.name || "Service"}`,
+                start:           booking.startDateTime,
+                end:             booking.endDateTime,
+                backgroundColor: STATUS_COLORS[booking.status] || "#eab308",
+                borderColor:     "#ca8a04",
+                textColor:       "#000000",
+                type:            "booking",
                 extendedProps: {
-                    bookingId: booking._id,
-                    bookingStatus: booking.status,
-                    service: booking.serviceId?.name,
+                    bookingId:      booking._id,
+                    bookingStatus:  booking.status,
+                    service:        service.name,
                     units,
                     addons,
-                    notes: booking.notes,
-                    bookingPrice: booking.pricing?.finalAmount ? `$${booking.pricing.finalAmount.toFixed(2)}` : '-',
-                    bookingDiscount: booking.pricing?.discount ? `$${booking.pricing.discount}` : '-',
-                    customerName: `${booking.contactId?.firstName || ''} ${booking.contactId?.lastName || ''}`,
-                    customerEmail: booking.contactId?.email,
-                    customerPhone: booking.contactId?.phone,
+                    notes:          booking.notes,
+                    bookingPrice:   booking.pricing?.finalAmount  ? `$${booking.pricing.finalAmount.toFixed(2)}`  : "-",
+                    bookingDiscount: booking.pricing?.discount    ? `$${booking.pricing.discount}`                : "-",
+                    // Customer details
+                    customerName:   `${contact.firstName || ""} ${contact.lastName || ""}`.trim(),
+                    customerEmail:  contact.email,
+                    customerPhone:  contact.phoneNumber,
                     customerAddress: formattedAddress,
-                    status: booking.status
-                }
+                    familyInfo:     contact.familyInfo,
+                    parkingAccess:  contact.parkingAccess,
+                    clientNotesFromTech: contact.clientNotesFromTech,
+                    specialInstructionsFromClient: contact.specialInstructionsClient,
+                    specialInstructionsFromAdmin:  contact.specialInstructionsAdmin,
+                    billingNotes:   contact.billingNotes,
+                    preferences:    contact.preferences,
+                    preferredTechnician: contact.preferredTechnician,
+                    status:         booking.status,
+                    // Staff
+                    assignedStaff,
+                    coTechnicians,
+                },
             };
+
         });
 
-        // Process time-off events
-        const timeOffEvents = timeOffs.map((off: any) => {
+
+        // 10. Map time-off events ──────────────────────────────────────────────
+        const timeOffEvents = (timeOffs as any[]).map((off) => {
+            const startMs = parseTimeFast(off.startTime);
+            const endMs   = parseTimeFast(off.endTime);
+
             const start = new Date(off.startDate);
-            const startTimeMinutes = parseTimeFast(off.startTime);
-            start.setHours(Math.floor(startTimeMinutes / 60), startTimeMinutes % 60, 0, 0);
+            start.setHours(Math.floor(startMs / 60), startMs % 60, 0, 0);
 
             const end = new Date(off.endDate);
-            const endTimeMinutes = parseTimeFast(off.endTime);
-            end.setHours(Math.floor(endTimeMinutes / 60), endTimeMinutes % 60, 0, 0);
+            end.setHours(Math.floor(endMs / 60), endMs % 60, 0, 0);
 
             return {
-                id: `timeoff-${off._id}`,
-                resourceId: off.technicianId.toString(),
-                title: `Off: ${off.reason}`,
-                start: start,
-                end: end,
-                backgroundColor: "#71717a", 
-                borderColor: "#52525b",
-                textColor: "#ffffff",
-                display: "background",
-                type: "unavailability", 
+                id:              `timeoff-${off._id}`,
+                resourceId:      off.technicianId.toString(),
+                title:           `Off: ${off.reason}`,
+                start,
+                end,
+                backgroundColor: "#71717a",
+                borderColor:     "#52525b",
+                textColor:       "#ffffff",
+                display:         "background",
+                type:            "unavailability",
                 extendedProps: {
-                    type: "time_off",
-                    notes: off.notes,
+                    type:   "time_off",
+                    notes:  off.notes,
                     reason: off.reason,
-                    status: off.status
-                }
+                    status: off.status,
+                },
             };
         });
 
         return NextResponse.json({
             resources,
-            events: [...availabilityEvents, ...bookingEvents, ...timeOffEvents]
+            events: [...availabilityEvents, ...bookingEvents, ...timeOffEvents],
         });
+
     } catch (error: any) {
         console.error("Error fetching appointment resources:", error);
-        return NextResponse.json(
-            { error: "Failed to fetch resources" },
-            { status: 500 }
-        );
+        return NextResponse.json({ error: "Failed to fetch resources" }, { status: 500 });
     }
 }
 
-// Status colors lookup (constant)
-const STATUS_COLORS: Record<string, string> = {
-    'unconfirmed': '#ea580c',
-    'confirmed': '#eab308',
-    'scheduled': '#eab308',
-    'invoice_sent': '#2563eb',
-    'paid': '#16a34a',
-    'closed': '#4b5563',
-    'rejected': '#dc2626',
-    'cancelled': '#dc2626',
-    'completed': '#10b981'
-};
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
-// Default master availability (constant)
-const DEFAULT_MASTER_AVAILABILITY = [
-    { day: "Monday", isOpen: true, startTime: "09:00 AM", endTime: "06:00 PM" },
-    { day: "Tuesday", isOpen: true, startTime: "09:00 AM", endTime: "06:00 PM" },
-    { day: "Wednesday", isOpen: true, startTime: "09:00 AM", endTime: "06:00 PM" },
-    { day: "Thursday", isOpen: true, startTime: "09:00 AM", endTime: "06:00 PM" },
-    { day: "Friday", isOpen: true, startTime: "09:00 AM", endTime: "06:00 PM" },
-    { day: "Saturday", isOpen: false, startTime: "09:00 AM", endTime: "06:00 PM" },
-    { day: "Sunday", isOpen: false, startTime: "09:00 AM", endTime: "06:00 PM" }
-];
+/** Numeric availability map: day name → { isOpen, startMin, endMin } */
+type NumericDay = { isOpen: boolean; startMin: number; endMin: number };
 
-// Day names constant
-const DAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+function buildNumericMap(availability: { day: string; isOpen: boolean; startTime: string; endTime: string }[]): Map<string, NumericDay> {
+    const map = new Map<string, NumericDay>();
+    for (const a of availability) {
+        map.set(a.day, {
+            isOpen:   a.isOpen,
+            startMin: parseTimeFast(a.startTime),
+            endMin:   parseTimeFast(a.endTime),
+        });
+    }
+    return map;
+}
 
-// ULTRA FAST: Generate availability blocks with reduced week range
-function generateAvailabilityBlocksFast(
+/**
+ * Generate unavailability blocks using pure timestamp arithmetic —
+ * no Date object created per iteration in the hot path.
+ */
+function generateAvailabilityBlocks(
     technicianId: string,
-    masterMap: Map<string, any>,
-    techMap: Map<string, any>
+    masterMap: Map<string, NumericDay>,
+    techMap:   Map<string, NumericDay>,
+    rangeStartMs: number,   // already aligned to Monday 00:00
+    rangeEndMs:   number,
+    ONE_DAY_MS:   number
 ) {
     const blocks: any[] = [];
-    
-    // Calculate date range once
-    const today = new Date();
-    const startRange = new Date(today);
-    startRange.setDate(today.getDate() - 28); // 4 weeks back
+    let curMs = rangeStartMs;
 
-    // Get Monday of the start week
-    const weekStart = getMondayOfWeek(startRange);
+    while (curMs <= rangeEndMs) {
+        const date   = new Date(curMs);
+        const jsDay  = date.getDay();                          // 0=Sun … 6=Sat
+        const dayIdx = jsDay === 0 ? 6 : jsDay - 1;           // 0=Mon … 6=Sun
+        const day    = DAY_NAMES[dayIdx];
 
-    // CRITICAL: Reduced from 30 weeks to 8 weeks (70% reduction in processing)
-    for (let weekIndex = 0; weekIndex < WEEKS_TO_GENERATE; weekIndex++) {
-        const weekOffset = weekIndex * 7;
-        
-        for (let dayIndex = 0; dayIndex < 7; dayIndex++) {
-            const date = new Date(weekStart);
-            date.setDate(weekStart.getDate() + weekOffset + dayIndex);
-            
-            const day = DAY_NAMES[dayIndex];
-            const masterDay = masterMap.get(day);
-            const techDay = techMap.get(day);
+        const master = masterMap.get(day);
+        const tech   = techMap.get(day);
 
-            // If closed, create single unavailable block for entire day
-            if (!masterDay?.isOpen || !techDay?.isOpen) {
+        const dateStr = date.toISOString().slice(0, 10);       // "YYYY-MM-DD"
+        const dayStartMs = curMs;                              // 00:00 of this day
+        const dayEndMs   = curMs + ONE_DAY_MS - 1;            // 23:59:59.999
+
+        if (!master?.isOpen || !tech?.isOpen) {
+            blocks.push({
+                id:              `unavail-${technicianId}-${dateStr}`,
+                resourceId:      technicianId,
+                start:           new Date(dayStartMs),
+                end:             new Date(dayEndMs),
+                title:           "Not Available",
+                backgroundColor: "#ef4444",
+                display:         "background",
+                type:            "unavailability",
+            });
+        } else {
+            const effectiveStart = Math.max(master.startMin, tech.startMin); // minutes
+            const effectiveEnd   = Math.min(master.endMin,   tech.endMin);
+
+            if (effectiveStart > 0) {
                 blocks.push({
-                    id: `unavail-${technicianId}-${date.toISOString().slice(0, 10)}`,
-                    resourceId: technicianId,
-                    start: new Date(date.setHours(0, 0, 0, 0)),
-                    end: new Date(date.setHours(23, 59, 59, 999)),
-                    title: "Not Available",
+                    id:              `unavail-${technicianId}-${dateStr}-before`,
+                    resourceId:      technicianId,
+                    start:           new Date(dayStartMs),
+                    end:             new Date(dayStartMs + effectiveStart * 60_000),
+                    title:           "Not Available",
                     backgroundColor: "#ef4444",
-                    display: "background",
-                    type: "unavailability"
+                    display:         "background",
+                    type:            "unavailability_timed",
                 });
-            } else {
-                // Calculate effective working hours
-                const masterStart = parseTimeFast(masterDay.startTime);
-                const masterEnd = parseTimeFast(masterDay.endTime);
-                const techStart = parseTimeFast(techDay.startTime);
-                const techEnd = parseTimeFast(techDay.endTime);
+            }
 
-                const effectiveStart = Math.max(masterStart, techStart);
-                const effectiveEnd = Math.min(masterEnd, techEnd);
-
-                // Block before working hours
-                if (effectiveStart > 0) {
-                    const startHour = Math.floor(effectiveStart / 60);
-                    const startMin = effectiveStart % 60;
-                    
-                    blocks.push({
-                        id: `unavail-${technicianId}-${date.toISOString().slice(0, 10)}-before`,
-                        resourceId: technicianId,
-                        start: new Date(new Date(date).setHours(0, 0, 0, 0)),
-                        end: new Date(new Date(date).setHours(startHour, startMin, 0, 0)),
-                        title: "Not Available",
-                        backgroundColor: "#ef4444",
-                        display: "background",
-                        type: "unavailability_timed"
-                    });
-                }
-
-                // Block after working hours
-                if (effectiveEnd < 1440) {
-                    const endHour = Math.floor(effectiveEnd / 60);
-                    const endMin = effectiveEnd % 60;
-                    
-                    blocks.push({
-                        id: `unavail-${technicianId}-${date.toISOString().slice(0, 10)}-after`,
-                        resourceId: technicianId,
-                        start: new Date(new Date(date).setHours(endHour, endMin, 0, 0)),
-                        end: new Date(new Date(date).setHours(23, 59, 59, 999)),
-                        title: "Not Available",
-                        backgroundColor: "#ef4444",
-                        display: "background",
-                        type: "unavailability_timed"
-                    });
-                }
+            if (effectiveEnd < 1440) {
+                blocks.push({
+                    id:              `unavail-${technicianId}-${dateStr}-after`,
+                    resourceId:      technicianId,
+                    start:           new Date(dayStartMs + effectiveEnd * 60_000),
+                    end:             new Date(dayEndMs),
+                    title:           "Not Available",
+                    backgroundColor: "#ef4444",
+                    display:         "background",
+                    type:            "unavailability_timed",
+                });
             }
         }
+
+        curMs += ONE_DAY_MS;
     }
 
     return blocks;
 }
 
-// Get Monday of week
-function getMondayOfWeek(d: Date): Date {
-    const m = new Date(d);
-    const day = m.getDay();
-    const diff = day === 0 ? -6 : 1 - day;
-    m.setDate(m.getDate() + diff);
-    m.setHours(0, 0, 0, 0);
-    return m;
+/** Returns the timestamp (ms) of Monday 00:00:00.000 of the week containing `ms`. */
+function getMondayOfWeekMs(ms: number): number {
+    const d   = new Date(ms);
+    const day = d.getDay();                       // 0=Sun
+    const diff = day === 0 ? -6 : 1 - day;       // days to subtract to reach Mon
+    d.setDate(d.getDate() + diff);
+    d.setHours(0, 0, 0, 0);
+    return d.getTime();
 }
 
-// Time parsing cache
-const TIME_CACHE = new Map<string, number>();
-
-// ULTRA FAST: Parse time with caching and regex
+/** Parse "HH:MM AM/PM" → total minutes, with module-level cache. */
 function parseTimeFast(timeStr: string | undefined): number {
     if (!timeStr) return 0;
-    
-    // Check cache
     const cached = TIME_CACHE.get(timeStr);
     if (cached !== undefined) return cached;
 
-    // Fast regex parse
     const match = timeStr.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
-    if (!match) {
-        TIME_CACHE.set(timeStr, 0);
-        return 0;
-    }
+    if (!match) { TIME_CACHE.set(timeStr, 0); return 0; }
 
-    let hours = parseInt(match[1], 10);
-    const minutes = parseInt(match[2], 10);
-    const period = match[3].toUpperCase();
+    let hours      = parseInt(match[1], 10);
+    const minutes  = parseInt(match[2], 10);
+    const period   = match[3].toUpperCase();
 
     if (period === "PM" && hours !== 12) hours += 12;
-    if (period === "AM" && hours === 12) hours = 0;
+    if (period === "AM" && hours === 12) hours  = 0;
 
     const result = hours * 60 + minutes;
     TIME_CACHE.set(timeStr, result);
-    
     return result;
 }
 
-// Normalize availability with Set for O(1) lookup
-const DAY_SET = new Set(DAY_NAMES);
-
+/** Normalize raw availability array, filtering invalid/unknown days. */
 function normalizeAvailability(arr: any): { day: string; isOpen: boolean; startTime: string; endTime: string }[] {
     if (!Array.isArray(arr) || arr.length === 0) return [];
-    
-    return arr
-        .map((item: any) => {
-            const day = item?.day?.trim();
-            if (!day) return null;
-            
-            const normalized = day.charAt(0).toUpperCase() + day.slice(1).toLowerCase();
-            if (!DAY_SET.has(normalized)) return null;
-            
-            return {
-                day: normalized,
-                isOpen: Boolean(item?.isOpen),
-                startTime: item?.startTime || "09:00 AM",
-                endTime: item?.endTime || "06:00 PM"
-            };
-        })
-        .filter(Boolean) as any[];
+
+    const out: { day: string; isOpen: boolean; startTime: string; endTime: string }[] = [];
+    for (const item of arr) {
+        const raw = item?.day?.trim();
+        if (!raw) continue;
+        const normalized = raw.charAt(0).toUpperCase() + raw.slice(1).toLowerCase();
+        if (!DAY_SET.has(normalized)) continue;
+        out.push({
+            day:       normalized,
+            isOpen:    Boolean(item?.isOpen),
+            startTime: item?.startTime || "09:00 AM",
+            endTime:   item?.endTime   || "06:00 PM",
+        });
+    }
+    return out;
 }

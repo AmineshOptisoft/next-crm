@@ -61,27 +61,27 @@ const menuItems = {
       ),
     },
 
-    {
-      title: "Tasks",
-      href: "/dashboard/tasks",
-      module: "tasks",
-      icon: (
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          width="16"
-          height="16"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <path d="M9 11l3 3L22 4" />
-          <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
-        </svg>
-      ),
-    },
+    // {
+    //   title: "Tasks",
+    //   href: "/dashboard/tasks",
+    //   module: "tasks",
+    //   icon: (
+    //     <svg
+    //       xmlns="http://www.w3.org/2000/svg"
+    //       width="16"
+    //       height="16"
+    //       viewBox="0 0 24 24"
+    //       fill="none"
+    //       stroke="currentColor"
+    //       strokeWidth="2"
+    //       strokeLinecap="round"
+    //       strokeLinejoin="round"
+    //     >
+    //       <path d="M9 11l3 3L22 4" />
+    //       <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+    //     </svg>
+    //   ),
+    // },
     {
       title: "Contacts",
       href: "/dashboard/contacts",
@@ -103,51 +103,51 @@ const menuItems = {
         </svg>
       ),
     },
-    {
-      title: "Deals",
-      href: "/dashboard/deals",
-      module: "deals",
-      icon: (
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          width="16"
-          height="16"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <path d="M3 10h18" />
-          <path d="M3 6h18" />
-          <path d="M3 14h18" />
-          <path d="M3 18h18" />
-        </svg>
-      ),
-    },
-    {
-      title: "Products",
-      href: "/dashboard/products",
-      module: "products",
-      icon: (
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          width="16"
-          height="16"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" />
-          <line x1="3" y1="6" x2="21" y2="6" />
-          <path d="M16 10a4 4 0 0 1-8 0" />
-        </svg>
-      ),
-    },
+    // {
+    //   title: "Deals",
+    //   href: "/dashboard/deals",
+    //   module: "deals",
+    //   icon: (
+    //     <svg
+    //       xmlns="http://www.w3.org/2000/svg"
+    //       width="16"
+    //       height="16"
+    //       viewBox="0 0 24 24"
+    //       fill="none"
+    //       stroke="currentColor"
+    //       strokeWidth="2"
+    //       strokeLinecap="round"
+    //       strokeLinejoin="round"
+    //     >
+    //       <path d="M3 10h18" />
+    //       <path d="M3 6h18" />
+    //       <path d="M3 14h18" />
+    //       <path d="M3 18h18" />
+    //     </svg>
+    //   ),
+    // },
+    // {
+    //   title: "Products",
+    //   href: "/dashboard/products",
+    //   module: "products",
+    //   icon: (
+    //     <svg
+    //       xmlns="http://www.w3.org/2000/svg"
+    //       width="16"
+    //       height="16"
+    //       viewBox="0 0 24 24"
+    //       fill="none"
+    //       stroke="currentColor"
+    //       strokeWidth="2"
+    //       strokeLinecap="round"
+    //       strokeLinejoin="round"
+    //     >
+    //       <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" />
+    //       <line x1="3" y1="6" x2="21" y2="6" />
+    //       <path d="M16 10a4 4 0 0 1-8 0" />
+    //     </svg>
+    //   ),
+    // },
 
     {
       title: "Appointments",
@@ -405,6 +405,26 @@ const menuItems = {
           <path d="M6 3v18" />
           <path d="M18 3v18" />
           <path d="M6 3h12" />
+        </svg>
+      ),
+    },
+    {
+      title: "Off Time Request",
+      href: "/dashboard/off-time-requests",
+      icon: (
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <circle cx="12" cy="12" r="10" />
+          <polyline points="12 6 12 12 16 14" />
         </svg>
       ),
     },

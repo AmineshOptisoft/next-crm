@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
 import { User } from "../../../models/User";
-import { createDefaultRoles } from "../../../models/Role";
+import { Role, createDefaultRoles } from "../../../models/Role";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { loginSchema } from "@/app/(auth)/login/schema";
-import { z } from "zod";
 
 export async function POST(req: NextRequest) {
   await connectDB();
@@ -40,14 +39,26 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
   }
 
-  // Ensure default roles exist for the company whenever a company_admin logs in.
-  // createDefaultRoles uses upsert, so existing roles are never duplicated.
-  if (
-    (user.role === "company_admin" || user.role === "super_admin") &&
-    user.companyId
-  ) {
+  // Ensure default roles exist for the company on every login (for any user with a companyId).
+  // createDefaultRoles uses upsert so existing roles are never duplicated.
+  if (user.companyId) {
     try {
       await createDefaultRoles(user.companyId.toString(), user._id.toString());
+
+      // Auto-assign the "Viewer" default role to company_users who have no role yet,
+      // so they see the sidebar modules on first login.
+      if (user.role === "company_user" && !user.customRoleId) {
+        const viewerRole = await Role.findOne({
+          companyId: user.companyId,
+          name: "Viewer",
+          isActive: true,
+        });
+        if (viewerRole) {
+          await User.findByIdAndUpdate(user._id, {
+            customRoleId: viewerRole._id,
+          });
+        }
+      }
     } catch (err) {
       // Non-fatal — log the error but don't block the login
       console.error("Failed to seed default roles on login:", err);

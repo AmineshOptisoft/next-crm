@@ -9,29 +9,74 @@ import { Loader2 } from "lucide-react";
 
 interface UserSecurityProps {
   onSave: (password: string) => void;
+  userEmail: string;
+  companyId: string;
+  firstName?: string;
+  lastName?: string;
 }
 
-export function UserSecurity({ onSave }: UserSecurityProps) {
+export function UserSecurity({
+  onSave,
+  userEmail,
+  companyId,
+  firstName,
+  lastName,
+}: UserSecurityProps) {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isSaving, setIsSaving] = useState(false);
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (password !== confirmPassword) {
       toast.error("Passwords do not match");
       return;
     }
     if (password.length < 6) {
-        toast.error("Password must be at least 6 characters");
-        return;
+      toast.error("Password must be at least 6 characters");
+      return;
     }
+
     setIsSaving(true);
-    onSave(password);
-    setPassword("");
-    setConfirmPassword("");
-    setIsSaving(false);
-    toast.success("Password saved successfully");
+    try {
+      // Save the new password
+      onSave(password);
+
+      // Send password reset confirmation email (non-blocking, best-effort)
+      if (userEmail && companyId) {
+        fetch("/api/users/send-password-reset-email", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            email: userEmail,
+            companyId,
+            firstName: firstName || "",
+            lastName: lastName || "",
+          }),
+        })
+          .then((res) => res.json())
+          .then((data) => {
+            if (data.sent) {
+              console.log(
+                `[Password Reset] Confirmation email sent to ${userEmail}`
+              );
+            } else {
+              console.warn(
+                `[Password Reset] Email not sent: ${data.error}`
+              );
+            }
+          })
+          .catch((err) => {
+            console.error("[Password Reset] Failed to send email:", err);
+          });
+      }
+
+      setPassword("");
+      setConfirmPassword("");
+      toast.success("Password saved successfully");
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -59,8 +104,8 @@ export function UserSecurity({ onSave }: UserSecurityProps) {
         </div>
       </div>
       <div className="flex justify-end">
-        <Button 
-          onClick={handleSave} 
+        <Button
+          onClick={handleSave}
           disabled={!password || !confirmPassword || isSaving}
           className="w-24"
         >

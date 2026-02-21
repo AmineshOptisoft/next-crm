@@ -66,7 +66,7 @@ export async function POST(
             endDate: parsedEndDate,
             endTime,
             reason,
-            status: body.status ?? "APPROVED",
+            status: body.status ?? "PENDING",
             notes: body.notes ?? "",
         });
 

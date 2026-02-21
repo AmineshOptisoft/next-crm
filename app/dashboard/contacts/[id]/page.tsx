@@ -820,9 +820,9 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
 
                     {/* Action Buttons Footer */}
                     <div className="flex justify-end gap-2 pt-4">
-                        <Button variant="secondary" size="icon"><Maximize2 className="h-4 w-4" /></Button>
+                        {/* <Button variant="secondary" size="icon"><Maximize2 className="h-4 w-4" /></Button> */}
                         <Button variant="destructive" onClick={handleDelete}>Delete</Button>
-                        <Button variant="secondary">Send Password</Button>
+                        {/* <Button variant="secondary">Send Password</Button> */}
                         <Button variant="default" onClick={handleUpdate}>Update</Button>
                         <Button variant="outline" onClick={() => router.push('/dashboard/contacts')}>Cancel</Button>
                     </div>

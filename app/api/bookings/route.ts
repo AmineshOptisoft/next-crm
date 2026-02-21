@@ -109,6 +109,17 @@ export async function POST(req: NextRequest) {
             const bookingGroupId = uuidv4();
             let allCreatedBookings: any[] = [];
 
+            // --- 3. Divide booking duration equally among all technicians ---
+            //    If 2 techs are assigned to a 4-hour job, each booking is stored
+            //    as 2 hours (same startDateTime, endDateTime = start + duration/N).
+            //    The calendar then naturally shows the correct shared time window.
+            const originalStartMs = new Date(startDateTime).getTime();
+            const originalEndMs   = new Date(endDateTime).getTime();
+            const totalDurationMs = originalEndMs - originalStartMs;
+            const n = techIdsToProcess.length;
+            const dividedDurationMs = n > 1 ? Math.floor(totalDurationMs / n) : totalDurationMs;
+            const dividedEndDateTime = new Date(originalStartMs + dividedDurationMs).toISOString();
+
             // Loop through each technician and create bookings
             for (const techId of techIdsToProcess) {
                 if (bookingType === "once") {
@@ -120,7 +131,7 @@ export async function POST(req: NextRequest) {
                         addons,
                         bookingType,
                         startDateTime: new Date(startDateTime),
-                        endDateTime: new Date(endDateTime),
+                        endDateTime:   new Date(dividedEndDateTime),
                         shippingAddress,
                         notes,
                         pricing,
@@ -141,7 +152,8 @@ export async function POST(req: NextRequest) {
                         frequency,
                         customRecurrence,
                         startDateTime,
-                        endDateTime,
+                        endDateTime,           // original full end time (used for bookingDuration fallback)
+                        bookingDurationMs: dividedDurationMs,  // pre-divided duration — source of truth
                         shippingAddress,
                         notes,
                         pricing,
@@ -153,7 +165,8 @@ export async function POST(req: NextRequest) {
                     allCreatedBookings.push(...created);
                 }
             }
-            // --- 3. Handle Promo Code Usage ---
+
+            // --- 4. Handle Promo Code Usage ---
             if (promoCode) {
                 const promo = await Promocode.findOne({
                     code: promoCode,
@@ -161,14 +174,37 @@ export async function POST(req: NextRequest) {
                 }).session(session);
 
                 if (promo) {
-                    // Assuming limit 0 means unlimited, otherwise decrement
-                    if (promo.limit > 0) {
-                        promo.limit -= 1;
+                    // Number of unique booking occurrences (date slots).
+                    // For multi-tech bookings we create N docs per slot, so divide
+                    // total docs by the number of technicians to get unique slots.
+                    //   e.g. 8 recurring Mondays × 2 techs = 16 docs → 8 deductions
+                    //   e.g. 8 recurring Mondays × 1 tech  =  8 docs → 8 deductions
+                    //   e.g. once booking     × 2 techs =  2 docs → 1 deduction
+                    const occurrenceCount = Math.round(
+                        allCreatedBookings.length / techIdsToProcess.length
+                    );
+
+                    // Guard: if limit > 0, make sure there are enough uses left.
+                    // limit === 0 means unlimited - always allow.
+                    if (promo.limit > 0 && promo.limit < occurrenceCount) {
+                        await session.abortTransaction();
+                        session.endSession();
+                        return NextResponse.json(
+                            {
+                                error: `Promo code "${promoCode}" only has ${promo.limit} use(s) remaining, but this booking needs ${occurrenceCount}.`,
+                            },
+                            { status: 400 }
+                        );
                     }
-                    promo.usageCount += 1;
+
+                    if (promo.limit > 0) {
+                        promo.limit -= occurrenceCount;
+                    }
+                    promo.usageCount += occurrenceCount;
                     await promo.save({ session });
                 }
             }
+
 
             await session.commitTransaction();
             session.endSession();
@@ -257,6 +293,7 @@ function generateRecurringBookings(data: any) {
         customRecurrence,
         startDateTime,
         endDateTime,
+        bookingDurationMs,   // pre-computed per-tech duration in ms (if provided, use directly)
         shippingAddress,
         notes,
         pricing,
@@ -266,10 +303,13 @@ function generateRecurringBookings(data: any) {
 
     const bookings: any[] = [];
     const start = new Date(startDateTime);
-    const end = new Date(endDateTime);
 
-    // Calculate duration of a single booking
-    const bookingDuration = end.getTime() - start.getTime();
+    // Use the explicitly-passed duration when available (multi-tech divided duration).
+    // Fall back to computing from end - start for single-tech / legacy callers.
+    const bookingDuration: number =
+        typeof bookingDurationMs === "number" && bookingDurationMs > 0
+            ? bookingDurationMs
+            : new Date(endDateTime).getTime() - start.getTime();
 
     // Recurrence end date: use user's end date as hard stop (parse as local date to avoid timezone issues)
     const getRecurrenceEndDate = (userEndDate: string | undefined): Date => {
@@ -312,7 +352,8 @@ function generateRecurringBookings(data: any) {
                     pricing,
                     orderId: generateOrderId(),
                     recurringGroupId,
-                    companyId
+                    companyId,
+                    status: "unconfirmed"
                 });
             }
 
@@ -375,7 +416,8 @@ function generateRecurringBookings(data: any) {
                         pricing,
                         orderId: generateOrderId(),
                         recurringGroupId,
-                        companyId
+                        companyId,
+                        status: "unconfirmed"
                     });
                 }
             } else if (selectedDays.length) {
@@ -402,7 +444,8 @@ function generateRecurringBookings(data: any) {
                             pricing,
                             orderId: generateOrderId(),
                             recurringGroupId,
-                            companyId
+                            companyId,
+                            status: "unconfirmed"
                         });
                     }
                 }
@@ -438,7 +481,8 @@ function generateRecurringBookings(data: any) {
                 pricing,
                 orderId: generateOrderId(),
                 recurringGroupId,
-                companyId
+                companyId,
+                status: "unconfirmed"
             });
 
             // Increment based on unit

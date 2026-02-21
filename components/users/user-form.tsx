@@ -61,6 +61,7 @@ export interface UserData {
     role: string;
     customRoleId?: string | { _id: string; name: string };
     isActive: boolean;
+    companyId?: string;
     services?: string[]; // Array of Service IDs
 
     // Working Area
@@ -196,7 +197,8 @@ export function UserForm({ user, onSave, loading }: UserFormProps) {
 
         const fetchRoles = async () => {
             try {
-                const response = await fetch("/api/roles?creator=me");
+                // Fetch all company roles (system defaults + custom), not just "creator=me"
+                const response = await fetch("/api/roles");
                 if (response.ok) {
                     const data = await response.json();
                     setRoles(data);
@@ -963,7 +965,13 @@ export function UserForm({ user, onSave, loading }: UserFormProps) {
                             <CardDescription>Update password and security settings</CardDescription>
                         </CardHeader>
                         <CardContent>
-                            <UserSecurity onSave={(pass) => onSave({ password: pass })} />
+                            <UserSecurity
+                                onSave={(pass) => onSave({ password: pass })}
+                                userEmail={user.email}
+                                companyId={user.companyId || ""}
+                                firstName={user.firstName}
+                                lastName={user.lastName}
+                            />
                         </CardContent>
                     </Card>
                 </TabsContent>

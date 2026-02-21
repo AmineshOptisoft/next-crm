@@ -50,8 +50,8 @@ interface Role {
   description?: string;
   permissions: Permission[];
   isSystemRole: boolean;
+  isDefaultRole: boolean;
   isActive: boolean;
-  // Hierarchy fields removed
   companyId?: {
     _id: string;
     name: string;
@@ -454,7 +454,9 @@ export default function RolesPage() {
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      {role.isSystemRole ? (
+                      {role.isDefaultRole ? (
+                        <Badge className="bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-300">Default</Badge>
+                      ) : role.isSystemRole ? (
                         <Badge variant="default">System</Badge>
                       ) : (
                         <Badge variant="outline">Custom</Badge>
