@@ -45,6 +45,10 @@ export async function POST(req: NextRequest) {
     try {
       await createDefaultRoles(user.companyId.toString(), user._id.toString());
 
+      // Seed email campaigns on login just in case this is a preexisting user who hasn't gotten them yet
+      const { seedDefaultEmailCampaigns } = await import("@/lib/seedEmailCampaigns");
+      await seedDefaultEmailCampaigns(user.companyId.toString(), user._id.toString());
+
       // Auto-assign the "Viewer" default role to company_users who have no role yet,
       // so they see the sidebar modules on first login.
       if (user.role === "company_user" && !user.customRoleId) {
@@ -72,6 +76,26 @@ export async function POST(req: NextRequest) {
   );
 
   const res = NextResponse.json({ message: "Logged in" });
+
+  // Send "Welcome to CRM!" email
+  if (user.companyId) {
+    try {
+      const { sendTransactionalEmail } = await import("@/lib/sendmailhelper");
+      // Don't await this so it doesn't block login response
+      sendTransactionalEmail(
+        "01_welcome_email", // Use the built-in templateId
+        user.email,
+        {
+          firstname: user.firstName,
+          lastname: user.lastName,
+          company_name: user.companyName || "CRM",
+        },
+        user.companyId.toString()
+      ).catch(e => console.error("Welcome email async error:", e));
+    } catch (e) {
+      console.error("Failed to send welcome email:", e);
+    }
+  }
   res.cookies.set("crm_token", token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",

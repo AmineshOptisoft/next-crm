@@ -180,7 +180,6 @@ export function EditBookingDetailsDialog({
         }
 
         // Assigned Staff (Technician)
-        // Assuming single technician for now, or comma separated if multiple
         const techName = bookingData.technicianId ? `${bookingData.technicianId.firstName} ${bookingData.technicianId.lastName}` : "";
         setAssignedStaff(techName);
 
@@ -207,98 +206,69 @@ export function EditBookingDetailsDialog({
     return allServices.find(s => s._id === serviceId);
   }, [allServices, serviceId]);
 
-  // Dynamic Price Calculation
+  // ── FIXED: Price calculation — mirrors AddBookingForm's calculateItemPrice:
+  //   price = (basePrice + hourlyRate × (estimatedTime_min / 60) × qty) × (1 + rangePercentage/100)
   useEffect(() => {
     if (fetching || !selectedService) return;
 
-    let total = 0;
+    const calculateItemPrice = (item: any, quantity: number): number => {
+      const B = Number(item.basePrice) || 0;
+      const H = Number(item.hourlyRate) || 0;
+      const R = Number(item.rangePercentage) || 0;
+      const T_minutes = item.estimatedTime ? Number(item.estimatedTime) : 0;
+      const hoursPerUnit = T_minutes / 60;
+      const totalLaborCost = H * hoursPerUnit * quantity;
+      const subtotal = B + totalLaborCost;
+      return subtotal * (1 + R / 100);
+    };
 
-    // 1. Base Service Price
-    if (selectedService.priceType === 'hourly') {
-      // specific logic for hourly if needed, or just basePrice if it acts as a starting fee
-      // Assuming hourlyRate * billedHours is calculated externally or user inputs it?
-      // For now, let's assume basePrice is the starting point even for hourly, 
-      // but typically hourly means (hourlyRate * hours).
-      // However, billedAmount is often "Final Price".
-      // If the user hasn't input hours yet, we might fallback to basePrice.
-      // Let's stick to adding basePrice first.
-      total += (selectedService.basePrice || 0);
+    let subTotal = 0;
+    let addonsTotal = 0;
 
-      // If we want to automate hourly calculation:
-      const hours = Number(billedHours.split(':')[0]) || 0;
-      // Complex parsing for partial hours? 
-      // Simple approach: if hourlyRate exists and hours > 0, add (rate * hours).
-      // But 'basePrice' might be 0 for purely hourly.
-      if (selectedService.hourlyRate && billedHours) {
-        // Parse "HH:MM"
-        const [h, m] = billedHours.split(":").map(Number);
-        const timeInHours = (h || 0) + (m || 0) / 60;
-        if (timeInHours > 0) {
-          // For hourly, we might replace basePrice or add to it. 
-          // Sticking strictly to additive for safety unless we know business logic.
-          // Actually, usually it's Rate * Time.
-          total += (selectedService.hourlyRate * timeInHours);
-        }
-      }
-    } else {
-      total += (selectedService.basePrice || 0);
-    }
-
-    // 2. Sub Services
-    Object.entries(subServiceQuantities).forEach(([sId, qty]) => {
-      if (qty > 0) {
-        const sub = allServices.find(s => s._id === sId);
-        if (sub?.basePrice) {
-          total += (sub.basePrice * qty);
-        }
-      }
+    availableSubServices.forEach((sub: any) => {
+      const qty = subServiceQuantities[sub._id] || 0;
+      if (qty > 0) subTotal += calculateItemPrice(sub, qty);
     });
 
-    // 3. Addons
-    Object.entries(addonQuantities).forEach(([sId, qty]) => {
-      if (qty > 0) {
-        const addon = allServices.find(s => s._id === sId);
-        if (addon?.basePrice) {
-          total += (addon.basePrice * qty);
-        }
-      }
+    availableAddons.forEach((addon: any) => {
+      const qty = addonQuantities[addon._id] || 0;
+      if (qty > 0) addonsTotal += calculateItemPrice(addon, qty);
     });
 
-    setBilledAmount(total.toFixed(2));
+    setBilledAmount((subTotal + addonsTotal).toFixed(2));
 
-  }, [selectedService, subServiceQuantities, addonQuantities, billedHours, allServices, fetching]);
+  }, [selectedService, subServiceQuantities, addonQuantities, availableSubServices, availableAddons, fetching]);
 
+  // ── FIXED: End time calculation — mirrors AddBookingForm:
+  //   sum estimatedTime × qty for selected sub-services & addons,
+  //   fallback to service estimatedTime, then default 1 hour.
   const bookingEnd = useMemo(() => {
     if (!bookingStart) return undefined;
-    // Parse billedHours (HH:MM or decimal)
-    // Assuming "HH:MM" format from inputs or "3.5" from number?
-    // The state 'billedHours' is initialized from string.
-    // Let's try to parse "HH:MM". If it fails, try simple number.
-    let minutes = 0;
-    if (billedHours.includes(":")) {
-      const [h, m] = billedHours.split(":").map(Number);
-      if (!Number.isNaN(h) && !Number.isNaN(m)) {
-        minutes = h * 60 + m;
-      }
-    } else {
-      const h = Number(billedHours);
-      if (!Number.isNaN(h)) {
-        minutes = h * 60;
-      }
-    }
 
-    if (minutes > 0) {
-      return addMinutes(bookingStart, minutes);
+    let totalMinutes = 0;
+
+    availableSubServices.forEach((sub: any) => {
+      const qty = subServiceQuantities[sub._id] || 0;
+      if (qty > 0 && sub.estimatedTime) totalMinutes += sub.estimatedTime * qty;
+    });
+
+    availableAddons.forEach((addon: any) => {
+      const qty = addonQuantities[addon._id] || 0;
+      if (qty > 0 && addon.estimatedTime) totalMinutes += addon.estimatedTime * qty;
+    });
+
+    if (totalMinutes > 0) {
+      return new Date(bookingStart.getTime() + totalMinutes * 60 * 1000);
+    } else if (selectedService?.estimatedTime) {
+      return new Date(bookingStart.getTime() + selectedService.estimatedTime * 60 * 1000);
     }
     return addMinutes(bookingStart, 60); // Default 1 hour
-  }, [bookingStart, billedHours]);
+  }, [bookingStart, availableSubServices, availableAddons, subServiceQuantities, addonQuantities, selectedService]);
 
 
   const handleSubmit = async () => {
     try {
       setLoading(true);
-      // prepare payload
-      // prepare payload
       if (!bookingStart || !bookingEnd) {
         alert("Please select a start date");
         setLoading(false);
@@ -306,7 +276,7 @@ export function EditBookingDetailsDialog({
       }
 
       const payload = {
-        serviceId, // Usually doesn't change provided options, but we keep it
+        serviceId,
         subServices: Object.entries(subServiceQuantities)
           .filter(([_, qty]) => qty > 0)
           .map(([sId, qty]) => ({ serviceId: sId, quantity: qty })),
@@ -318,8 +288,6 @@ export function EditBookingDetailsDialog({
         endDateTime: bookingEnd,
         shippingAddress: addressData,
         pricing: {
-          // We might need to handle pricing logic properly here if we want auto-calculation.
-          // For now, preserving edited values.
           finalAmount: Number(billedAmount),
           discount: Number(discount),
           billedHours: Number(billedHours)
@@ -335,7 +303,6 @@ export function EditBookingDetailsDialog({
       if (!res.ok) throw new Error("Failed to update booking");
 
       onOpenChange(false);
-      // Trigger refresh if needed
       window.location.reload();
 
     } catch (error) {

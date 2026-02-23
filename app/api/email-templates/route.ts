@@ -19,16 +19,22 @@ const defaultTemplates = [
     { id: "14_invoice_email", name: "Invoice Email", icon: "📑", defaultSubject: "Invoice for Your Service", category: "customer" },
     { id: "15_account_confirmation", name: "Account Confirmation Email", icon: "👤", defaultSubject: "Confirm Your Account", category: "system" },
     { id: "16_subscription_renewal", name: "Subscription Renewal Email", icon: "🔄", defaultSubject: "Your Subscription is Ready for Renewal", category: "marketing" },
+    { id: "17_custom_email", name: "Custom Email", icon: "✉️", defaultSubject: "Message from Our Team", category: "custom" },
 ];
 
 export async function GET() {
   try {
     await connectDB();
     
-    // Auto-seed if empty
-    const count = await EmailTemplate.countDocuments();
-    if (count === 0) {
-      await EmailTemplate.insertMany(defaultTemplates.map(t => ({ ...t, isSystem: true })));
+    // Sync missing default templates to ensure new ones are added to the DB
+    const existingTemplates = await EmailTemplate.find({}, { id: 1 }).lean();
+    const existingIds = new Set(existingTemplates.map((t: any) => t.id));
+    
+    const missingTemplates = defaultTemplates.filter(t => !existingIds.has(t.id));
+    
+    if (missingTemplates.length > 0) {
+      await EmailTemplate.insertMany(missingTemplates.map(t => ({ ...t, isSystem: true })));
+      console.log(`[EmailTemplates] Inserted ${missingTemplates.length} missing templates.`);
     }
     
     const templates = await EmailTemplate.find().sort({ id: 1 });

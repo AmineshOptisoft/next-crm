@@ -92,6 +92,10 @@ export async function POST(req: NextRequest) {
     // Create default roles for the company
     await createDefaultRoles(company._id.toString(), user._id.toString());
 
+    // Create default active email campaigns for the company so emails actually send
+    const { seedDefaultEmailCampaigns } = await import("@/lib/seedEmailCampaigns");
+    await seedDefaultEmailCampaigns(company._id.toString(), user._id.toString());
+
     // Try to send via template system first
     const { sendTransactionalEmail } = await import("@/lib/sendmailhelper");
     const emailResult = await sendTransactionalEmail(
@@ -108,7 +112,12 @@ export async function POST(req: NextRequest) {
 
     if (!emailResult.sent) {
         console.log("Template email failed, falling back to legacy verification email");
-        await sendVerificationEmail(user.email, token);
+        try {
+            await sendVerificationEmail(user.email, token);
+        } catch (mailErr) {
+            console.error("Legacy verification email also failed:", mailErr);
+            // It's non-fatal since the user/company already got created in the DB!
+        }
     }
 
     return NextResponse.json({

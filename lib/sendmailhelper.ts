@@ -106,9 +106,9 @@ export async function sendBulkEmails(
   }
 }
 
-// Helper to send a single transactional email based on templateId
+// Helper to send a single transactional email based on templateId or campaign name
 export async function sendTransactionalEmail(
-  templateId: string,
+  templateIdOrName: string,
   to: string,
   data: any, // Contains bookingId, user details, etc.
   companyId: string
@@ -116,15 +116,26 @@ export async function sendTransactionalEmail(
   try {
     await connectDB();
 
-    // Find the most recent active campaign for this template
-    const campaign = await EmailCampaign.findOne({
-        companyId,
-        templateId,
+    const isTemplateId = /^\d{2}_/.test(templateIdOrName);
+    const queryKey = isTemplateId ? 'templateId' : 'name';
+
+    // Find the most recent active campaign for this template/name
+    let campaign = await EmailCampaign.findOne({
+        companyId: new (await import("mongoose")).default.Types.ObjectId(companyId),
+        [queryKey]: templateIdOrName,
         status: 'active'
     }).sort({ updatedAt: -1 });
 
+    // Fallback: search without companyId filter to handle ObjectId vs string mismatch
     if (!campaign) {
-      console.warn(`[Transactional Mail] No active campaign found for template: ${templateId}`);
+        campaign = await EmailCampaign.findOne({
+            [queryKey]: templateIdOrName,
+            status: 'active'
+        }).sort({ updatedAt: -1 });
+    }
+
+    if (!campaign) {
+      console.warn(`[Transactional Mail] No active campaign found for ${queryKey}: ${templateIdOrName}`);
       return { sent: false, error: "No active campaign found" };
     }
 
@@ -151,7 +162,7 @@ export async function sendTransactionalEmail(
       html: personalizedHtml,
     });
 
-    console.log(`[Transactional Mail] Sent ${templateId} to ${to}`);
+    console.log(`[Transactional Mail] Sent ${templateIdOrName} to ${to}`);
 
     // Log activity if user exists
     if (recipientUser?._id) {
@@ -166,7 +177,7 @@ export async function sendTransactionalEmail(
     return { sent: true, messageId: result.messageId };
 
   } catch (error: any) {
-    console.error(`[Transactional Mail Error] template=${templateId} to=${to}:`, error);
+    console.error(`[Transactional Mail Error] template=${templateIdOrName} to=${to}:`, error);
     return { sent: false, error: error.message };
   }
 }
@@ -183,19 +194,23 @@ export async function sendDailyScheduleEmail(
     await import("@/app/models/User");
     await import("@/app/models/Service");
     
-    const startOfDay = new Date(date);
-    startOfDay.setHours(0, 0, 0, 0);
-    
-    const endOfDay = new Date(date);
-    endOfDay.setHours(23, 59, 59, 999);
+    // Build UTC date range that covers the full calendar day
+    // Use UTC year/month/day from the given date to avoid timezone shifting
+    const year = date.getUTCFullYear();
+    const month = date.getUTCMonth();
+    const day = date.getUTCDate();
 
-    console.log(`[Daily Schedule] Fetching bookings for company ${companyId} on ${startOfDay.toDateString()}`);
+    const startOfDay = new Date(Date.UTC(year, month, day, 0, 0, 0, 0));
+    const endOfDay   = new Date(Date.UTC(year, month, day, 23, 59, 59, 999));
+
+    console.log(`[Daily Schedule] Fetching bookings for company ${companyId} on ${startOfDay.toISOString()} – ${endOfDay.toISOString()}`);
 
     // Find bookings for this company on this day
+    // NOTE: 'unconfirmed' is the default status — do NOT exclude it
     const bookings = await Booking.find({
       companyId,
       startDateTime: { $gte: startOfDay, $lte: endOfDay },
-      status: { $nin: ["cancelled", "rejected", "deleted", "unconfirmed"] }
+      status: { $nin: ["cancelled", "rejected", "deleted", "no_show"] }
     })
     .populate("technicianId", "email firstName lastName")
     .populate("contactId", "firstName lastName email phoneNumber shippingAddress")

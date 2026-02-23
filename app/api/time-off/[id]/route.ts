@@ -57,10 +57,41 @@ export async function PATCH(
             id,
             { $set: update },
             { new: true, runValidators: true }
-        ).populate("technicianId", "firstName lastName email avatarUrl");
+        ).populate("technicianId", "firstName lastName email avatarUrl companyId");
 
         if (!updatedTimeOff) {
             return NextResponse.json({ error: "Time off not found" }, { status: 404 });
+        }
+
+        // Send email notification if status changed to APPROVED or REJECTED
+        if (status && (status === "APPROVED" || status === "REJECTED")) {
+            try {
+                // Because Mongoose types can be strict, assert the populated user type
+                const tech = updatedTimeOff.technicianId as any; 
+                
+                if (tech && tech.email && tech.companyId) {
+                    const { sendTransactionalEmail } = await import("@/lib/sendmailhelper");
+                    const emailName = status === "APPROVED" 
+                        ? "off time request confirmation" 
+                        : "off time request cancellation";
+                    
+                    sendTransactionalEmail(
+                        emailName,
+                        tech.email,
+                        {
+                            firstname: tech.firstName,
+                            lastname: tech.lastName,
+                            start_date: updatedTimeOff.startDate ? new Date(updatedTimeOff.startDate).toLocaleDateString() : "",
+                            end_date: updatedTimeOff.endDate ? new Date(updatedTimeOff.endDate).toLocaleDateString() : "",
+                            reason: updatedTimeOff.reason || "Time off request",
+                            notes: updatedTimeOff.notes || "No notes provided"
+                        },
+                        tech.companyId.toString()
+                    ).catch(e => console.error(`Failed sending ${emailName} async:`, e));
+                }
+            } catch (e) {
+                console.error("Failed to trigger time off email:", e);
+            }
         }
 
         return NextResponse.json(updatedTimeOff);
