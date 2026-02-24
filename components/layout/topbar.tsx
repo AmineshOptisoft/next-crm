@@ -3,6 +3,9 @@
 import { useEffect, useState, useCallback } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
+import useSWR from "swr";
+const fetcher = (url: string) => fetch(url, { credentials: "include" }).then(res => res.json());
+
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -67,17 +70,15 @@ export function Topbar() {
     Object.entries(titleMap).find(([key]) => pathname.startsWith(key))?.[1] ||
     "Dashboard";
 
-  // Fetch logged-in user
+  const { data: meData } = useSWR("/api/auth/me", fetcher, {
+    revalidateOnFocus: false,
+    dedupingInterval: 60000,
+  });
+
   useEffect(() => {
-    let mounted = true;
-
-    async function fetchMe() {
-      try {
-        const res = await fetch("/api/auth/me", { credentials: "include" });
-        if (!res.ok) return;
-        const data: MeResponse = await res.json();
-        if (!mounted || !data.user) return;
-
+    if (meData?.user) {
+      const data = meData as MeResponse;
+      if (data.user) {
         const fullName =
           data.user.firstName && data.user.lastName
             ? `${data.user.firstName} ${data.user.lastName}`
@@ -86,16 +87,9 @@ export function Topbar() {
         setUserName(fullName);
         setUserEmail(data.user.email);
         setAvatarUrl(data.user.avatarUrl);
-      } catch {
-        // ignore
       }
     }
-
-    fetchMe();
-    return () => {
-      mounted = false;
-    };
-  }, []);
+  }, [meData]);
 
   // ⌘K / Ctrl+K
   useEffect(() => {

@@ -14,6 +14,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Info, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import useSWR from "swr";
+
+const fetcher = (url: string) => fetch(url, { credentials: "include" }).then((res) => res.json());
 
 const DAYS = [
   "Monday",
@@ -55,26 +58,11 @@ export function UserAvailability({ availability, onChange, onSave, loading }: Us
       endTime: "06:00 PM"
     }))
   );
-  const [masterAvailability, setMasterAvailability] = useState<DaySchedule[]>([]);
-  const [loadingMaster, setLoadingMaster] = useState(true);
+  const { data: masterAvailabilityData, isLoading: loadingMaster } = useSWR('/api/company/availability', fetcher, {
+    revalidateOnFocus: false,
+  });
 
-  useEffect(() => {
-    fetchMasterAvailability();
-  }, []);
-
-  const fetchMasterAvailability = async () => {
-    try {
-      const response = await fetch("/api/company/availability");
-      if (response.ok) {
-        const data = await response.json();
-        setMasterAvailability(data);
-      }
-    } catch (error) {
-      console.error("Error fetching master availability:", error);
-    } finally {
-      setLoadingMaster(false);
-    }
-  };
+  const masterAvailability: DaySchedule[] = masterAvailabilityData || [];
 
   const getMasterScheduleForDay = (day: string) => {
     return masterAvailability.find(m => m.day === day);

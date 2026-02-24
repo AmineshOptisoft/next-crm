@@ -463,38 +463,32 @@ type MeUser = {
   permissions?: any[];
 };
 
+import useSWR from "swr";
+
+const fetcher = (url: string) => fetch(url, { credentials: "include" }).then((res) => res.json());
+
 export function AppSidebar() {
   const pathname = usePathname();
   const router = useRouter();
-  const [me, setMe] = useState<MeUser | null>(null);
   const [profileCompleted, setProfileCompleted] = useState<boolean>(true); // Default true to avoid flicker
 
-  useEffect(() => {
-    (async () => {
-      try {
-        const res = await fetch("/api/auth/me", { credentials: "include" });
-        if (!res.ok) return;
-        const data = await res.json();
-        setMe(data.user ?? null);
-      } catch {
-        // ignore
-      }
-    })();
-  }, []);
+  const { data: meData } = useSWR("/api/auth/me", fetcher, {
+    revalidateOnFocus: false,
+    dedupingInterval: 60000,
+  });
 
-  // Check profile completion status
+  const me = meData?.user ?? null;
+
+  const { data: settingsData } = useSWR("/api/company/settings", fetcher, {
+    revalidateOnFocus: false,
+    dedupingInterval: 60000 * 5, // Cache for 5 mins
+  });
+
   useEffect(() => {
-    (async () => {
-      try {
-        const res = await fetch("/api/company/settings", { credentials: "include" });
-        if (!res.ok) return;
-        const data = await res.json();
-        setProfileCompleted(data.profileCompleted ?? false);
-      } catch {
-        // ignore - default to complete to avoid blocking
-      }
-    })();
-  }, []);
+    if (settingsData !== undefined) {
+      setProfileCompleted(settingsData.profileCompleted ?? false);
+    }
+  }, [settingsData]);
 
   const displayName =
     me && (me.firstName || me.lastName)
@@ -503,7 +497,7 @@ export function AppSidebar() {
 
   const initials = (displayName || "User")
     .split(" ")
-    .map((n) => n[0])
+    .map((n: string) => n[0])
     .join("")
     .slice(0, 2)
     .toUpperCase();
@@ -580,7 +574,8 @@ export function AppSidebar() {
             <SidebarMenu>
               {filteredGeneralItems.map((item) => {
                 // Check if this item should be disabled
-                const isDisabled = !profileCompleted && item.module !== 'company-settings';
+                const isAdmin = me?.role === "super_admin" || me?.role === "company_admin";
+                const isDisabled = !isAdmin && !profileCompleted && item.module !== 'company-settings';
 
                 return (
                   <SidebarMenuItem key={item.title}>
@@ -631,7 +626,8 @@ export function AppSidebar() {
             <SidebarMenu>
               {menuItems.other.map((item) => {
                 // Disable Other items if profile incomplete
-                const isDisabled = !profileCompleted;
+                const isAdmin = me?.role === "super_admin" || me?.role === "company_admin";
+                const isDisabled = !isAdmin && !profileCompleted;
 
                 return (
                   <SidebarMenuItem key={item.title}>

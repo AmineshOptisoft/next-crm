@@ -11,13 +11,16 @@ import {
 import interactionPlugin from "@fullcalendar/interaction";
 import FullCalendar from "@fullcalendar/react";
 import resourceTimelinePlugin from '@fullcalendar/resource-timeline';
-import { useRef, useState, useEffect } from "react";
+import { useRef, useState, useEffect, useMemo } from "react";
 import { CalendarEvent } from "@/utils/calendar-data";
 import { Card } from "@/components/ui/card";
 import { EventEditForm } from "./event-edit-form";
 import { AppointmentDetailsSheet, type AppointmentDetails } from "./appointment-details-sheet";
 import { AddBookingForm } from "./add-booking-form";
 import { toast } from "sonner";
+import useSWR from "swr";
+
+const fetcher = (url: string) => fetch(url, { credentials: "include" }).then((res) => res.json());
 
 
 export default function Calendar() {
@@ -37,57 +40,65 @@ export default function Calendar() {
   const [selectedAppointment, setSelectedAppointment] = useState<AppointmentDetails | undefined>();
   const [isDrag, setIsDrag] = useState(false);
 
-  // State for resources and events from mock API
-  const [resources, setResources] = useState([]);
-  const [events, setEvents] = useState([]);
   const [currentView, setCurrentView] = useState<string>("resourceTimelineDay");
   const [visibleRange, setVisibleRange] = useState<{ start: Date; end: Date } | null>(null);
 
-  // Fetch data from real API for the given date range
-  const fetchCalendarData = async (start?: Date, end?: Date) => {
-    try {
-      let url = '/api/appointments/resources';
-      if (start && end) {
-        const params = new URLSearchParams({
-          start: start.toISOString(),
-          end: end.toISOString(),
-        });
-        url = `${url}?${params.toString()}`;
-      }
-      const res = await fetch(url);
-      const data = await res.json();
-      setResources(data.resources);
-      setEvents(data.events);
-    } catch (error) {
-      console.error("Failed to fetch calendar data:", error);
-    }
+  // ── Permission check ── shared SWR cache with layout.tsx (zero extra network cost)
+  const { data: meData } = useSWR('/api/auth/me', fetcher, {
+    revalidateOnFocus: false,
+    dedupingInterval: 60_000,
+  });
+  const userRole: string = meData?.user?.role ?? '';
+  const userPermissions: any[] = meData?.user?.permissions ?? [];
+  const isAdminRole = userRole === 'super_admin' || userRole === 'company_admin';
+
+  const hasAppointmentPermission = (action: 'canCreate' | 'canEdit' | 'canDelete') => {
+    if (isAdminRole) return true;
+    const perm = userPermissions.find((p: any) => p.module === 'appointments');
+    return perm?.[action] === true;
   };
 
-  // Re-fetch whenever the visible date range changes
-  useEffect(() => {
-    if (visibleRange) {
-      fetchCalendarData(visibleRange.start, visibleRange.end);
-    }
-  }, [visibleRange?.start?.toISOString(), visibleRange?.end?.toISOString()]);
-
-  // Filter events per view:
-  // - bookings always visible
-  // - full‑day unavailability visible in all views
-  // - time‑based unavailability only in Day view
-  const filteredEvents = events.filter((event: any) => {
-    const type = (event as any).type;
-    if (type === "booking") return true;
-    if (type === "unavailability") return true;
-    if (type === "unavailability_timed") {
-      return currentView === "resourceTimelineDay";
-    }
-    return true;
+  // ── Pre-warm technician list cache ─────────────────────────────────────────
+  // This SWR runs as soon as the calendar mounts, so that by the time the user
+  // clicks a slot the AddBookingForm finds its data already cached (0 wait).
+  useSWR('/api/appointments/resources', fetcher, {
+    revalidateOnFocus: false,
+    dedupingInterval: 30_000,
   });
+
+  // Calendar events with date-range key for the timeline view
+  const { data, isLoading } = useSWR(
+    visibleRange ? `/api/appointments/resources?start=${visibleRange.start.toISOString()}&end=${visibleRange.end.toISOString()}` : null,
+    fetcher,
+    { revalidateOnFocus: false, dedupingInterval: 10000 }
+  );
+
+  const resources = data?.resources || [];
+  const events = data?.events || [];
+
+  // Filter events per view with useMemo to prevent unnecessary React re-renders 
+  // and FullCalendar forced updates every cycle
+  const filteredEvents = useMemo(() => {
+    return events.filter((event: any) => {
+      const type = (event as any).type;
+      if (type === "booking") return true;
+      if (type === "unavailability") return true;
+      if (type === "unavailability_timed") {
+        return currentView === "resourceTimelineDay";
+      }
+      return true;
+    });
+  }, [events, currentView]);
 
   const handleEventClick = (info: EventClickArg) => {
     const props = info.event.extendedProps as Record<string, any>;
 
     if (props?.type === "booking") {
+      // ── Permission guard for viewing/editing bookings ─────────────────────
+      if (!hasAppointmentPermission('canEdit')) {
+        toast.error("You don't have permission to edit bookings.");
+        return;
+      }
       const appointment: AppointmentDetails = {
         id: info.event.id,
         bookingId: props.bookingId,
@@ -160,23 +171,19 @@ export default function Calendar() {
 
 
   const handleDateSelect = (info: DateSelectArg) => {
+    // ── Permission guard ──────────────────────────────────────────────────────
+    if (!hasAppointmentPermission('canCreate')) {
+      toast.error("You don't have permission to create bookings.");
+      return;
+    }
+
     // Check if the selected slot overlaps with any unavailability event
     const isUnavailable = events.some((event: any) => {
-      // Check if event belongs to the selected resource
       if (event.resourceId !== info.resource?.id) return false;
-
-      // Check if the event is an unavailability type
       if (event.type !== "unavailability" && event.type !== "unavailability_timed") return false;
-      
-      // In Week/Month views, ignore timed unavailability (blockers) because the user selects a whole day
-      // and might want to book a specific time slot that IS available.
       if (event.type === "unavailability_timed" && currentView !== "resourceTimelineDay") return false;
-
-      // Check for time overlap
       const eventStart = new Date(event.start);
       const eventEnd = new Date(event.end);
-      
-      // Overlap condition: (StartA < EndB) and (EndA > StartB)
       return info.start < eventEnd && info.end > eventStart;
     });
 
@@ -187,7 +194,7 @@ export default function Calendar() {
 
     setSelectedStart(info.start);
     setSelectedEnd(info.end);
-    setSelectedTechnicianId(info.resource?.id); // Capture technician ID from resource
+    setSelectedTechnicianId(info.resource?.id);
     setEventAddOpen(true);
   };
 
@@ -281,7 +288,12 @@ export default function Calendar() {
         appointment={selectedAppointment}
         open={appointmentDetailsOpen}
         onOpenChange={setAppointmentDetailsOpen}
-        onUpdate={fetchCalendarData}
+        onUpdate={() => {
+           // Provide basic refetch compatibility where fetchCalendarData used to be.
+           import('swr').then(swr => swr.mutate(
+             visibleRange ? `/api/appointments/resources?start=${visibleRange.start.toISOString()}&end=${visibleRange.end.toISOString()}` : null
+           ));
+        }}
       />
 
       {/* New Booking Form */}

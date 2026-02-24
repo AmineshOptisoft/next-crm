@@ -32,6 +32,9 @@ import {
 import { Plus, Pencil, Trash2, Users, UserCheck, UserX, Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
+import useSWR from "swr";
+
+const fetcher = (url: string) => fetch(url, { credentials: "include" }).then((res) => res.json());
 
 interface User {
   _id: string;
@@ -54,9 +57,17 @@ interface Role {
 }
 
 export default function UsersPage() {
-  const [users, setUsers] = useState<User[]>([]);
-  const [roles, setRoles] = useState<Role[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: rawUsers, isLoading: loadingUsers, mutate: mutateUsers } = useSWR('/api/users', fetcher, {
+    revalidateOnFocus: false,
+  });
+  const { data: rawRoles } = useSWR('/api/roles', fetcher, {
+    revalidateOnFocus: false,
+  });
+
+  const users: User[] = rawUsers || [];
+  const roles: Role[] = rawRoles ? rawRoles.filter((r: any) => r.isActive) : [];
+  const loading = loadingUsers;
+
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -71,35 +82,8 @@ export default function UsersPage() {
     customRoleId: "",
   });
 
-  useEffect(() => {
-    fetchUsers();
-    fetchRoles();
-  }, []);
-
   const fetchUsers = async () => {
-    try {
-      const response = await fetch("/api/users");
-      if (response.ok) {
-        const data = await response.json();
-        setUsers(data);
-      }
-    } catch (error) {
-      console.error("Error fetching users:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchRoles = async () => {
-    try {
-      const response = await fetch("/api/roles");
-      if (response.ok) {
-        const data = await response.json();
-        setRoles(data.filter((r: any) => r.isActive));
-      }
-    } catch (error) {
-      console.error("Error fetching roles:", error);
-    }
+    await mutateUsers();
   };
 
   const handleSubmit = async (e: React.FormEvent) => {

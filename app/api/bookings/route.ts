@@ -109,18 +109,9 @@ export async function POST(req: NextRequest) {
             const bookingGroupId = uuidv4();
             let allCreatedBookings: any[] = [];
 
-            // --- 3. Divide booking duration equally among all technicians ---
-            //    If 2 techs are assigned to a 4-hour job, each booking is stored
-            //    as 2 hours (same startDateTime, endDateTime = start + duration/N).
-            //    The calendar then naturally shows the correct shared time window.
-            const originalStartMs = new Date(startDateTime).getTime();
-            const originalEndMs   = new Date(endDateTime).getTime();
-            const totalDurationMs = originalEndMs - originalStartMs;
-            const n = techIdsToProcess.length;
-            const dividedDurationMs = n > 1 ? Math.floor(totalDurationMs / n) : totalDurationMs;
-            const dividedEndDateTime = new Date(originalStartMs + dividedDurationMs).toISOString();
-
             // Loop through each technician and create bookings
+            // NOTE: the frontend already sends endDateTime pre-divided by techCount,
+            // so we store it as-is — do NOT divide again here.
             for (const techId of techIdsToProcess) {
                 if (bookingType === "once") {
                     const booking = await Booking.create([{
@@ -131,7 +122,7 @@ export async function POST(req: NextRequest) {
                         addons,
                         bookingType,
                         startDateTime: new Date(startDateTime),
-                        endDateTime:   new Date(dividedEndDateTime),
+                        endDateTime:   new Date(endDateTime),
                         shippingAddress,
                         notes,
                         pricing,
@@ -143,6 +134,7 @@ export async function POST(req: NextRequest) {
                     allCreatedBookings.push(booking[0]);
                 }
                 else if (bookingType === "recurring") {
+                    const totalDurationMs = new Date(endDateTime).getTime() - new Date(startDateTime).getTime();
                     const bookingsData = generateRecurringBookings({
                         contactId: finalContactId,
                         technicianId: techId,
@@ -152,8 +144,8 @@ export async function POST(req: NextRequest) {
                         frequency,
                         customRecurrence,
                         startDateTime,
-                        endDateTime,           // original full end time (used for bookingDuration fallback)
-                        bookingDurationMs: dividedDurationMs,  // pre-divided duration — source of truth
+                        endDateTime,
+                        bookingDurationMs: totalDurationMs,  // already pre-divided by frontend
                         shippingAddress,
                         notes,
                         pricing,

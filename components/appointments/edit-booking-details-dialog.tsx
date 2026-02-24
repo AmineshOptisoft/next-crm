@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import useSWR from "swr";
 import {
   Dialog,
   DialogContent,
@@ -32,6 +33,9 @@ import { Minus, Plus } from "lucide-react";
 import type { AppointmentDetails } from "./appointment-details-sheet";
 import { DateTimePicker } from "@/components/ui/date-time-picker";
 import { format, addMinutes } from "date-fns";
+import { toast } from "sonner";
+
+const fetcher = (url: string) => fetch(url, { credentials: "include" }).then(r => r.json());
 
 interface EditBookingDetailsDialogProps {
   open: boolean;
@@ -123,10 +127,20 @@ export function EditBookingDetailsDialog({
 
   // Appointment State
   const [appointmentNotes, setAppointmentNotes] = useState("");
-  // Unified Start Date
   const [bookingStart, setBookingStart] = useState<Date | undefined>(undefined);
-  // Removed separate start/end date/time states
   const [assignedStaff, setAssignedStaff] = useState("");
+
+  // Derive total technician count from co-technicians already in the prop
+  // coTechnicians = OTHER techs on the same booking, so total = them + the primary tech
+  const technicianCount = Math.max(1, (appointment?.coTechnicians?.length ?? 0) + 1);
+
+  // Pre-warmed calendar events for availability validation (shared SWR cache — no extra fetch)
+  const { data: calendarData } = useSWR('/api/appointments/resources', fetcher, {
+    revalidateOnFocus: false,
+    dedupingInterval: 30_000,
+  });
+  const calendarEvents: any[] = calendarData?.events || [];
+  const allResources: any[]   = calendarData?.resources || [];
 
   // Fetch Services & Booking Data
   useEffect(() => {
@@ -239,9 +253,7 @@ export function EditBookingDetailsDialog({
 
   }, [selectedService, subServiceQuantities, addonQuantities, availableSubServices, availableAddons, fetching]);
 
-  // ── FIXED: End time calculation — mirrors AddBookingForm:
-  //   sum estimatedTime × qty for selected sub-services & addons,
-  //   fallback to service estimatedTime, then default 1 hour.
+  // ── End time calculation ─ divided by technician count (team sharing)
   const bookingEnd = useMemo(() => {
     if (!bookingStart) return undefined;
 
@@ -257,22 +269,45 @@ export function EditBookingDetailsDialog({
       if (qty > 0 && addon.estimatedTime) totalMinutes += addon.estimatedTime * qty;
     });
 
-    if (totalMinutes > 0) {
-      return new Date(bookingStart.getTime() + totalMinutes * 60 * 1000);
+    // Divide by number of technicians so each tech's slot is shorter
+    const perTechMinutes = technicianCount > 1 && totalMinutes > 0
+      ? totalMinutes / technicianCount
+      : totalMinutes;
+
+    if (perTechMinutes > 0) {
+      return new Date(bookingStart.getTime() + perTechMinutes * 60 * 1000);
     } else if (selectedService?.estimatedTime) {
-      return new Date(bookingStart.getTime() + selectedService.estimatedTime * 60 * 1000);
+      return new Date(bookingStart.getTime() + (selectedService.estimatedTime / technicianCount) * 60 * 1000);
     }
-    return addMinutes(bookingStart, 60); // Default 1 hour
-  }, [bookingStart, availableSubServices, availableAddons, subServiceQuantities, addonQuantities, selectedService]);
+    return addMinutes(bookingStart, 60);
+  }, [bookingStart, availableSubServices, availableAddons, subServiceQuantities, addonQuantities, selectedService, technicianCount]);
 
 
   const handleSubmit = async () => {
     try {
       setLoading(true);
       if (!bookingStart || !bookingEnd) {
-        alert("Please select a start date");
+        toast.error("Please select a start date");
         setLoading(false);
         return;
+      }
+
+      // ── Validate end time doesn't exceed technician's working hours ──
+      const primaryTechId = bookingDetails?.technicianId?._id?.toString() || bookingDetails?.technicianId?.toString();
+      if (primaryTechId) {
+        const violation = calendarEvents.find((ev: any) => {
+          if (ev.resourceId !== primaryTechId) return false;
+          if (ev.type !== 'unavailability_timed' && ev.type !== 'unavailability') return false;
+          const evStart = new Date(ev.start).getTime();
+          const evEnd   = new Date(ev.end).getTime();
+          return bookingStart.getTime() < evEnd && bookingEnd.getTime() > evStart;
+        });
+        if (violation) {
+          const techName = allResources.find((r: any) => r.id === primaryTechId)?.title || 'The technician';
+          toast.error(`${techName}'s booking end time overlaps with their unavailable hours. Please adjust the time.`);
+          setLoading(false);
+          return;
+        }
       }
 
       const payload = {

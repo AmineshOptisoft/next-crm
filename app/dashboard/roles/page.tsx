@@ -34,6 +34,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
+import useSWR from "swr";
+
+const fetcher = (url: string) => fetch(url, { credentials: "include" }).then((res) => res.json());
 
 interface Permission {
   module: string;
@@ -80,8 +83,14 @@ const MODULES = [
 ];
 
 export default function RolesPage() {
-  const [roles, setRoles] = useState<Role[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: rawRoles, isLoading: loadingRoles, mutate: mutateRoles } = useSWR('/api/roles', fetcher, {
+    revalidateOnFocus: false,
+  });
+
+  // Mirror variables to avoid refactoring the entire component
+  const roles: Role[] = rawRoles || [];
+  const loading = loadingRoles;
+
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [viewRole, setViewRole] = useState<Role | null>(null);
   const [editingRole, setEditingRole] = useState<Role | null>(null);
@@ -103,22 +112,9 @@ export default function RolesPage() {
     })),
   });
 
-  useEffect(() => {
-    fetchRoles();
-  }, []);
-
+  // Keep fetchRoles around so existing references don't break during update mutations
   const fetchRoles = async () => {
-    try {
-      const response = await fetch("/api/roles");
-      if (response.ok) {
-        const data = await response.json();
-        setRoles(data);
-      }
-    } catch (error) {
-      console.error("Error fetching roles:", error);
-    } finally {
-      setLoading(false);
-    }
+    await mutateRoles();
   };
 
   const handleSubmit = async (e: React.FormEvent) => {

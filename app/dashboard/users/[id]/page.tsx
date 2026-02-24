@@ -8,61 +8,34 @@ import { UserForm, UserData } from "@/components/users/user-form";
 // UserListSidebar import removed
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import useSWR from "swr";
+
+const fetcher = (url: string) => fetch(url, { credentials: "include" }).then((res) => res.json());
 
 export default function UserEditPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
   // Unwrap params using React.use()
   const { id } = use(params);
 
-  const [users, setUsers] = useState<User[]>([]);
+  const { data: rawUsers, mutate: mutateUsers } = useSWR("/api/users", fetcher, { revalidateOnFocus: false });
+  const users: User[] = rawUsers || [];
+
+  const { data: currentUserData, isLoading: loadingUserDetails, mutate: mutateUser } = useSWR(
+    id ? `/api/users/${id}` : null,
+    fetcher,
+    { revalidateOnFocus: false }
+  );
+
   const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
+  const currentUser: User | null = currentUserData || null;
+  const loading = loadingUserDetails;
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    fetchUsers();
-  }, []);
-
-  useEffect(() => {
-    if (id && users.length > 0) {
-      const found = users.find((u) => u._id === id);
-      if (found) {
-         // Fetch full details for the selected user to ensure we have all fields
-         fetchUserDetails(id);
-      }
+    if (users.length > 0) {
+      setFilteredUsers(users);
     }
-  }, [id, users]);
-
-  const fetchUsers = async () => {
-    try {
-      const res = await fetch("/api/users");
-      if (res.ok) {
-        const data = await res.json();
-        setUsers(data);
-        setFilteredUsers(data);
-      }
-    } catch (err) {
-      console.error("Failed to fetch users", err);
-    } finally {
-        if (!currentUser && !id) setLoading(false);
-    }
-  };
-
-  const fetchUserDetails = async (userId: string) => {
-      setLoading(true);
-      try {
-          const res = await fetch(`/api/users/${userId}`);
-          if (res.ok) {
-              const data = await res.json();
-              setCurrentUser(data);
-          }
-      } catch (err) {
-          console.error("Failed to fetch user details", err);
-      } finally {
-          setLoading(false);
-      }
-  }
+  }, [users]);
 
   const handleSearch = (query: string) => {
     if (!query) {
@@ -92,10 +65,8 @@ export default function UserEditPage({ params }: { params: Promise<{ id: string 
 
       if (res.ok) {
         const updated = await res.json();
-        setCurrentUser(updated);
-        // Update user in the list as well
-        setUsers(users.map(u => u._id === updated._id ? updated : u));
-        setFilteredUsers(filteredUsers.map(u => u._id === updated._id ? updated : u));
+        await mutateUser(updated, { revalidate: false }); // Update local instance
+        await mutateUsers(); // Update background list view
         toast.success("Changes saved successfully");
       } else {
         const error = await res.json();

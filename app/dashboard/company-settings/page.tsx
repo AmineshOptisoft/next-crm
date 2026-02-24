@@ -23,15 +23,33 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { CheckCircle2 } from "lucide-react";
+import useSWR from "swr";
+import { toast } from "sonner";
+
+const fetcher = (url: string) =>
+    fetch(url, { credentials: "include" }).then((res) => res.json());
 
 export default function CompanySettingsPage() {
     const router = useRouter();
-    const [company, setCompany] = useState<Company | null>(null);
-    const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
-    const [industries, setIndustries] = useState<Array<{ _id: string; name: string }>>([]);
     const [isRedirectDialogOpen, setIsRedirectDialogOpen] = useState(false);
     const [selectedLogo, setSelectedLogo] = useState<File | null>(null);
+
+    // SWR for company settings – shared cache with layout / sidebar
+    const { data: company, isLoading: loadingSettings, mutate: mutateSettings } = useSWR<Company>(
+        "/api/company/settings",
+        fetcher,
+        { revalidateOnFocus: false }
+    );
+
+    // SWR for industries list – rarely changes, cache for 5 min
+    const { data: industriesData } = useSWR<Array<{ _id: string; name: string }>>(
+        "/api/industries",
+        fetcher,
+        { revalidateOnFocus: false, dedupingInterval: 300_000 }
+    );
+
+    const industries = industriesData || [];
 
     const [formData, setFormData] = useState({
         name: "",
@@ -56,58 +74,33 @@ export default function CompanySettingsPage() {
         },
     });
 
+    // Sync formData when SWR fetches company
     useEffect(() => {
-        fetchCompanySettings();
-        fetchIndustries();
-    }, []);
-
-    const fetchIndustries = async () => {
-        try {
-            const response = await fetch("/api/industries");
-            if (response.ok) {
-                const data = await response.json();
-                setIndustries(data);
-            }
-        } catch (error) {
-            console.error("Error fetching industries:", error);
+        if (company) {
+            setFormData({
+                name: company.name || "",
+                description: company.description || "",
+                industry: (company as any).industry || "",
+                website: (company as any).website || "",
+                email: (company as any).email || "",
+                phone: (company as any).phone || "",
+                logo: (company as any).logo || "",
+                address: (company as any).address || {
+                    street: "",
+                    city: "",
+                    state: "",
+                    country: "",
+                    zipCode: "",
+                    latitude: undefined,
+                    longitude: undefined,
+                },
+                settings: (company as any).settings || {
+                    timezone: "UTC",
+                    currency: "USD",
+                },
+            });
         }
-    };
-
-    const fetchCompanySettings = async () => {
-        try {
-            const response = await fetch("/api/company/settings");
-            if (response.ok) {
-                const data = await response.json();
-                setCompany(data);
-                setFormData({
-                    name: data.name || "",
-                    description: data.description || "",
-                    industry: data.industry || "",
-                    website: data.website || "",
-                    email: data.email || "",
-                    phone: data.phone || "",
-                    logo: data.logo || "",
-                    address: data.address || {
-                        street: "",
-                        city: "",
-                        state: "",
-                        country: "",
-                        zipCode: "",
-                        latitude: undefined,
-                        longitude: undefined,
-                    },
-                    settings: data.settings || {
-                        timezone: "UTC",
-                        currency: "USD",
-                    },
-                });
-            }
-        } catch (error) {
-            console.error("Error fetching company settings:", error);
-        } finally {
-            setLoading(false);
-        }
-    };
+    }, [company]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -116,7 +109,7 @@ export default function CompanySettingsPage() {
         try {
             let finalFormData = { ...formData };
 
-            // If a new logo was selected, upload it first
+            // Upload logo first if a new one was selected
             if (selectedLogo) {
                 const logoFormData = new FormData();
                 logoFormData.append("file", selectedLogo);
@@ -129,12 +122,9 @@ export default function CompanySettingsPage() {
                 if (uploadRes.ok) {
                     const uploadData = await uploadRes.json();
                     finalFormData.logo = uploadData.url;
-                    // Update current state too
-                    setFormData(prev => ({ ...prev, logo: uploadData.url }));
+                    setFormData((prev) => ({ ...prev, logo: uploadData.url }));
                 } else {
-                    console.error("Failed to upload company logo");
-                    // Continue anyway or handle error? Let's alert.
-                    alert("Failed to upload logo. Will try to save other settings.");
+                    toast.error("Failed to upload logo. Saving other settings...");
                 }
             }
 
@@ -147,23 +137,21 @@ export default function CompanySettingsPage() {
             if (response.ok) {
                 const updated = await response.json();
 
-                setCompany(updated);
+                // Update the SWR cache so sidebar / layout picks up the change instantly
+                await mutateSettings(updated, { revalidate: false });
 
-                // Check if profile is complete
                 if (updated.profileCompleted === true) {
                     setIsRedirectDialogOpen(true);
-                    setSaving(false);
                 } else {
-                    alert("Settings updated, but profile not complete yet. Please fill all required fields.");
+                    toast.warning("Settings saved, but profile is not complete yet. Please fill all required fields.");
                 }
             } else {
                 const error = await response.json();
-                console.error("API Error:", error);
-                alert(error.error || "Failed to update settings");
+                toast.error(error.error || "Failed to update settings");
             }
         } catch (error) {
             console.error("Error updating settings:", error);
-            alert("Failed to update settings. Check console for details.");
+            toast.error("Failed to update settings. Check console for details.");
         } finally {
             setSaving(false);
         }
@@ -173,7 +161,7 @@ export default function CompanySettingsPage() {
         window.location.href = "/dashboard";
     };
 
-    if (loading) {
+    if (loadingSettings) {
         return (
             <div className="py-12 text-center">
                 <p className="text-muted-foreground">Loading company settings...</p>
@@ -216,7 +204,7 @@ export default function CompanySettingsPage() {
                 </TabsContent>
 
                 <TabsContent value="subscription">
-                    <CompanySubscription company={company} />
+                    <CompanySubscription company={company ?? null} />
                 </TabsContent>
 
                 <TabsContent value="preferences">
@@ -249,10 +237,9 @@ export default function CompanySettingsPage() {
                 </TabsContent>
 
                 <TabsContent value="mail-sending">
-                    <CompanyMailSending company={company} />
+                    <CompanyMailSending company={company ?? null} />
                 </TabsContent>
             </Tabs>
-
 
             <Dialog open={isRedirectDialogOpen} onOpenChange={setIsRedirectDialogOpen}>
                 <DialogContent className="sm:max-w-md">

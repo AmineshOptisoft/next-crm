@@ -52,6 +52,10 @@ import { Clock, Bell } from "lucide-react";
 import { toast } from "sonner";
 import { usePermissions } from "@/hooks/usePermissions";
 
+import useSWR from "swr";
+
+const fetcher = (url: string) => fetch(url, { credentials: "include" }).then((res) => res.json());
+
 // Mock data for existing emails
 const mockEmails = [
     { id: "1", name: "Welcome Sequence - Step 1", subject: "Welcome to the family!", status: "sent", sentAt: "2024-01-20", opens: 450, clicks: 120 },
@@ -94,23 +98,35 @@ export default function EmailBuilderListPage() {
         { id: 5, label: "Fifth", unit: "Hours", value: "14", enabled: true },
     ]);
 
-    // useEffect(() => {
-    //     fetchEmails();
-    // }, []);
+    // Fetch campaigns and templates in parallel via SWR.
+    const { data: rawEmails, error: emailsError, isLoading: loadingEmailsData, mutate: mutateEmails } = useSWR('/api/email-campaigns', fetcher, {
+        revalidateOnFocus: false,
+    });
+    const { data: rawTemplates } = useSWR('/api/email-templates', fetcher, {
+        revalidateOnFocus: false,
+    });
 
-    const fetchEmails = async () => {
-        setLoadingEmails(true);
-        try {
-            const res = await fetch('/api/email-campaigns');
-            const json = await res.json();
-            if (json.success) {
-                setEmails(json.data);
-            }
-        } catch (error) {
-            toast.error("Failed to load campaigns");
-        } finally {
+    const [templatesList, setTemplatesList] = useState<any[]>([]);
+
+    // Mirror to state if the SWR fetch changes.
+    useEffect(() => {
+        if (rawEmails?.success) {
+            setEmails(rawEmails.data);
             setLoadingEmails(false);
+        } else if (rawEmails) {
+             setLoadingEmails(false);
         }
+    }, [rawEmails]);
+
+    useEffect(() => {
+        if (rawTemplates?.success) {
+             setTemplatesList(rawTemplates.data);
+        }
+    }, [rawTemplates]);
+
+    // Backward compatibility for components that might call fetchEmails directly
+    const fetchEmails = async () => {
+        await mutateEmails();
     };
 
     const handleToggleReminder = (id: number) => {
@@ -184,24 +200,6 @@ export default function EmailBuilderListPage() {
             setIsSendingTest(false);
         }
     };
-
-    const [templatesList, setTemplatesList] = useState<any[]>([]);
-
-    useEffect(() => {
-        const fetchTemplates = async () => {
-            try {
-                const res = await fetch('/api/email-templates');
-                const json = await res.json();
-                if (json.success) {
-                    setTemplatesList(json.data);
-                }
-            } catch (error) {
-                toast.error("Failed to load templates");
-            }
-        };
-        fetchTemplates();
-        fetchEmails();
-    }, []);
 
     const handleConfirmTemplate = () => {
         if (!selectedTemplateId) {

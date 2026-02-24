@@ -11,7 +11,13 @@ export async function GET(req: NextRequest) {
         }
 
         await connectDB();
-        const promocodes = await Promocode.find({ companyId: user.companyId }).sort({ createdAt: -1 });
+        // Only return codes that are active AND not yet expired
+        const now = new Date();
+        const promocodes = await Promocode.find({
+            companyId: user.companyId,
+            isActive: true,
+            expiryDate: { $gt: now },
+        }).sort({ createdAt: -1 });
 
         return NextResponse.json(promocodes);
     } catch (error) {

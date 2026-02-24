@@ -11,18 +11,31 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const isAdmin = await requireCompanyAdmin(user.userId);
-  if (!isAdmin) {
-    return NextResponse.json(
-      { error: "Only company admins can view users" },
-      { status: 403 }
-    );
-  }
-
   await connectDB();
 
-  // Build filter: super admins see all users, company admins see only their company's users
-  const filter = { ...buildCompanyFilter(user), isActive: true, role: { $ne: "contact" } };
+  const isAdmin = await requireCompanyAdmin(user.userId);
+
+  // Non-admins (e.g. technicians with contacts permission) get limited user data
+  // needed for things like FSR dropdowns on the contacts page
+  if (!isAdmin) {
+    const filter = {
+      ...buildCompanyFilter(user),
+      isActive: true,
+      role: { $ne: "contact" },
+    };
+    const users = await User.find(filter)
+      .populate("customRoleId", "name")
+      .select("firstName lastName customRoleId zone")
+      .lean();
+    return NextResponse.json(users);
+  }
+
+  // Admins get full user data
+  const filter = {
+    ...buildCompanyFilter(user),
+    isActive: true,
+    role: { $ne: "contact" },
+  };
   const users = await User.find(filter)
     .populate("customRoleId", "name permissions")
     .select("-passwordHash -verificationToken")
@@ -81,7 +94,7 @@ export async function POST(req: NextRequest) {
     passwordHash,
     role: "company_user",
     companyId: user.companyId,
-    isVerified: true, // Auto-verify company users
+    isVerified: true,
     isActive: true,
   });
 

@@ -178,18 +178,24 @@ export default function OffTimeRequestPage() {
             const startDateObj = new Date(editForm.startDate);
             const endDateObj = new Date(editForm.endDate);
 
+            const payload: any = {
+                startDate: startDateObj.toISOString(),
+                endDate: endDateObj.toISOString(),
+                startTime: format(startDateObj, "hh:mm a"),
+                endTime: format(endDateObj, "hh:mm a"),
+                reason: editForm.reason,
+                notes: editForm.notes,
+            };
+
+            // Only send status if it changed to trigger emails correctly
+            if (editForm.status !== editingRequest.status) {
+                payload.status = editForm.status;
+            }
+
             const res = await fetch(`/api/time-off/${editingRequest._id}`, {
                 method: "PATCH",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    status: editForm.status,
-                    startDate: startDateObj.toISOString(),
-                    endDate: endDateObj.toISOString(),
-                    startTime: format(startDateObj, "hh:mm a"),
-                    endTime: format(endDateObj, "hh:mm a"),
-                    reason: editForm.reason,
-                    notes: editForm.notes,
-                }),
+                body: JSON.stringify(payload),
             });
 
             if (res.ok) {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import useSWR from "swr";
 
 interface Permission {
   module: string;
@@ -25,93 +25,73 @@ interface UserPermissions {
   isLoading: boolean;
 }
 
-/**
- * Hook to check user permissions for a specific module
- * @param module - The module name (e.g., "tasks", "contacts", "deals")
- * @returns Object with permission flags and loading state
- */
+const fetcher = (url: string) => fetch(url, { credentials: "include" }).then((res) => res.json());
+
 export function usePermissions(module: string): UserPermissions {
-  const [permissions, setPermissions] = useState<UserPermissions>({
+  const { data, error, isLoading } = useSWR('/api/auth/me', fetcher, {
+    revalidateOnFocus: false, // avoid redundant requests
+    revalidateIfStale: false,
+    dedupingInterval: 60000,   // cache for 60 seconds
+  });
+
+  if (isLoading || !data) {
+     return {
+        canCreate: false,
+        canEdit: false,
+        canDelete: false,
+        canExport: false,
+        canView: false,
+        isLoading: true,
+     };
+  }
+
+  if (error) {
+     return {
+        canCreate: false,
+        canEdit: false,
+        canDelete: false,
+        canExport: false,
+        canView: false,
+        isLoading: false,
+     };
+  }
+
+  const user: User = data.user;
+
+  // Super admin and company admin have all permissions
+  if (user?.role === "super_admin" || user?.role === "company_admin") {
+    return {
+      canCreate: true,
+      canEdit: true,
+      canDelete: true,
+      canExport: true,
+      canView: true,
+      isLoading: false,
+    };
+  }
+
+  // For other roles, check specific permissions
+  if (user?.permissions) {
+    const permission = user.permissions.find((p) => p.module === module);
+    if (permission) {
+      return {
+        canCreate: permission.canCreate,
+        canEdit: permission.canEdit,
+        canDelete: permission.canDelete,
+        canExport: permission.canExport,
+        canView: permission.canView,
+        isLoading: false,
+      };
+    }
+  }
+
+  // No permissions found
+  return {
     canCreate: false,
     canEdit: false,
     canDelete: false,
     canExport: false,
     canView: false,
-    isLoading: true,
-  });
-
-  useEffect(() => {
-    async function fetchPermissions() {
-      try {
-        const res = await fetch("/api/auth/me", { credentials: "include" });
-        if (!res.ok) {
-          setPermissions({
-            canCreate: false,
-            canEdit: false,
-            canDelete: false,
-            canExport: false,
-            canView: false,
-            isLoading: false,
-          });
-          return;
-        }
-
-        const data = await res.json();
-        const user: User = data.user;
-
-        // Super admin and company admin have all permissions
-        if (user?.role === "super_admin" || user?.role === "company_admin") {
-          setPermissions({
-            canCreate: true,
-            canEdit: true,
-            canDelete: true,
-            canExport: true,
-            canView: true,
-            isLoading: false,
-          });
-          return;
-        }
-
-        // For other roles, check specific permissions
-        if (user?.permissions) {
-          const permission = user.permissions.find((p) => p.module === module);
-          if (permission) {
-            setPermissions({
-              canCreate: permission.canCreate,
-              canEdit: permission.canEdit,
-              canDelete: permission.canDelete,
-              canExport: permission.canExport,
-              canView: permission.canView,
-              isLoading: false,
-            });
-            return;
-          }
-        }
-
-        // No permissions found
-        setPermissions({
-          canCreate: false,
-          canEdit: false,
-          canDelete: false,
-          canExport: false,
-          canView: false,
-          isLoading: false,
-        });
-      } catch (error) {
-        console.error("Error fetching permissions:", error);
-        setPermissions({
-          canCreate: false,
-          canEdit: false,
-          canDelete: false,
-          canExport: false,
-          canView: false,
-          isLoading: false,
-        });
-      }
-    }
-
-    fetchPermissions();
-  }, [module]);
-
-  return permissions;
+    isLoading: false,
+  };
 }

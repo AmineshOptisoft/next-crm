@@ -21,55 +21,77 @@ async function getStats(companyId: string) {
   const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
   const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0);
 
-  const totalEmployees = await User.countDocuments({
-    companyId: new Types.ObjectId(companyId),
-    role: "employee",
-    employeeStatus: "active",
-  });
+  const companyObjectId = new Types.ObjectId(companyId);
 
-  const employeesLastMonth = await User.countDocuments({
-    companyId: new Types.ObjectId(companyId),
-    role: "employee",
-    employeeStatus: "active",
-    createdAt: { $lt: currentMonthStart },
-  });
+  // Group queries to run in parallel
+  const [
+    totalEmployees,
+    employeesLastMonth,
+    leavesCount,
+    leavesLastMonth,
+    productivityData,
+    recentEmployees
+  ] = await Promise.all([
+    // Total employees
+    User.countDocuments({
+      companyId: companyObjectId,
+      role: "employee",
+      employeeStatus: "active",
+    }),
+    // Employees last month
+    User.countDocuments({
+      companyId: companyObjectId,
+      role: "employee",
+      employeeStatus: "active",
+      createdAt: { $lt: currentMonthStart },
+    }),
+    // Leaves count
+    User.countDocuments({
+      companyId: companyObjectId,
+      role: "employee",
+      employeeStatus: "on-leave",
+    }),
+    // Leaves last month
+    User.countDocuments({
+      companyId: companyObjectId,
+      role: "employee",
+      employeeStatus: "on-leave",
+      updatedAt: { $gte: lastMonthStart, $lte: lastMonthEnd },
+    }),
+    // Productivity aggregation
+    Task.aggregate([
+      {
+        $match: {
+          companyId: companyObjectId,
+          status: "completed",
+          createdAt: {
+            $gte: new Date(now.getFullYear(), 0, 1),
+          },
+        },
+      },
+      {
+        $group: {
+          _id: { $month: "$createdAt" },
+          count: { $sum: 1 },
+        },
+      },
+      { $sort: { _id: 1 } },
+    ]),
+    // Recent employees
+    User.find({
+      companyId: companyObjectId,
+      role: "employee",
+      employeeStatus: "active",
+    })
+      .sort({ createdAt: -1 })
+      .limit(5)
+      .lean()
+  ]);
 
   const employeeGrowth =
     employeesLastMonth > 0
       ? ((totalEmployees - employeesLastMonth) / employeesLastMonth) * 100
       : 0;
-
-  const leavesCount = await User.countDocuments({
-    companyId: new Types.ObjectId(companyId),
-    role: "employee",
-    employeeStatus: "on-leave",
-  });
-
-  const leavesLastMonth = await User.countDocuments({
-    companyId: new Types.ObjectId(companyId),
-    role: "employee",
-    employeeStatus: "on-leave",
-    updatedAt: { $gte: lastMonthStart, $lte: lastMonthEnd },
-  });
-
-  const productivityData = await Task.aggregate([
-    {
-      $match: {
-        companyId: new Types.ObjectId(companyId),
-        status: "completed",
-        createdAt: {
-          $gte: new Date(now.getFullYear(), 0, 1),
-        },
-      },
-    },
-    {
-      $group: {
-        _id: { $month: "$createdAt" },
-        count: { $sum: 1 },
-      },
-    },
-    { $sort: { _id: 1 } },
-  ]);
 
   const months = [
     "Jan",
@@ -93,15 +115,6 @@ async function getStats(companyId: string) {
       value: data ? data.count * 1000 : Math.floor(Math.random() * 5000),
     };
   });
-
-  const recentEmployees = await User.find({
-    companyId: new Types.ObjectId(companyId),
-    role: "employee",
-    employeeStatus: "active",
-  })
-    .sort({ createdAt: -1 })
-    .limit(5)
-    .lean();
 
   return {
     employees: {

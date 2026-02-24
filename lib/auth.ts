@@ -32,12 +32,23 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
     ) as AuthPayload;
 
     await connectDB();
-    const user = await User.findById(payload.userId)
-      .populate("customRoleId")
-      .populate("companyId")
-      .lean();
+    const user = await User.findById(payload.userId).lean();
     
     if (!user || !user.isActive) return null;
+
+    let permissions: any[] = [];
+    let companyName = user.companyName;
+
+    // Only lookup permissions if standard user
+    if ((user.role === "company_user" || user.role === "employee" || user.role === "contact") && user.customRoleId) {
+       const role = await Role.findById(user.customRoleId).select('permissions').lean();
+       permissions = role?.permissions || [];
+    }
+
+    if (user.companyId && !companyName) {
+       const company = await Company.findById(user.companyId).select('name').lean();
+       companyName = company?.name;
+    }
 
     return {
       userId: payload.userId,
@@ -45,10 +56,10 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
       firstName: user.firstName,
       lastName: user.lastName,
       role: user.role,
-      companyId: user.companyId?._id?.toString(),
-      companyName: user.companyId?.name || user.companyName,
-      customRoleId: user.customRoleId?._id?.toString(),
-      permissions: user.customRoleId?.permissions || [],
+      companyId: user.companyId?.toString(),
+      companyName: companyName,
+      customRoleId: user.customRoleId?.toString(),
+      permissions: permissions,
     };
   } catch {
     return null;

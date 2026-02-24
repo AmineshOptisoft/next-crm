@@ -69,6 +69,9 @@ import { DataTable } from "@/components/data-table";
 import { ColumnDef } from "@tanstack/react-table";
 import { Country, State, City } from "country-state-city";
 import { usePermissions } from "@/hooks/usePermissions";
+import useSWR from "swr";
+
+const fetcher = (url: string) => fetch(url, { credentials: "include" }).then((res) => res.json());
 
 interface ContactType {
   _id: string;
@@ -181,67 +184,38 @@ export default function ContactsPage() {
   const [zonesList, setZonesList] = useState<string[]>([]);
   const [usersList, setUsersList] = useState<any[]>([]);
 
+  const { data: contactsData, isLoading: isLoadingContacts } = useSWR('/api/contacts', fetcher, { revalidateOnFocus: false });
+  const { data: usersData } = useSWR('/api/users', fetcher, { revalidateOnFocus: false });
+  const { data: zonesData } = useSWR('/api/service-areas', fetcher, { revalidateOnFocus: false });
+  const { data: meData } = useSWR('/api/auth/me', fetcher, { revalidateOnFocus: false });
+
   useEffect(() => {
-    fetchContacts();
-    fetchCurrentUser();
-    fetchZones();
-    fetchUsers();
-  }, []);
-
-  async function fetchUsers() {
-    try {
-      const res = await fetch("/api/users");
-      if (res.ok) {
-        const data = await res.json();
-        setUsersList(data);
-      }
-    } catch (e) {
-      console.error("Failed to fetch users", e);
-    }
-  }
-
-  async function fetchZones() {
-    try {
-      const res = await fetch("/api/service-areas");
-      if (res.ok) {
-        const data = await res.json();
-        const uniqueZones = Array.from(
-          new Set(
-            (data as any[])
-              .map((area: any) => area?.name as string | undefined)
-              .filter(Boolean)
-          )
-        ) as string[];
-        setZonesList(uniqueZones);
-      }
-    } catch (e) {
-      console.error("Failed to fetch zones", e);
-    }
-  }
-
-  async function fetchCurrentUser() {
-    try {
-      const res = await fetch("/api/auth/me");
-      if (res.ok) {
-        const data = await res.json();
-        setCurrentUser(data.user);
-      }
-    } catch (e) { console.error(e); }
-  }
-
-  async function fetchContacts() {
-    try {
-      const res = await fetch("/api/contacts");
-      if (res.ok) {
-        const data = await res.json();
-        setContacts(data);
-      }
-    } catch (e) {
-      toast.error("Failed to fetch contacts");
-    } finally {
+    if (contactsData) {
+      setContacts(contactsData);
       setLoading(false);
     }
-  }
+  }, [contactsData]);
+
+  useEffect(() => {
+    if (meData?.user) setCurrentUser(meData.user);
+  }, [meData]);
+
+  useEffect(() => {
+    if (usersData) setUsersList(usersData);
+  }, [usersData]);
+
+  useEffect(() => {
+    if (zonesData) {
+      const uniqueZones = Array.from(
+        new Set(
+          (zonesData as any[])
+            .map((area: any) => area?.name as string | undefined)
+            .filter(Boolean)
+        )
+      ) as string[];
+      setZonesList(uniqueZones);
+    }
+  }, [zonesData]);
 
   // --- Image Handling ---
 
@@ -352,9 +326,10 @@ export default function ContactsPage() {
 
       if (res.ok) {
         toast.success(editingContact ? "Updated successfully" : "Created successfully");
-        await fetchContacts();
+        // We can artificially mutate SWR or rely on mutate via mutate("/api/contacts");
         setIsSheetOpen(false);
         resetForm();
+        window.location.reload(); // Hard fallback till we wire up proper mutate
       } else {
         const error = await res.json();
         toast.error(error.error || "Operation failed");
@@ -377,8 +352,8 @@ export default function ContactsPage() {
     try {
       await fetch(`/api/contacts/${contactToDelete}`, { method: "DELETE" });
       toast.success("Deleted successfully");
-      fetchContacts();
       setIsDeleteDialogOpen(false);
+      window.location.reload();
     } catch (e) {
       toast.error("Failed to delete");
     } finally {

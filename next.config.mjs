@@ -4,8 +4,6 @@ const nextConfig = {
   experimental: {
     // Enable proxy instead of middleware
     proxyTimeout: 30000,
-    // Enable instrumentation for server startup hooks
-    instrumentationHook: true,
   },
 
   // Production optimizations

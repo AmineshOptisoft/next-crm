@@ -1,53 +1,57 @@
 // app/dashboard/layout.tsx
 "use client"
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import dynamic from "next/dynamic";
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
+import { AppSidebar } from "@/components/app-sidebar";
+import { Topbar } from "@/components/layout/topbar";
+import useSWR from "swr";
 
-const AppSidebar = dynamic(() => import("@/components/app-sidebar").then(m => m.AppSidebar), {
-  ssr: false,
-});
+const fetcher = (url: string) =>
+  fetch(url, { credentials: "include" }).then((res) => res.json());
 
-const Topbar = dynamic(() => import("@/components/layout/topbar").then(m => m.Topbar), {
-  ssr: false,
-});
+// Pages that are always accessible even when profile is incomplete
+const ALWAYS_ACCESSIBLE = ["/dashboard/company-settings"];
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
-  const [isCheckingProfile, setIsCheckingProfile] = useState(true);
-  const [isProfileIncomplete, setIsProfileIncomplete] = useState(false);
 
+  // Both fetches share the global SWR cache — other components reuse these without extra calls
+  const { data: meData, isLoading: loadingMe } = useSWR("/api/auth/me", fetcher, {
+    revalidateOnFocus: false,
+    dedupingInterval: 60_000,
+  });
+
+  const { data: settingsData, isLoading: loadingSettings } = useSWR(
+    "/api/company/settings",
+    fetcher,
+    { revalidateOnFocus: false, dedupingInterval: 30_000 }
+  );
+
+  const isLoading = loadingMe || loadingSettings;
+  const isOnSettingsPage = ALWAYS_ACCESSIBLE.some((p) => pathname.startsWith(p));
+
+  // Derived values (safe with nullish defaults)
+  const userRole = meData?.user?.role ?? "";
+  const isSuperAdmin = userRole === "super_admin";
+  const isAdmin = userRole === "company_admin";
+  const profileCompleted: boolean = settingsData?.profileCompleted ?? true;
+  const isProfileIncomplete = !profileCompleted;
+
+  // Guard: redirect to company-settings if profile not done
   useEffect(() => {
-    const checkProfileCompletion = async () => {
-      try {
-        const response = await fetch("/api/company/settings");
-        if (response.ok) {
-          const company = await response.json();
-          const incomplete = !company.profileCompleted;
-          setIsProfileIncomplete(incomplete);
+    if (isLoading) return;
+    if (isSuperAdmin) return;              // super admins are never blocked
+    if (isOnSettingsPage) return;          // already on the page they need to be on
+    if (isProfileIncomplete) {
+      router.replace("/dashboard/company-settings");
+    }
+  }, [isLoading, isSuperAdmin, isOnSettingsPage, isProfileIncomplete, router]);
 
-          // If profile not completed and NOT on settings page, redirect
-          if (incomplete && pathname !== "/dashboard/company-settings") {
-            router.replace("/dashboard/company-settings");
-            return;
-          }
-        }
-      } catch (error) {
-        console.error("Error checking profile completion:", error);
-      } finally {
-        setIsCheckingProfile(false);
-      }
-    };
-
-    checkProfileCompletion();
-  }, [pathname, router]);
-
-  // Show loading state while checking profile (only if NOT on settings page)
-  if (isCheckingProfile && pathname !== "/dashboard/company-settings") {
+  // Show loading spinner only for first load and only if NOT on settings page
+  if (isLoading && !isOnSettingsPage) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <div className="text-center">
@@ -66,15 +70,17 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <div className="border-b">
             <Topbar />
           </div>
-          {/* Global Profile Warning - Visible on ALL pages if profile is incomplete */}
-          {isProfileIncomplete && (
+
+          {/* Global warning banner — shown on ALL pages when profile is incomplete */}
+          {isProfileIncomplete && !isSuperAdmin && (
             <div className="w-full bg-yellow-50 dark:bg-yellow-950 border-b border-yellow-200 dark:border-yellow-800 px-6 py-3">
               <div className="flex items-start gap-4">
-                <AlertCircle className="h-5 w-5 text-yellow-600 dark:text-yellow-400 mt-0.5" />
+                <AlertCircle className="h-5 w-5 text-yellow-600 dark:text-yellow-400 mt-0.5 shrink-0" />
                 <div>
-                  <h5 className="font-medium text-yellow-800 dark:text-yellow-300">Complete Your Profile</h5>
+                  <h5 className="font-medium text-yellow-800 dark:text-yellow-300">Complete Your Company Profile</h5>
                   <p className="text-sm text-yellow-700 dark:text-yellow-400 mt-1">
-                    Please fill all required fields marked with <span className="text-red-500 font-bold">*</span> in Company Settings to unlock all features.
+                    Please fill all required fields marked with{" "}
+                    <span className="text-red-500 font-bold">*</span> in Company Settings to unlock all features.
                   </p>
                 </div>
               </div>

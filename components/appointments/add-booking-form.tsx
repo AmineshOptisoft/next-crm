@@ -1,6 +1,9 @@
 "use client";
 
 import { toast } from "sonner";
+import useSWR from "swr";
+
+const fetcher = (url: string) => fetch(url, { credentials: "include" }).then((res) => res.json());
 
 import { useEvents } from "@/context/events-context";
 import { Sheet, SheetContent, SheetHeader, SheetFooter, SheetDescription, SheetTitle } from "@/components/ui/sheet";
@@ -70,13 +73,58 @@ export function AddBookingForm({ open, onOpenChange, initialData }: AddBookingFo
     const [emailError, setEmailError] = useState("");
     const [isCheckingEmail, setIsCheckingEmail] = useState(false);
 
-    // Data states
-    const [contacts, setContacts] = useState<any[]>([]);
-    const [services, setServices] = useState<any[]>([]);
-    const [allTechnicians, setAllTechnicians] = useState<any[]>([]);
+    // Data states — SWR cached (deduped across the app)
+    const [selectedTechnicianServiceId, setSelectedTechnicianServiceId] = useState<string | null>(
+        initialData?.technicianId ?? null
+    );
+
+    // Technicians: always-on SWR — calendar.tsx pre-warms this cache on mount,
+    // so the data is ready BEFORE the sheet opens (0 waiting time for the user).
+    const { data: techData } = useSWR(
+        '/api/appointments/resources',
+        fetcher,
+        { revalidateOnFocus: false, dedupingInterval: 30_000 }
+    );
+    const allTechnicians: any[] = techData?.resources || [];
+
+    // Also read the pre-warmed calendar data (same key as calendar.tsx) to get
+    // availability blocks & time-offs without an extra network call.
+    const { data: calendarData } = useSWR(
+        '/api/appointments/resources',
+        fetcher,
+        { revalidateOnFocus: false, dedupingInterval: 30_000 }
+    );
+    const calendarEvents: any[] = calendarData?.events || [];
+
+    // Contacts: only fetched when the "existing" tab is visible
+    const { data: contactsData } = useSWR(
+        open && userType === 'existing' ? '/api/contacts' : null,
+        fetcher,
+        { revalidateOnFocus: false }
+    );
+    const contacts: any[] = contactsData || [];
+
+    // Promocodes: stable list, long cache
+    const { data: promocodesData } = useSWR(
+        open ? '/api/promocodes' : null,
+        fetcher,
+        { revalidateOnFocus: false, dedupingInterval: 60_000 }
+    );
+    const promocodes: Promocode[] = promocodesData || [];
+
+    // Services per technician: re-fetches only when selected technician changes
+    const { data: servicesData } = useSWR(
+        open && selectedTechnicianServiceId ? `/api/users/${selectedTechnicianServiceId}/services` : null,
+        fetcher,
+        { revalidateOnFocus: false }
+    );
+    const services: any[] = servicesData || [];
+
     const [selectedContact, setSelectedContact] = useState<any>(null);
     const [selectedService, setSelectedService] = useState<any>(null);
-    const [selectedTechnicianIds, setSelectedTechnicianIds] = useState<string[]>([]);
+    const [selectedTechnicianIds, setSelectedTechnicianIds] = useState<string[]>(
+        initialData?.technicianId ? [initialData.technicianId] : []
+    );
 
     // ── FIX: Split formData into two objects so that typing in personal
     //    fields doesn't re-run shipping-related memos and vice-versa.
@@ -121,7 +169,6 @@ export function AddBookingForm({ open, onOpenChange, initialData }: AddBookingFo
     const [addonQuantities, setAddonQuantities] = useState<Record<string, number>>({});
 
     const [discount, setDiscount] = useState(0);
-    const [promocodes, setPromocodes] = useState<Promocode[]>([]);
     const [selectedPromocode, setSelectedPromocode] = useState<string>("");
 
     // ── FIX: useCallback prevents AccordionItem's onToggle from being a
@@ -130,45 +177,15 @@ export function AddBookingForm({ open, onOpenChange, initialData }: AddBookingFo
         setSections(prev => ({ ...prev, [key]: !prev[key] }));
     }, []);
 
-    useEffect(() => {
-        if (open && userType === "existing") fetchContacts();
-    }, [open, userType]);
-
+    // Sync initial technician ID when the form opens
     useEffect(() => {
         if (open && initialData?.technicianId) {
-            fetchTechnicianServices(initialData.technicianId);
+            setSelectedTechnicianServiceId(initialData.technicianId);
             setSelectedTechnicianIds([initialData.technicianId]);
         }
     }, [open, initialData?.technicianId]);
 
-    useEffect(() => {
-        if (open) {
-            fetchTechnicians();
-            fetchPromocodes();
-        }
-    }, [open]);
-
-    const fetchTechnicians = async () => {
-        try {
-            const res = await fetch('/api/appointments/resources');
-            const data = await res.json();
-            setAllTechnicians(data.resources || []);
-        } catch (error) {
-            console.error("Failed to fetch technicians:", error);
-        }
-    };
-
-    const fetchPromocodes = async () => {
-        try {
-            const res = await fetch('/api/promocodes');
-            const data = await res.json();
-            setPromocodes(data);
-        } catch (error) {
-            console.error("Failed to fetch promocodes:", error);
-        }
-    };
-
-    // Auto-calculate end time
+    // Auto-calculate end time — divided by number of technicians (team sharing)
     useEffect(() => {
         if (!selectedService || !bookingStart) return;
 
@@ -184,14 +201,17 @@ export function AddBookingForm({ open, onOpenChange, initialData }: AddBookingFo
             if (qty > 0 && addon.estimatedTime) totalMinutes += addon.estimatedTime * qty;
         });
 
+        // Divide total time by the number of assigned technicians (min 1)
+        const techCount = Math.max(1, selectedTechnicianIds.length);
+
         if (totalMinutes > 0) {
-            setBookingEnd(new Date(bookingStart.getTime() + totalMinutes * 60 * 1000));
+            setBookingEnd(new Date(bookingStart.getTime() + (totalMinutes / techCount) * 60 * 1000));
         } else if (selectedService.estimatedTime) {
-            setBookingEnd(new Date(bookingStart.getTime() + selectedService.estimatedTime * 60 * 1000));
+            setBookingEnd(new Date(bookingStart.getTime() + (selectedService.estimatedTime / techCount) * 60 * 1000));
         } else {
             setBookingEnd(new Date(bookingStart.getTime() + 60 * 60 * 1000));
         }
-    }, [selectedService, subServiceQuantities, addonQuantities, bookingStart]);
+    }, [selectedService, subServiceQuantities, addonQuantities, bookingStart, selectedTechnicianIds.length]);
 
     // ── FIX: Effect now only depends on `email` (its own state) and
     //    `userType`, so typing in password/name/phone no longer triggers it.
@@ -222,46 +242,49 @@ export function AddBookingForm({ open, onOpenChange, initialData }: AddBookingFo
         return () => clearTimeout(timeoutId);
     }, [email, userType]);
 
-    // ── FIX: Memoize filtered technicians — only recomputes when its
-    //    actual dependencies change, not on every keystroke.
+    // ── Filter out technicians who have an approved time-off overlapping the booking slot.
+    //    Uses the pre-warmed SWR calendar data — zero extra network cost.
     const filteredTechnicians = useMemo(() => {
         if (!selectedService || !bookingStart || !bookingEnd) return [];
 
         const clickedTechnician = allTechnicians.find(t => t.id === initialData?.technicianId);
         const targetZone = clickedTechnician?.group;
 
-        if (!targetZone) return allTechnicians;
+        // Base filter: same zone + provides the selected service
+        const zoneFiltered = !targetZone
+            ? allTechnicians
+            : allTechnicians.filter(tech => {
+                if (tech.group !== targetZone) return false;
+                if (tech.services && Array.isArray(tech.services)) {
+                    return tech.services.some((serviceId: any) =>
+                        serviceId.toString() === selectedService._id.toString()
+                    );
+                }
+                return true;
+            });
 
-        return allTechnicians.filter(tech => {
-            if (tech.group !== targetZone) return false;
-            if (tech.services && Array.isArray(tech.services)) {
-                return tech.services.some((serviceId: any) =>
-                    serviceId.toString() === selectedService._id.toString()
-                );
-            }
-            return true;
+        // Remove technicians who are on approved time-off during the selected slot
+        const bookStart = bookingStart.getTime();
+        const bookEnd   = bookingEnd.getTime();
+
+        return zoneFiltered.filter(tech => {
+            const hasConflict = calendarEvents.some((ev: any) => {
+                if (ev.resourceId !== tech.id) return false;
+                if (ev.type !== 'unavailability' && ev.type !== 'unavailability_timed') return false;
+                const evStart = new Date(ev.start).getTime();
+                const evEnd   = new Date(ev.end).getTime();
+                // Overlap: booking starts before event ends AND booking ends after event starts
+                return bookStart < evEnd && bookEnd > evStart;
+            });
+            return !hasConflict;
         });
-    }, [selectedService, bookingStart, bookingEnd, allTechnicians, initialData?.technicianId]);
+    }, [selectedService, bookingStart, bookingEnd, allTechnicians, initialData?.technicianId, calendarEvents]);
 
-    const fetchContacts = async () => {
-        try {
-            const res = await fetch('/api/contacts');
-            const data = await res.json();
-            setContacts(data);
-        } catch (error) {
-            console.error("Failed to fetch contacts:", error);
-        }
-    };
-
-    const fetchTechnicianServices = async (technicianId: string) => {
-        try {
-            const res = await fetch(`/api/users/${technicianId}/services`);
-            const data = await res.json();
-            setServices(data);
-        } catch (error) {
-            console.error("Failed to fetch services:", error);
-        }
-    };
+    // Trigger service reload when user manually picks a different technician in the form
+    const handleTechnicianChange = useCallback((ids: string[]) => {
+        setSelectedTechnicianIds(ids);
+        if (ids.length > 0) setSelectedTechnicianServiceId(ids[0]);
+    }, []);
 
     // ── FIX: useCallback so this handler isn't re-created on every render.
     const handleContactSelect = useCallback((contactId: string) => {
@@ -484,6 +507,25 @@ export function AddBookingForm({ open, onOpenChange, initialData }: AddBookingFo
                 if (frequency === "weekly" && !selectedDays.length) {
                     toast.error("Please select at least one day for recurrence");
                     return;
+                }
+            }
+
+            // ── Validate booking end time doesn't exceed technician/company working hours ──
+            if (bookingStart && bookingEnd) {
+                for (const techId of selectedTechnicianIds) {
+                    // Find any unavailability_timed block that would be violated
+                    const violation = calendarEvents.find((ev: any) => {
+                        if (ev.resourceId !== techId) return false;
+                        if (ev.type !== 'unavailability_timed' && ev.type !== 'unavailability') return false;
+                        const evStart = new Date(ev.start).getTime();
+                        const evEnd   = new Date(ev.end).getTime();
+                        return bookingStart.getTime() < evEnd && bookingEnd.getTime() > evStart;
+                    });
+                    if (violation) {
+                        const techName = allTechnicians.find(t => t.id === techId)?.title || 'A technician';
+                        toast.error(`${techName}'s booking end time overlaps with their unavailable hours. Please adjust the booking time.`);
+                        return;
+                    }
                 }
             }
 
@@ -1004,7 +1046,7 @@ export function AddBookingForm({ open, onOpenChange, initialData }: AddBookingFo
                                 <MultiSelect
                                     options={filteredTechnicians.map(t => ({ label: t.title, value: t.id, group: t.group }))}
                                     selected={selectedTechnicianIds}
-                                    onChange={setSelectedTechnicianIds}
+                                    onChange={handleTechnicianChange}
                                     placeholder={!selectedService ? "Select a service first..." : "Select technicians..."}
                                     disabled={!selectedService}
                                 />

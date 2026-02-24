@@ -9,17 +9,14 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ user: null }, { status: 200 });
   }
 
+  // authUser already queried the user and permissions inside getCurrentUser
+  // and we also need a few extra fields like countryId, etc.
+  // We can just rely on the existing user object we fetched directly
   await connectDB();
   const user = await User.findById(authUser.userId).lean();
   if (!user) {
     return NextResponse.json({ user: null }, { status: 200 });
   }
-
-  // Populate custom role to get permissions and company to get company details
-  const populatedUser = await User.findById(authUser.userId)
-    .populate("customRoleId")
-    .populate("companyId")
-    .lean();
 
   return NextResponse.json({
     user: {
@@ -28,17 +25,17 @@ export async function GET(req: NextRequest) {
       lastName: user.lastName,
       email: user.email,
       role: user.role,
-      companyId: populatedUser?.companyId ? {
-        _id: populatedUser.companyId._id?.toString(),
-        name: populatedUser.companyId.name
+      companyId: authUser.companyId ? {
+        _id: authUser.companyId,
+        name: authUser.companyName
       } : null,
-      companyName: populatedUser?.companyId?.name || user.companyName || "",
+      companyName: authUser.companyName || user.companyName || "",
       countryId: user.countryId || "",
       stateId: user.stateId || "",
       cityId: user.cityId || "",
       avatarUrl: user.avatarUrl || "",
-      customRoleId: populatedUser?.customRoleId?._id?.toString() || null,
-      permissions: populatedUser?.customRoleId?.permissions || [],
+      customRoleId: user.customRoleId?.toString() || null,
+      permissions: authUser.permissions || [],
     },
   });
 }
