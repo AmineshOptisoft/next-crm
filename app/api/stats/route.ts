@@ -104,14 +104,16 @@ export async function GET(req: NextRequest) {
       };
     });
 
-    // Get recent employees
+    // Get recent employees (limit fields for list)
     const recentEmployees = await User.find({
       ownerId: user.userId,
       role: "employee",
       employeeStatus: "active",
     })
+      .select("firstName lastName email avatarUrl createdAt")
       .sort({ createdAt: -1 })
-      .limit(5);
+      .limit(5)
+      .lean();
 
     // Get other stats
     const totalContacts = await User.countDocuments({

@@ -34,6 +34,53 @@ type Country = { id: string; name: string };
 type StateType = { id: string; name: string };
 type City = { id: string; name: string };
 
+let countriesCache: Country[] | null = null;
+const statesCache = new Map<string, StateType[]>();
+const citiesCache = new Map<string, City[]>();
+
+async function loadCountries(): Promise<Country[]> {
+  if (countriesCache) return countriesCache;
+
+  const res = await fetch("/api/geo/countries");
+  if (!res.ok) {
+    throw new Error("Failed to load countries");
+  }
+
+  const data = (await res.json()) as Country[];
+  countriesCache = data;
+  return data;
+}
+
+async function loadStates(countryId: string): Promise<StateType[]> {
+  if (statesCache.has(countryId)) {
+    return statesCache.get(countryId)!;
+  }
+
+  const res = await fetch(`/api/geo/states?countryId=${countryId}`);
+  if (!res.ok) {
+    throw new Error("Failed to load states");
+  }
+
+  const data = (await res.json()) as StateType[];
+  statesCache.set(countryId, data);
+  return data;
+}
+
+async function loadCities(stateId: string): Promise<City[]> {
+  if (citiesCache.has(stateId)) {
+    return citiesCache.get(stateId)!;
+  }
+
+  const res = await fetch(`/api/geo/cities?stateId=${stateId}`);
+  if (!res.ok) {
+    throw new Error("Failed to load cities");
+  }
+
+  const data = (await res.json()) as City[];
+  citiesCache.set(stateId, data);
+  return data;
+}
+
 export default function SignupPage() {
   const form = useForm<SignupInput>({
     resolver: zodResolver(signupSchema),
@@ -56,11 +103,20 @@ export default function SignupPage() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    (async () => {
-      const res = await fetch("/api/geo/countries");
-      const data = await res.json();
-      setCountries(data);
-    })();
+    let isMounted = true;
+
+    loadCountries()
+      .then((data) => {
+        if (!isMounted) return;
+        setCountries(data);
+      })
+      .catch((error) => {
+        console.error(error);
+      });
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   const countryId = form.watch("countryId");
@@ -72,14 +128,24 @@ export default function SignupPage() {
       form.setValue("stateId", "");
       return;
     }
-    (async () => {
-      const res = await fetch(`/api/geo/states?countryId=${countryId}`);
-      const data = await res.json();
-      setStates(data);
-      setCities([]);
-      form.setValue("stateId", "");
-      form.setValue("cityId", "");
-    })();
+
+    let isMounted = true;
+
+    loadStates(countryId)
+      .then((data) => {
+        if (!isMounted) return;
+        setStates(data);
+        setCities([]);
+        form.setValue("stateId", "");
+        form.setValue("cityId", "");
+      })
+      .catch((error) => {
+        console.error(error);
+      });
+
+    return () => {
+      isMounted = false;
+    };
   }, [countryId, form]);
 
   useEffect(() => {
@@ -88,12 +154,22 @@ export default function SignupPage() {
       form.setValue("cityId", "");
       return;
     }
-    (async () => {
-      const res = await fetch(`/api/geo/cities?stateId=${stateId}`);
-      const data = await res.json();
-      setCities(data);
-      form.setValue("cityId", "");
-    })();
+
+    let isMounted = true;
+
+    loadCities(stateId)
+      .then((data) => {
+        if (!isMounted) return;
+        setCities(data);
+        form.setValue("cityId", "");
+      })
+      .catch((error) => {
+        console.error(error);
+      });
+
+    return () => {
+      isMounted = false;
+    };
   }, [stateId, form]);
 
   async function onSubmit(values: SignupInput) {

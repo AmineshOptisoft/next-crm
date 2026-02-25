@@ -16,8 +16,10 @@ export async function GET(request: Request) {
             );
         }
 
-        // Check if a user with this email exists
-        const existingUser = await User.findOne({ email: email.toLowerCase() });
+        // Check if a user with this email exists (only _id needed)
+        const existingUser = await User.findOne({ email: email.toLowerCase() })
+            .select("_id")
+            .lean();
 
         return NextResponse.json({
             exists: !!existingUser,

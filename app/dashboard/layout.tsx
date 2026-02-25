@@ -36,9 +36,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   // Derived values (safe with nullish defaults)
   const userRole = meData?.user?.role ?? "";
   const isSuperAdmin = userRole === "super_admin";
-  const isAdmin = userRole === "company_admin";
-  const profileCompleted: boolean = settingsData?.profileCompleted ?? true;
-  const isProfileIncomplete = !profileCompleted;
+  
+  let profileCompleted = true; // default true
+  if (meData?.user?.companyId?.profileCompleted !== undefined) {
+    profileCompleted = meData.user.companyId.profileCompleted;
+  } else if (settingsData?.profileCompleted !== undefined) {
+    profileCompleted = settingsData.profileCompleted;
+  }
+  
+  const isProfileIncomplete = !isSuperAdmin && !profileCompleted;
 
   // Guard: redirect to company-settings if profile not done
   useEffect(() => {

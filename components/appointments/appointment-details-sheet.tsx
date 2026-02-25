@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, memo } from "react";
 import {
   Sheet,
   SheetContent,
@@ -11,12 +11,31 @@ import {
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { CheckCircle, CreditCard, Pencil, Trash2, XCircle, FileText, DollarSign, Archive } from "lucide-react";
-import { EditBookingDetailsDialog } from "./edit-booking-details-dialog";
-import { BillClientModal } from "./bill-client-modal";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import dynamic from "next/dynamic";
+
+const EditBookingDetailsDialog = dynamic(
+  () => import("./edit-booking-details-dialog").then((m) => m.EditBookingDetailsDialog),
+  { ssr: false }
+);
+const BillClientModal = dynamic(
+  () => import("./bill-client-modal").then((m) => m.BillClientModal),
+  { ssr: false }
+);
 
 type DisplayValue = string | number | null | undefined;
+
+const KeyValueRow = memo(function KeyValueRow({ label, value }: { label: string; value: DisplayValue }) {
+  const v = value === null || value === undefined || value === "" ? "-" : String(value);
+  return (
+    <div className="grid grid-cols-[190px_10px_1fr] gap-x-2 text-sm">
+      <div className="text-foreground">{label}</div>
+      <div className="text-muted-foreground">:</div>
+      <div className="text-foreground break-words">{v}</div>
+    </div>
+  );
+});
 
 export interface AppointmentDetails {
   id: string;
@@ -148,16 +167,6 @@ export function AppointmentDetailsSheet({
       hour: "2-digit",
       minute: "2-digit",
     });
-  };
-
-  const KeyValueRow = ({ label, value }: { label: string; value: DisplayValue }) => {
-    return (
-      <div className="grid grid-cols-[190px_10px_1fr] gap-x-2 text-sm">
-        <div className="text-foreground">{label}</div>
-        <div className="text-muted-foreground">:</div>
-        <div className="text-foreground break-words">{renderValue(value)}</div>
-      </div>
-    );
   };
 
   return (
@@ -404,17 +413,21 @@ export function AppointmentDetailsSheet({
         </div>
       </SheetContent>
 
-      <EditBookingDetailsDialog
-        open={editBookingOpen}
-        onOpenChange={setEditBookingOpen}
-        appointment={appointment}
-      />
+      {editBookingOpen && (
+        <EditBookingDetailsDialog
+          open={editBookingOpen}
+          onOpenChange={setEditBookingOpen}
+          appointment={appointment}
+        />
+      )}
 
-      <BillClientModal
-        open={isBillingModalOpen}
-        onOpenChange={setIsBillingModalOpen}
-        bookingId={appointment.bookingId as string}
-      />
+      {isBillingModalOpen && (
+        <BillClientModal
+          open={isBillingModalOpen}
+          onOpenChange={setIsBillingModalOpen}
+          bookingId={appointment.bookingId as string}
+        />
+      )}
     </Sheet>
   );
 }

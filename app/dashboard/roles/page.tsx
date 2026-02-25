@@ -421,7 +421,7 @@ export default function RolesPage() {
                     <div className="flex flex-col items-center gap-2">
                       <Shield className="h-12 w-12 text-muted-foreground" />
                       <p className="text-muted-foreground">
-                        No roles found. Create your first custom role to get started.
+                        No custom roles yet. The 4 default roles (Sales Manager, Sales Representative, Accountant, Viewer) are always shown above. Create a custom role to add more.
                       </p>
                     </div>
                   </TableCell>

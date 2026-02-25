@@ -96,4 +96,12 @@ const ServiceSchema = new Schema({
     estimatedTime: { type: Number, min: 0 }
 }, { timestamps: true });
 
+// Optimized index for hierarchy + status lookups, e.g. technician services API
+ServiceSchema.index({
+    companyId: 1,
+    parentId: 1,
+    category: 1,
+    status: 1,
+});
+
 export const Service = models.Service || model<IService>("Service", ServiceSchema);

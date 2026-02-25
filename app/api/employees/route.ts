@@ -20,9 +20,10 @@ export async function GET(req: NextRequest) {
       role: "employee"
     };
 
-    const employees = await User.find(filter).sort({
-      createdAt: -1,
-    });
+    const employees = await User.find(filter)
+      .select("-passwordHash -verificationToken")
+      .sort({ createdAt: -1 })
+      .lean();
 
     return NextResponse.json(employees);
   } catch (error) {

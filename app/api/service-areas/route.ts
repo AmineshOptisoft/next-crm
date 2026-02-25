@@ -15,7 +15,7 @@ export async function GET(req: NextRequest) {
 
         const serviceAreas = await ServiceArea.find({
             companyId: user.companyId,
-        }).sort({ name: 1 });
+        }).sort({ name: 1 }).lean();
 
         return NextResponse.json(serviceAreas);
     } catch (error: any) {

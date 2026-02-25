@@ -17,7 +17,7 @@ export async function GET(req: NextRequest) {
             companyId: user.companyId,
             isActive: true,
             expiryDate: { $gt: now },
-        }).sort({ createdAt: -1 });
+        }).sort({ createdAt: -1 }).lean();
 
         return NextResponse.json(promocodes);
     } catch (error) {
@@ -43,11 +43,11 @@ export async function POST(req: NextRequest) {
 
         await connectDB();
 
-        // Check uniqueness
+        // Check uniqueness (only _id needed)
         const existing = await Promocode.findOne({
             companyId: user.companyId,
             code: code.toUpperCase()
-        });
+        }).select("_id").lean();
 
         if (existing) {
             return NextResponse.json({ error: "Promocode already exists" }, { status: 400 });

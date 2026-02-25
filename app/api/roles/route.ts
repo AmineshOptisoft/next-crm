@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
-import { Role, createDefaultRoles } from "@/app/models/Role";
+import { Role } from "@/app/models/Role";
 import { getCurrentUser, requireCompanyAdmin } from "@/lib/auth";
 import { buildCompanyFilter, validateCompanyAccess } from "@/lib/permissions";
 
@@ -19,34 +19,35 @@ export async function GET(req: NextRequest) {
   }
 
   await connectDB();
-
-  // For company admins, always ensure default roles exist for their company.
-  // This guarantees new admins see the default roles immediately, even if
-  // createDefaultRoles wasn't called yet for their company.
-  if (user.companyId) {
-    try {
-      await createDefaultRoles(user.companyId, user.userId);
-    } catch (err) {
-      // Non-fatal — don't block the response
-      console.error("Failed to ensure default roles:", err);
-    }
-  }
+  const companyFilter = buildCompanyFilter(user);
+  const getDefaultRoles = await Role.find({
+    ...companyFilter,
+    isDefaultRole: true,
+    isSystemRole: true,
+  })
+    .populate("createdBy", "firstName lastName email")
+    .populate("companyId", "name")
+    .lean();
 
   const url = new URL(req.url);
   const creatorFilter = url.searchParams.get("creator");
 
-  const filter: any = { ...buildCompanyFilter(user), isActive: true };
+  const filter: any = { ...companyFilter, isActive: true };
   if (creatorFilter === "me") {
     filter.createdBy = user.userId;
   }
 
-  let roles = await Role.find(filter)
+  let dbRoles = await Role.find(filter)
     .populate("createdBy", "firstName lastName email")
     .populate("companyId", "name")
-    .sort({ isDefaultRole: -1, createdAt: -1 }) // default roles first
+    .sort({ isDefaultRole: -1, createdAt: -1 })
     .lean();
 
-  // For super admins, deduplicate system roles (show only one instance of each system role)
+  const defaultIds = new Set((getDefaultRoles as any[]).map((r: any) => r._id.toString()));
+  const otherRoles = (dbRoles as any[]).filter((r: any) => !defaultIds.has(r._id.toString()));
+
+  let roles = [...getDefaultRoles, ...otherRoles];
+
   if (user.role === "super_admin") {
     const seenSystemRoles = new Set<string>();
     roles = roles.filter((role: any) => {
@@ -96,11 +97,13 @@ export async function POST(req: NextRequest) {
 
   await connectDB();
 
-  // Check if role name already exists in this company
+  // Check if role name already exists in this company (only _id needed)
   const existing = await Role.findOne({
     companyId: user.companyId,
     name: name,
-  });
+  })
+    .select("_id")
+    .lean();
 
   if (existing) {
     return NextResponse.json(

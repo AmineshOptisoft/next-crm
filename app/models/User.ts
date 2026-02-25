@@ -54,6 +54,8 @@ const UserSchema = new Schema(
 
     // Custom role for company users
     customRoleId: { type: Types.ObjectId, ref: "Role" },
+    // Static default role name when not using a DB role (no DB entry for default roles)
+    defaultRoleName: { type: String, enum: ["Viewer", "Accountant", "Sales Representative", "Sales Manager"], default: null },
 
     // Location fields
     country: { type: String },

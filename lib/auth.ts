@@ -4,6 +4,7 @@ import { connectDB } from "@/lib/db";
 import { User } from "@/app/models/User";
 import { Role } from "@/app/models/Role";
 import { Company } from "@/app/models/Company";
+import { getDefaultRoleByName, DEFAULT_ROLE_IDS } from "@/lib/staticDefaultRoles";
 
 export type AuthPayload = {
   userId: string;
@@ -31,23 +32,42 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
       process.env.JWT_SECRET as string
     ) as AuthPayload;
 
+    // ─── FAST PATH: super_admin & company_admin ────────────────────────────
+    // Ye roles ke liye saari permissions hamesha allowed hain.
+    // JWT mein role aur companyId already store hain —
+    // isliye DB hit bilkul zaroori nahi.
+    if (payload.role === "super_admin" || payload.role === "company_admin") {
+      return {
+        userId: payload.userId,
+        email: payload.email,
+        firstName: "",          // /api/auth/me refreshes full profile separately
+        lastName: "",
+        role: payload.role,
+        companyId: payload.companyId ?? undefined,
+        permissions: [],        // admins always get full access in checkPermission()
+      };
+    }
+
+    // ─── SLOW PATH: company_user / employee / contact ─────────────────────
+    // Inke liye custom role permissions DB se laanai padti hain.
     await connectDB();
     const user = await User.findById(payload.userId).lean();
-    
     if (!user || !user.isActive) return null;
 
     let permissions: any[] = [];
     let companyName = user.companyName;
 
-    // Only lookup permissions if standard user
-    if ((user.role === "company_user" || user.role === "employee" || user.role === "contact") && user.customRoleId) {
-       const role = await Role.findById(user.customRoleId).select('permissions').lean();
-       permissions = role?.permissions || [];
+    if (user.defaultRoleName) {
+      const defaultRole = getDefaultRoleByName(user.defaultRoleName as any);
+      permissions = defaultRole?.permissions || [];
+    } else if (user.customRoleId) {
+      const role = await Role.findById(user.customRoleId).select('permissions').lean();
+      permissions = role?.permissions || [];
     }
 
     if (user.companyId && !companyName) {
-       const company = await Company.findById(user.companyId).select('name').lean();
-       companyName = company?.name;
+      const company = await Company.findById(user.companyId).select('name').lean();
+      companyName = company?.name;
     }
 
     return {
@@ -58,7 +78,9 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
       role: user.role,
       companyId: user.companyId?.toString(),
       companyName: companyName,
-      customRoleId: user.customRoleId?.toString(),
+      customRoleId: user.defaultRoleName
+        ? DEFAULT_ROLE_IDS[user.defaultRoleName] || user.customRoleId?.toString()
+        : user.customRoleId?.toString(),
       permissions: permissions,
     };
   } catch {
@@ -75,22 +97,30 @@ export async function checkPermission(
   try {
     await connectDB();
     const user = await User.findById(userId).populate("customRoleId").lean();
-    
+
     if (!user || !user.isActive) return false;
-    
+
     // Super admin has all permissions
     if (user.role === "super_admin") return true;
-    
+
     // Company admin has all permissions within their company
     if (user.role === "company_admin") return true;
-    
-    // Company user - check custom role permissions
-    if (user.role === "company_user" && user.customRoleId) {
+
+    // Company user - check custom role or default (static) role permissions
+    let permissions: any[] = [];
+    if (user.defaultRoleName) {
+      const defaultRole = getDefaultRoleByName(user.defaultRoleName as any);
+      permissions = defaultRole?.permissions || [];
+    } else if (user.customRoleId) {
       const role = user.customRoleId as any;
-      const permission = role.permissions?.find((p: any) => p.module === module);
-      
+      permissions = role?.permissions || [];
+    }
+
+    if (user.role === "company_user" && permissions.length > 0) {
+      const permission = permissions.find((p: any) => p.module === module);
+
       if (!permission) return false;
-      
+
       switch (action) {
         case "view":
           return permission.canView;
@@ -106,7 +136,7 @@ export async function checkPermission(
           return false;
       }
     }
-    
+
     return false;
   } catch {
     return false;

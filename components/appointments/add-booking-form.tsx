@@ -116,7 +116,10 @@ export function AddBookingForm({ open, onOpenChange, initialData }: AddBookingFo
     const { data: servicesData } = useSWR(
         open && selectedTechnicianServiceId ? `/api/users/${selectedTechnicianServiceId}/services` : null,
         fetcher,
-        { revalidateOnFocus: false }
+        {
+            revalidateOnFocus: false,
+            dedupingInterval: 60_000, // cache technician services for 60s to avoid repeat fetches
+        }
     );
     const services: any[] = servicesData || [];
 

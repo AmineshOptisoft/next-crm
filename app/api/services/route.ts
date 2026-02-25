@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
         query.companyId = user.companyId;
     }
 
-    const services = await Service.find(query).sort({ createdAt: -1 });
+    const services = await Service.find(query).sort({ createdAt: -1 }).lean();
 
     return NextResponse.json(services);
 }

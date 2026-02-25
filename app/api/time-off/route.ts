@@ -23,7 +23,8 @@ export async function GET(req: NextRequest) {
 
         const timeOffs = await TechnicianTimeOff.find(filter)
             .populate("technicianId", "firstName lastName email avatarUrl")
-            .sort({ createdAt: -1 });
+            .sort({ createdAt: -1 })
+            .lean();
 
         return NextResponse.json(timeOffs);
     } catch (error) {

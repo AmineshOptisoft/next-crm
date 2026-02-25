@@ -342,7 +342,7 @@ export function EditBookingDetailsDialog({
 
     } catch (error) {
       console.error(error);
-      alert("Failed to update booking");
+      toast.error("Failed to update booking. Please try again.");
     } finally {
       setLoading(false);
     }

@@ -4,6 +4,7 @@ import { User } from "@/app/models/User";
 import { getCurrentUser, requireCompanyAdmin } from "@/lib/auth";
 import { buildCompanyFilter, validateCompanyAccess } from "@/lib/permissions";
 import bcrypt from "bcryptjs";
+import { DEFAULT_ROLE_IDS, defaultRoleIdToName, isDefaultRoleId } from "@/lib/staticDefaultRoles";
 
 export async function GET(req: NextRequest) {
   const user = await getCurrentUser();
@@ -25,9 +26,15 @@ export async function GET(req: NextRequest) {
     };
     const users = await User.find(filter)
       .populate("customRoleId", "name")
-      .select("firstName lastName customRoleId zone")
+      .select("firstName lastName customRoleId zone defaultRoleName")
       .lean();
-    return NextResponse.json(users);
+    const mapped = (users as any[]).map((u) => {
+      if (u.defaultRoleName && !u.customRoleId) {
+        u.customRoleId = { _id: DEFAULT_ROLE_IDS[u.defaultRoleName], name: u.defaultRoleName };
+      }
+      return u;
+    });
+    return NextResponse.json(mapped);
   }
 
   // Admins get full user data
@@ -42,7 +49,13 @@ export async function GET(req: NextRequest) {
     .sort({ createdAt: -1 })
     .lean();
 
-  return NextResponse.json(users);
+  const mapped = (users as any[]).map((u) => {
+    if (u.defaultRoleName && !u.customRoleId) {
+      u.customRoleId = { _id: DEFAULT_ROLE_IDS[u.defaultRoleName], name: u.defaultRoleName };
+    }
+    return u;
+  });
+  return NextResponse.json(mapped);
 }
 
 export async function POST(req: NextRequest) {
@@ -78,8 +91,7 @@ export async function POST(req: NextRequest) {
 
   await connectDB();
 
-  // Check if email already exists
-  const existing = await User.findOne({ email });
+  const existing = await User.findOne({ email }).select("_id").lean();
   if (existing) {
     return NextResponse.json(
       { error: "Email already in use" },
@@ -89,19 +101,34 @@ export async function POST(req: NextRequest) {
 
   const passwordHash = await bcrypt.hash(password, 10);
 
-  const newUser = await User.create({
+  const createPayload: any = {
     ...body,
     passwordHash,
     role: "company_user",
     companyId: user.companyId,
     isVerified: true,
     isActive: true,
-  });
+  };
+  if (createPayload.customRoleId === "" || createPayload.customRoleId === "none") {
+    createPayload.customRoleId = null;
+    createPayload.defaultRoleName = null;
+  } else if (createPayload.customRoleId && isDefaultRoleId(createPayload.customRoleId)) {
+    createPayload.defaultRoleName = defaultRoleIdToName(createPayload.customRoleId) || null;
+    createPayload.customRoleId = null;
+  } else {
+    createPayload.defaultRoleName = null;
+  }
+
+  const newUser = await User.create(createPayload);
 
   const userResponse = await User.findById((newUser as any)._id)
     .populate("customRoleId", "name permissions")
     .select("-passwordHash -verificationToken")
     .lean();
 
-  return NextResponse.json(userResponse, { status: 201 });
+  const u = userResponse as any;
+  if (u?.defaultRoleName && !u.customRoleId) {
+    u.customRoleId = { _id: DEFAULT_ROLE_IDS[u.defaultRoleName], name: u.defaultRoleName };
+  }
+  return NextResponse.json(u, { status: 201 });
 }

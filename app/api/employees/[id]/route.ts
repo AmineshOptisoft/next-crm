@@ -25,7 +25,9 @@ export async function GET(req: NextRequest, context: Context) {
 
     await connectDB();
     const filter = { _id: id, ...buildCompanyFilter(user), role: "employee" };
-    const employee = await User.findOne(filter);
+    const employee = await User.findOne(filter)
+      .select("-passwordHash -verificationToken")
+      .lean();
 
     if (!employee) {
       return NextResponse.json(

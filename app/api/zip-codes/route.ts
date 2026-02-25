@@ -13,7 +13,8 @@ export async function GET() {
         await connectDB();
         const zipCodes = await ZipCode.find({ companyId: user.companyId })
             .populate('serviceAreaId', 'name')
-            .sort({ createdAt: -1 });
+            .sort({ createdAt: -1 })
+            .lean();
 
         return NextResponse.json(zipCodes);
     } catch (error) {
@@ -37,8 +38,9 @@ export async function POST(req: Request) {
 
         await connectDB();
 
-        // Check for duplicate zip code in the company
-        const existing = await ZipCode.findOne({ companyId: user.companyId, code });
+        // Check for duplicate zip code in the company (only _id needed)
+        const existing = await ZipCode.findOne({ companyId: user.companyId, code })
+            .select("_id").lean();
         if (existing) {
             return NextResponse.json({ error: "This Zip Code already exists in your company." }, { status: 400 });
         }

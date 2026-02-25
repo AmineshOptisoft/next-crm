@@ -3,6 +3,7 @@ import { connectDB } from "@/lib/db";
 import { User } from "@/app/models/User";
 import { getCurrentUser, requireCompanyAdmin } from "@/lib/auth";
 import bcrypt from "bcryptjs";
+import { defaultRoleIdToName, isDefaultRoleId, DEFAULT_ROLE_IDS } from "@/lib/staticDefaultRoles";
 
 export async function GET(
   req: NextRequest,
@@ -28,7 +29,11 @@ export async function GET(
     return NextResponse.json({ error: "User not found" }, { status: 404 });
   }
 
-  return NextResponse.json(targetUser);
+  const u = targetUser as any;
+  if (u.defaultRoleName && !u.customRoleId) {
+    u.customRoleId = { _id: DEFAULT_ROLE_IDS[u.defaultRoleName], name: u.defaultRoleName };
+  }
+  return NextResponse.json(u);
 }
 
 export async function PUT(
@@ -76,9 +81,16 @@ export async function PUT(
     delete body.password;
   }
 
-  // Sanitize customRoleId
-  if (body.customRoleId === "") {
+  // Sanitize customRoleId / defaultRoleName: static default role id -> defaultRoleName, else DB role
+  if (body.customRoleId === "" || body.customRoleId === "none") {
     body.customRoleId = null;
+    body.defaultRoleName = null;
+  } else if (body.customRoleId && isDefaultRoleId(body.customRoleId)) {
+    const name = defaultRoleIdToName(body.customRoleId);
+    body.defaultRoleName = name || null;
+    body.customRoleId = null;
+  } else {
+    body.defaultRoleName = null;
   }
 
   const updatedUser = await User.findByIdAndUpdate(

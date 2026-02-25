@@ -196,29 +196,29 @@ const menuItems = {
         </svg>
       ),
     },
-    {
-      title: "Meetings",
-      href: "/dashboard/meetings",
-      module: "meetings",
-      icon: (
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          width="16"
-          height="16"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
-          <line x1="16" y1="2" x2="16" y2="6" />
-          <line x1="8" y1="2" x2="8" y2="6" />
-          <line x1="3" y1="10" x2="21" y2="10" />
-        </svg>
-      ),
-    },
+    // {
+    //   title: "Meetings",
+    //   href: "/dashboard/meetings",
+    //   module: "meetings",
+    //   icon: (
+    //     <svg
+    //       xmlns="http://www.w3.org/2000/svg"
+    //       width="16"
+    //       height="16"
+    //       viewBox="0 0 24 24"
+    //       fill="none"
+    //       stroke="currentColor"
+    //       strokeWidth="2"
+    //       strokeLinecap="round"
+    //       strokeLinejoin="round"
+    //     >
+    //       <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+    //       <line x1="16" y1="2" x2="16" y2="6" />
+    //       <line x1="8" y1="2" x2="8" y2="6" />
+    //       <line x1="3" y1="10" x2="21" y2="10" />
+    //     </svg>
+    //   ),
+    // },
     {
       title: "Activities",
       href: "/dashboard/activities",
@@ -485,10 +485,12 @@ export function AppSidebar() {
   });
 
   useEffect(() => {
-    if (settingsData !== undefined) {
+    if (meData?.user?.companyId?.profileCompleted !== undefined) {
+      setProfileCompleted(meData.user.companyId.profileCompleted);
+    } else if (settingsData !== undefined) {
       setProfileCompleted(settingsData.profileCompleted ?? false);
     }
-  }, [settingsData]);
+  }, [meData, settingsData]);
 
   const displayName =
     me && (me.firstName || me.lastName)
@@ -574,8 +576,8 @@ export function AppSidebar() {
             <SidebarMenu>
               {filteredGeneralItems.map((item) => {
                 // Check if this item should be disabled
-                const isAdmin = me?.role === "super_admin" || me?.role === "company_admin";
-                const isDisabled = !isAdmin && !profileCompleted && item.module !== 'company-settings';
+                const isCompanyBound = me?.role !== "super_admin";
+                const isDisabled = isCompanyBound && !profileCompleted && item.href !== '/dashboard/company-settings';
 
                 return (
                   <SidebarMenuItem key={item.title}>
@@ -602,19 +604,25 @@ export function AppSidebar() {
             <SidebarGroupLabel>Administration</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
-                {filteredAdminItems.map((item) => (
-                  <SidebarMenuItem key={item.title}>
-                    <SidebarMenuButton
-                      asChild
-                      isActive={pathname === item.href}
-                    >
-                      <Link href={item.href}>
-                        {item.icon}
-                        <span>{item.title}</span>
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                ))}
+                {filteredAdminItems.map((item: any) => {
+                  const isCompanyBound = me?.role !== "super_admin";
+                  const isDisabled = isCompanyBound && !profileCompleted && item.href !== '/dashboard/company-settings';
+
+                  return (
+                    <SidebarMenuItem key={item.title}>
+                      <SidebarMenuButton
+                        asChild
+                        isActive={pathname === item.href}
+                        className={isDisabled ? 'opacity-40 pointer-events-none' : ''}
+                      >
+                        <Link href={item.href}>
+                          {item.icon}
+                          <span>{item.title}</span>
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  );
+                })}
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>
@@ -626,8 +634,8 @@ export function AppSidebar() {
             <SidebarMenu>
               {menuItems.other.map((item) => {
                 // Disable Other items if profile incomplete
-                const isAdmin = me?.role === "super_admin" || me?.role === "company_admin";
-                const isDisabled = !isAdmin && !profileCompleted;
+                const isCompanyBound = me?.role !== "super_admin";
+                const isDisabled = isCompanyBound && !profileCompleted && item.href !== '/dashboard/company-settings';
 
                 return (
                   <SidebarMenuItem key={item.title}>

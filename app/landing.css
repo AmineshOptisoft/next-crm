@@ -1,0 +1,16 @@
+/* Landing fonts only – colors use shadcn theme (--primary, --muted, etc.) */
+@import url("https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,100..1000&family=Space+Grotesk:wght@400;500;600;700&family=Outfit:wght@400;500;600;700&family=Libre+Baskerville:ital@0;1&display=swap");
+
+.hously-landing {
+  --font-logo: "Libre Baskerville", serif;
+  --font-heading: "Syne", sans-serif;
+  --font-section: "Outfit", sans-serif;
+  --font-body: "DM Sans", sans-serif;
+  --font-nav: "Space Grotesk", sans-serif;
+}
+
+.hously-landing .font-logo { font-family: var(--font-logo); }
+.hously-landing .font-heading { font-family: var(--font-heading); }
+.hously-landing .font-section { font-family: var(--font-section); }
+.hously-landing .font-body { font-family: var(--font-body); }
+.hously-landing .font-nav { font-family: var(--font-nav); }

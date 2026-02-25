@@ -18,7 +18,8 @@ export async function GET(req: NextRequest) {
     
     const tasks = await Task.find(filter)
       .populate("assignedTo")
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 })
+      .lean();
 
     return NextResponse.json(tasks);
   } catch (error) {

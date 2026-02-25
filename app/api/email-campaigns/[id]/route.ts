@@ -19,7 +19,7 @@ export async function GET(
         const campaign = await EmailCampaign.findOne({
             _id: id,
             companyId: user.companyId
-        });
+        }).lean();
 
         if (!campaign) {
             return NextResponse.json({ error: 'Campaign not found' }, { status: 404 });

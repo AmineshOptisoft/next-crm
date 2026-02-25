@@ -14,13 +14,26 @@ import resourceTimelinePlugin from '@fullcalendar/resource-timeline';
 import { useRef, useState, useEffect, useMemo } from "react";
 import { CalendarEvent } from "@/utils/calendar-data";
 import { Card } from "@/components/ui/card";
-import { EventEditForm } from "./event-edit-form";
-import { AppointmentDetailsSheet, type AppointmentDetails } from "./appointment-details-sheet";
-import { AddBookingForm } from "./add-booking-form";
+import type { AppointmentDetails } from "./appointment-details-sheet";
 import { toast } from "sonner";
-import useSWR from "swr";
+import useSWR, { useSWRConfig } from "swr";
+import dynamic from "next/dynamic";
 
 const fetcher = (url: string) => fetch(url, { credentials: "include" }).then((res) => res.json());
+
+// Lazy-load heavy modals so they don't block initial render; load only when opened
+const EventEditForm = dynamic(
+  () => import("./event-edit-form").then((m) => m.EventEditForm),
+  { ssr: false }
+);
+const AppointmentDetailsSheet = dynamic(
+  () => import("./appointment-details-sheet").then((m) => ({ default: m.AppointmentDetailsSheet })),
+  { ssr: false, loading: () => <div className="h-0 w-0" aria-hidden /> }
+);
+const AddBookingForm = dynamic(
+  () => import("./add-booking-form").then((m) => m.AddBookingForm),
+  { ssr: false, loading: () => <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80"><span className="text-sm text-muted-foreground">Opening...</span></div> }
+);
 
 
 export default function Calendar() {
@@ -28,7 +41,8 @@ export default function Calendar() {
     eventAddOpen,
     setEventAddOpen,
     appointmentDetailsOpen,
-    setAppointmentDetailsOpen
+    setAppointmentDetailsOpen,
+    setEventEditOpen,
   } = useEvents();
 
   const calendarRef = useRef<FullCalendar | null>(null);
@@ -65,6 +79,8 @@ export default function Calendar() {
     revalidateOnFocus: false,
     dedupingInterval: 30_000,
   });
+
+  const { mutate } = useSWRConfig();
 
   // Calendar events with date-range key for the timeline view
   const { data, isLoading } = useSWR(
@@ -163,6 +179,7 @@ export default function Calendar() {
     setIsDrag(false);
     setSelectedOldEvent(event);
     setSelectedEvent(event);
+    setEventEditOpen(true);
   };
 
   const handleEventChange = (info: EventChangeArg) => {
@@ -196,6 +213,11 @@ export default function Calendar() {
     setSelectedEnd(info.end);
     setSelectedTechnicianId(info.resource?.id);
     setEventAddOpen(true);
+    // Prefetch services for this technician so AddBookingForm finds data ready when it mounts
+    if (info.resource?.id) {
+      const key = `/api/users/${info.resource.id}/services`;
+      mutate(key, fetcher(key));
+    }
   };
 
   const [windowWidth, setWindowWidth] = useState(1200);
@@ -275,37 +297,40 @@ export default function Calendar() {
         />
       </Card>
 
-      {/* Existing Dialogs */}
-      <EventEditForm
-        oldEvent={selectedOldEvent}
-        event={selectedEvent}
-        isDrag={isDrag}
-        displayButton={false}
-      />
+      {/* Dialogs: mount only when open so first paint is instant and heavy chunks load on demand */}
+      {selectedEvent !== undefined && (
+        <EventEditForm
+          oldEvent={selectedOldEvent}
+          event={selectedEvent}
+          isDrag={isDrag}
+          displayButton={false}
+        />
+      )}
 
-      {/* Appointment Details Sheet */}
-      <AppointmentDetailsSheet
-        appointment={selectedAppointment}
-        open={appointmentDetailsOpen}
-        onOpenChange={setAppointmentDetailsOpen}
-        onUpdate={() => {
-           // Provide basic refetch compatibility where fetchCalendarData used to be.
-           import('swr').then(swr => swr.mutate(
-             visibleRange ? `/api/appointments/resources?start=${visibleRange.start.toISOString()}&end=${visibleRange.end.toISOString()}` : null
-           ));
-        }}
-      />
+      {appointmentDetailsOpen && selectedAppointment && (
+        <AppointmentDetailsSheet
+          appointment={selectedAppointment}
+          open={appointmentDetailsOpen}
+          onOpenChange={setAppointmentDetailsOpen}
+          onUpdate={() => {
+            import('swr').then(swr => swr.mutate(
+              visibleRange ? `/api/appointments/resources?start=${visibleRange.start.toISOString()}&end=${visibleRange.end.toISOString()}` : null
+            ));
+          }}
+        />
+      )}
 
-      {/* New Booking Form */}
-      <AddBookingForm
-        open={eventAddOpen}
-        onOpenChange={setEventAddOpen}
-        initialData={{
-          start: selectedStart,
-          end: selectedEnd,
-          technicianId: selectedTechnicianId
-        }}
-      />
+      {eventAddOpen && (
+        <AddBookingForm
+          open={eventAddOpen}
+          onOpenChange={setEventAddOpen}
+          initialData={{
+            start: selectedStart,
+            end: selectedEnd,
+            technicianId: selectedTechnicianId
+          }}
+        />
+      )}
       <style>
         {`
           .fc-datagrid-cell-main{

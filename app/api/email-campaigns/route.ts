@@ -12,11 +12,17 @@ export async function GET(req: NextRequest) {
 
     await connectDB();
 
-    const campaigns = await EmailCampaign.find({
-        companyId: user.companyId
-    }).sort({ createdAt: -1 });
+    const [campaigns, getdefaultcampaigns] = await Promise.all([
+        EmailCampaign.find({ companyId: user.companyId })
+            .sort({ createdAt: -1 })
+            .lean(),
+        EmailCampaign.find({ isDefault: true })
+            .sort({ createdAt: -1 })
+            .lean(),
+    ]);
 
-    return NextResponse.json({ success: true, data: campaigns });
+    const data = [...getdefaultcampaigns, ...campaigns];
+    return NextResponse.json({ success: true, data });
 }
 
 export async function POST(req: NextRequest) {
@@ -30,7 +36,7 @@ export async function POST(req: NextRequest) {
         const body = await req.json();
         console.log("POST /api/email-campaigns body:", JSON.stringify(body).substring(0, 200) + "...");
         const { name, subject, content, design, reminders, status, templateId } = body;
-        
+
         console.log('[API] Creating email campaign with templateId:', templateId);
 
         if (!subject) {
@@ -53,7 +59,7 @@ export async function POST(req: NextRequest) {
             status: status || "draft",
             templateId: templateId
         });
-        
+
         console.log('[API] Campaign created with templateId:', campaign.templateId);
 
         return NextResponse.json({ success: true, data: campaign }, { status: 201 });
