@@ -1,15 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
-import { User } from "../../../models/User";
+import { User } from "@/app/models/User";
 
 export async function GET(req: NextRequest) {
-
   try {
     await connectDB();
     const { searchParams } = new URL(req.url);
     const token = searchParams.get("token");
     const email = searchParams.get("email");
-
 
     if (!token || !email) {
       return NextResponse.json(
@@ -32,8 +30,8 @@ export async function GET(req: NextRequest) {
     }
 
     user.isVerified = true;
-    user.verificationToken = "";
-    user.verificationTokenExpires = new Date();
+    user.verificationToken = null;
+    user.verificationTokenExpires = null;
     await user.save();
 
     return NextResponse.json({ message: "Account verified" });

@@ -1,14 +1,15 @@
 import { connectDB } from "@/lib/db";
-import { sendMailWithCompanyProvider } from "@/lib/mail";
+import { sendMailWithCompanyProvider, sendMailWithEnvProvider } from "@/lib/mail";
 import EmailCampaign from "@/app/models/EmailCampaign";
-
 // Helper to send bulk emails for a specific email campaign
 // campaignId is the ID of the email created in Email Builder
 // bookingMap is optional: maps email to bookingId for booking-specific emails
+// companyIdForContext is optional: use when campaign is default (no companyId) for User lookup and EmailActivity
 export async function sendBulkEmails(
-  campaignId: string, 
-  to: string[], 
-  bookingMap?: Map<string, string>
+  campaignId: string,
+  to: string[],
+  bookingMap?: Map<string, string>,
+  companyIdForContext?: string
 ) {
   try {
     if (!Array.isArray(to) || to.length === 0) {
@@ -17,7 +18,6 @@ export async function sendBulkEmails(
 
     await connectDB();
 
-    // Fetch the specific EmailCampaign by its ID
     const campaign = await EmailCampaign.findById(campaignId);
     if (!campaign) {
       return { error: "Email campaign not found" };
@@ -27,9 +27,15 @@ export async function sendBulkEmails(
       return { error: "Email campaign is not active" };
     }
 
-    const { subject, html, companyId } = campaign;
+    const { subject, html, companyId: campaignCompanyId } = campaign;
     if (!subject || !html) {
       return { error: "Email campaign missing subject or html" };
+    }
+
+    // Use context companyId when campaign is default (no companyId), else use campaign's companyId
+    const companyId = companyIdForContext || (campaignCompanyId ? String(campaignCompanyId) : undefined);
+    if (!companyId) {
+      return { error: "Company context required for sending (campaign has no companyId and none was provided)" };
     }
 
     // Send emails one by one (can be optimized for parallel sending)
@@ -60,24 +66,20 @@ export async function sendBulkEmails(
           html: personalizedHtml,
         });
 
-        // Create ReminderLog entry for successful send
         if (recipientUser?._id) {
           await ReminderLog.default.create({
             campaignId: campaign._id,
             contactId: recipientUser._id,
             reminderLabel: `Bulk Send - ${new Date().toISOString().split('T')[0]}`,
             status: 'sent',
-            companyId: campaign.companyId,
+            companyId: companyId,
           });
-
-          // Create EmailActivity entry
           await EmailActivity.default.create({
             userId: recipientUser._id,
             campaignId: campaign._id,
-            companyId: campaign.companyId,
+            companyId: companyId,
             isAction: false,
           });
-
           console.log(`[Bulk Mail] ✅ ReminderLog & EmailActivity created for ${email}${bookingId ? ` (Booking: ${bookingId})` : ''}`);
         }
 
@@ -92,7 +94,7 @@ export async function sendBulkEmails(
             reminderLabel: `Bulk Send - ${new Date().toISOString().split('T')[0]}`,
             status: 'failed',
             error: err.message,
-            companyId: campaign.companyId,
+            companyId: companyId,
           });
         }
         results.push({ email, success: false, error: err.message });
@@ -119,19 +121,26 @@ export async function sendTransactionalEmail(
     const isTemplateId = /^\d{2}_/.test(templateIdOrName);
     const queryKey = isTemplateId ? 'templateId' : 'name';
 
-    // Find the most recent active campaign for this template/name
-    let campaign = await EmailCampaign.findOne({
-        companyId: new (await import("mongoose")).default.Types.ObjectId(companyId),
-        [queryKey]: templateIdOrName,
-        status: 'active'
-    }).sort({ updatedAt: -1 });
+    const mongoose = await import("mongoose");
+    const companyObjectId = new mongoose.default.Types.ObjectId(companyId);
 
-    // Fallback: search without companyId filter to handle ObjectId vs string mismatch
+    // Prefer company-specific campaign, then fall back to default (isDefault: true)
+    let campaign = await EmailCampaign.findOne({
+        status: 'active',
+        [queryKey]: templateIdOrName,
+        $or: [
+            { companyId: companyObjectId },
+            { isDefault: true },
+        ],
+    })
+        .sort({ isDefault: 1, updatedAt: -1 })
+        .lean();
+
     if (!campaign) {
         campaign = await EmailCampaign.findOne({
             [queryKey]: templateIdOrName,
             status: 'active'
-        }).sort({ updatedAt: -1 });
+        }).sort({ updatedAt: -1 }).lean();
     }
 
     if (!campaign) {
@@ -164,12 +173,12 @@ export async function sendTransactionalEmail(
 
     console.log(`[Transactional Mail] Sent ${templateIdOrName} to ${to}`);
 
-    // Log activity if user exists
+    // Log activity if user exists — use context companyId (sender), not campaign.companyId (default campaigns may not have it)
     if (recipientUser?._id) {
         await EmailActivity.default.create({
             userId: recipientUser._id,
             campaignId: campaign._id,
-            companyId: campaign.companyId,
+            companyId: companyId,
             isAction: false,
         });
     }
@@ -349,5 +358,64 @@ export async function sendDailyScheduleEmail(
   } catch (error: any) {
     console.error("[Daily Schedule Error]", error);
     return { error: error.message };
+  }
+}
+
+const ACCOUNT_CONFIRMATION_TEMPLATE_ID = "15_account_confirmation";
+
+/**
+ * Send account confirmation email using template 15_account_confirmation.
+ * Uses only .env SMTP (SMTP_USER, SMTP_PASS, EMAIL_FROM) — no company mail config required.
+ * Used for signup verification; independent of company's mail provider.
+ * If no active campaign or empty html, falls back to legacy plain verification email.
+ */
+export async function sendAccountConfirmationEmail(
+  to: string,
+  data: { token: string; firstname?: string; lastname?: string; company_name?: string }
+) {
+  try {
+    await connectDB();
+
+    const campaign = await EmailCampaign.findOne({
+      status: "active",
+      templateId: ACCOUNT_CONFIRMATION_TEMPLATE_ID,
+      $or: [{ isDefault: true }, { companyId: { $exists: true, $ne: null } }],
+    })
+      .sort({ isDefault: 1, updatedAt: -1 })
+      .lean();
+
+    const html = campaign ? (campaign as any).html : null;
+    if (!campaign || !html || typeof html !== "string" || !html.trim()) {
+      console.warn("[Account Confirmation] No active campaign or empty html, using legacy verification email.");
+      const { sendVerificationEmail } = await import("@/lib/mail");
+      await sendVerificationEmail(to, data.token);
+      return { sent: true, messageId: "legacy" };
+    }
+
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+    const verifyUrl = `${baseUrl}/verify?token=${data.token}&email=${encodeURIComponent(to)}`;
+    const { personalizeEmail } = await import("@/lib/mail");
+
+    const userLike = {
+      email: to,
+      firstName: data.firstname ?? "",
+      lastName: data.lastname ?? "",
+      companyName: data.company_name ?? "",
+    };
+    const fullData = { ...data, verify_url: verifyUrl };
+    const personalizedHtml = personalizeEmail(html, userLike, fullData);
+    const subject = (campaign as any).subject || "Confirm Your Account";
+
+    const result = await sendMailWithEnvProvider({
+      to,
+      subject,
+      html: personalizedHtml,
+    });
+
+    console.log(`[Account Confirmation] Sent to ${to} via .env SMTP`);
+    return { sent: true, messageId: result.messageId };
+  } catch (error: any) {
+    console.error("[Account Confirmation Error]", error);
+    return { sent: false, error: error.message };
   }
 }

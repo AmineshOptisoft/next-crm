@@ -49,7 +49,7 @@ export async function PUT(req: NextRequest) {
     return NextResponse.json({ error: (error as Error).message }, { status: 400 });
   }
 
-  const body = await req.json();
+  const body: any = await req.json();
 
   await connectDB();
 
@@ -59,11 +59,55 @@ export async function PUT(req: NextRequest) {
     return NextResponse.json({ error: "Company not found" }, { status: 404 });
   }
 
+  // Normalize and validate subdomain if provided
+  if (body.subdomain) {
+    const rawSubdomain = String(body.subdomain).trim().toLowerCase();
+
+    // Basic pattern: letters, numbers, hyphen, 3-50 chars
+    const subdomainPattern = /^[a-z0-9-]{3,50}$/;
+    if (!subdomainPattern.test(rawSubdomain)) {
+      return NextResponse.json(
+        {
+          error:
+            "Invalid subdomain. Use 3-50 characters with lowercase letters, numbers, and hyphens only.",
+        },
+        { status: 400 }
+      );
+    }
+
+    // Avoid common reserved subdomains
+    const reserved = ["www", "app", "api", "admin", "dashboard"];
+    if (reserved.includes(rawSubdomain)) {
+      return NextResponse.json(
+        { error: "This subdomain is reserved. Please choose another one." },
+        { status: 400 }
+      );
+    }
+
+    // Ensure uniqueness across companies (excluding current), checking both primary and array
+    const existing = await Company.findOne({
+      _id: { $ne: user.companyId },
+      $or: [
+        { subdomain: rawSubdomain },
+        { "publicSites.subdomain": rawSubdomain },
+      ],
+    }).lean();
+
+    if (existing) {
+      return NextResponse.json(
+        { error: "This subdomain is already in use." },
+        { status: 400 }
+      );
+    }
+
+    body.subdomain = rawSubdomain;
+  }
+
   // Merge current data with update data for completeness check
   // This ensures that if we only update mailConfig, other fields like name/logo are still counted
   const mergedData = {
     ...currentCompany.toObject(),
-    ...body
+    ...body,
   };
 
   // Check if all required fields are present for profile completion
@@ -89,18 +133,14 @@ export async function PUT(req: NextRequest) {
     profileCompleted: isProfileComplete,
   };
 
-  const company = await Company.findByIdAndUpdate(
-    user.companyId,
-    { $set: updateData },
-    { new: true, runValidators: true }
-  );
+  // Apply changes directly on the loaded document so complex fields like
+  // publicSites are always persisted correctly.
+  currentCompany.set(updateData);
 
-  if (!company) {
-    return NextResponse.json({ error: "Company not found" }, { status: 404 });
-  }
+  const savedCompany = await currentCompany.save();
 
   // Convert to plain object to ensure all fields are returned
-  const companyObject = company.toObject();
+  const companyObject = savedCompany.toObject();
 
   return NextResponse.json(companyObject);
 }

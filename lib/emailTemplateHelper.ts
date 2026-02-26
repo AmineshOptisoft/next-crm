@@ -28,12 +28,15 @@ export async function sendEmailsByTemplate({
   try {
     await connectDB();
 
-    // Find the latest active email campaign with the specified templateId
+    // Find the latest active email campaign with the specified templateId.
+    // Include both company-specific campaigns and default (isDefault) campaigns.
     const campaign = await EmailCampaign.findOne({
-      companyId,
       status: "active",
       templateId,
-    }).sort({ updatedAt: -1 });
+      $or: [{ companyId }, { isDefault: true }],
+    })
+      .sort({ isDefault: 1, updatedAt: -1 }) // Prefer company-specific over default
+      .lean();
 
     if (!campaign) {
       return {
@@ -49,11 +52,12 @@ export async function sendEmailsByTemplate({
       };
     }
 
-    // Use the helper to send bulk emails
+    // Use the helper to send bulk emails (pass companyId for default campaigns: User lookup + EmailActivity)
     const results = await sendBulkEmails(
       String(campaign._id),
       recipients,
-      bookingMap
+      bookingMap,
+      companyId
     );
 
     return {

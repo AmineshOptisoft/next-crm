@@ -7,6 +7,13 @@ export interface Company {
     email?: string;
     phone?: string;
     logo?: string;
+    subdomain?: string;
+    publicTemplate?: "templateA" | "templateB";
+    publicSites?: {
+        subdomain: string;
+        template: "templateA" | "templateB";
+        createdAt?: string;
+    }[];
     address?: {
         street?: string;
         city?: string;

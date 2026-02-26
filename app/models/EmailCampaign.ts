@@ -19,6 +19,7 @@ export interface IEmailCampaign extends Document {
   createdAt: Date;
   updatedAt: Date;
   templateId?: string;
+  isDefault?: boolean;
 }
 
 const ReminderSchema = new Schema<IReminder>({
@@ -38,6 +39,7 @@ const EmailCampaignSchema = new Schema<IEmailCampaign>({
   companyId: { type: Schema.Types.ObjectId, ref: 'Company', required: true },
   createdBy: { type: Schema.Types.ObjectId, ref: 'User', required: true },
   templateId: { type: String }, // Reference to EmailTemplate.id (e.g., '01_welcome_email')
+  isDefault: { type: Boolean, default: false },
 }, { timestamps: true });
 
 // Force delete the cached model in development to pick up schema changes

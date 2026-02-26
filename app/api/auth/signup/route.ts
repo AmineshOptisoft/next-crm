@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
-import { User } from "../../../models/User";
-import { Company } from "../../../models/Company";
-import { sendTransactionalEmail } from "@/lib/sendmailhelper";
+import { User } from "@/app/models/User";
+import { Company } from "@/app/models/Company";
+import { sendAccountConfirmationEmail } from "@/lib/sendmailhelper";
 import { sendVerificationEmail } from "@/lib/mail";
 import { signupSchema } from "@/app/(auth)/signup/schema";
-import { EMAIL_TEMPLATES } from "@/lib/emailTemplateHelper";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import mongoose from "mongoose";
@@ -89,32 +88,28 @@ export async function POST(req: NextRequest) {
 
     const companyId = company._id.toString();
 
-    // No DB entry for roles — static roles are returned by GET /api/roles only.
+    // Send account confirmation using .env SMTP (no company mail config required).
+    // Await so we catch errors; fallback to legacy plain email if template send fails.
+    try {
+      const emailResult = await sendAccountConfirmationEmail(user.email, {
+        token,
+        firstname: firstName,
+        lastname: lastName,
+        company_name: companyName,
+      });
 
-    // Post-commit work (verification emails) in background so it
-    // doesn't block the HTTP response.
-    (async () => {
-      try {
-        const emailResult = await sendTransactionalEmail(
-          EMAIL_TEMPLATES.ACCOUNT_CONFIRMATION,
-          user.email,
-          {
-            token,
-            firstname: firstName,
-            lastname: lastName,
-            company_name: companyName,
-          },
-          companyId
-        );
-
-        if (!emailResult.sent) {
-          console.warn("Template email failed, falling back to legacy");
-          await sendVerificationEmail(user.email, token);
-        }
-      } catch (err) {
-        console.error("Post-signup setup error:", err);
+      if (!emailResult.sent) {
+        console.warn("Account confirmation template failed, falling back to legacy");
+        await sendVerificationEmail(user.email, token);
       }
-    })();
+    } catch (err) {
+      console.error("Post-signup email error:", err);
+      try {
+        await sendVerificationEmail(user.email, token);
+      } catch (fallbackErr) {
+        console.error("Fallback verification email also failed:", fallbackErr);
+      }
+    }
 
     return NextResponse.json({
       message: "Company registered successfully. Check email to verify.",

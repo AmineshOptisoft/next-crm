@@ -4,14 +4,16 @@ import { Company } from "@/app/models/Company";
 import EmailCampaign from "@/app/models/EmailCampaign";
 
 // Utility to get legacy transporter with current environment variables
+// Note: If SMTP_PASS contains spaces (e.g. Gmail app password), use quotes in .env: SMTP_PASS="your pass"
 export function getLegacyTransporter() {
+  const pass = process.env.SMTP_PASS?.trim() ?? "";
   return nodemailer.createTransport({
     host: process.env.SMTP_HOST,
     port: Number(process.env.SMTP_PORT),
     secure: Number(process.env.SMTP_PORT) === 465,
     auth: {
-      user: process.env.SMTP_USER,
-      pass: process.env.SMTP_PASS,
+      user: process.env.SMTP_USER?.trim(),
+      pass: pass || undefined,
     },
     tls: {
       rejectUnauthorized: false
@@ -338,7 +340,7 @@ export async function getMailProviderType(campaignId: string): Promise<string> {
 
 // Keep verification functions using direct transporter
 export async function sendVerificationEmail(email: string, token: string) {
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL!;
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
   const verifyUrl = `${baseUrl}/verify?token=${token}&email=${encodeURIComponent(email)}`;
 
   const transporter = getLegacyTransporter();
@@ -354,6 +356,29 @@ export async function sendMail({ to, subject, html }: { to: string; subject: str
   const transporter = getLegacyTransporter();
   return await transporter.sendMail({
     from: process.env.EMAIL_FROM,
+    to,
+    subject,
+    html,
+  });
+}
+
+/**
+ * Send email using only .env SMTP (SMTP_USER, SMTP_PASS, EMAIL_FROM).
+ * Use for system emails (e.g. account confirmation) that must not depend on company mail config.
+ */
+export async function sendMailWithEnvProvider({
+  to,
+  subject,
+  html,
+}: {
+  to: string;
+  subject: string;
+  html: string;
+}) {
+  const transporter = getLegacyTransporter();
+  const from = process.env.EMAIL_FROM || "noreply@example.com";
+  return await transporter.sendMail({
+    from,
     to,
     subject,
     html,

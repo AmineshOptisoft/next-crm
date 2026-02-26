@@ -12,6 +12,7 @@ import { CompanyServiceAreas } from "@/components/company-settings/company-servi
 import { CompanyZipCodes } from "@/components/company-settings/company-zip-codes";
 import { CompanyAvailability } from "@/components/company-settings/company-availability";
 import { CompanyMailSending } from "@/components/company-settings/company-mail-sending";
+import { CompanySubdomainSettings } from "@/components/company-settings/company-subdomain-settings";
 import { Company } from "@/components/company-settings/types";
 import {
     Dialog,
@@ -59,6 +60,8 @@ export default function CompanySettingsPage() {
         email: "",
         phone: "",
         logo: "",
+        subdomain: "",
+        publicTemplate: "templateA",
         address: {
             street: "",
             city: "",
@@ -85,6 +88,8 @@ export default function CompanySettingsPage() {
                 email: (company as any).email || "",
                 phone: (company as any).phone || "",
                 logo: (company as any).logo || "",
+                subdomain: (company as any).subdomain || "",
+                publicTemplate: (company as any).publicTemplate || "templateA",
                 address: (company as any).address || {
                     street: "",
                     city: "",
@@ -189,6 +194,7 @@ export default function CompanySettingsPage() {
                     <TabsTrigger value="service-areas">Service Areas</TabsTrigger>
                     <TabsTrigger value="zip-codes">Zip Codes</TabsTrigger>
                     <TabsTrigger value="mail-sending">Mail Sending</TabsTrigger>
+                    <TabsTrigger value="subdomain">Sub Domain</TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="profile">
@@ -238,6 +244,10 @@ export default function CompanySettingsPage() {
 
                 <TabsContent value="mail-sending">
                     <CompanyMailSending company={company ?? null} />
+                </TabsContent>
+
+                <TabsContent value="subdomain">
+                    <CompanySubdomainSettings company={company ?? null} mutateSettings={mutateSettings as any} />
                 </TabsContent>
             </Tabs>
 

@@ -11,6 +11,20 @@ const CompanySchema = new Schema(
     website: { type: String },
     logo: { type: String },
 
+    // Public site configuration (primary)
+    subdomain: {
+      type: String,
+      trim: true,
+      lowercase: true,
+      unique: true,
+      sparse: true,
+    },
+    publicTemplate: {
+      type: String,
+      enum: ["templateA", "templateB"],
+      default: "templateA",
+    },
+
     // Contact information
     email: { type: String },
     phone: { type: String },
@@ -25,6 +39,23 @@ const CompanySchema = new Schema(
       latitude: { type: Number },
       longitude: { type: Number },
     },
+
+    // Additional public sites for the same company
+    publicSites: [
+      {
+        subdomain: {
+          type: String,
+          trim: true,
+          lowercase: true,
+        },
+        template: {
+          type: String,
+          enum: ["templateA", "templateB"],
+          default: "templateA",
+        },
+        createdAt: { type: Date, default: Date.now },
+      },
+    ],
 
     // Subscription/Plan (for future use)
     plan: {
@@ -96,5 +127,7 @@ const CompanySchema = new Schema(
 
 CompanySchema.index({ adminId: 1 });
 CompanySchema.index({ name: 1 });
+CompanySchema.index({ subdomain: 1 }, { unique: true, sparse: true });
+CompanySchema.index({ "publicSites.subdomain": 1 }, { unique: true, sparse: true });
 
 export const Company = models.Company || model("Company", CompanySchema);
