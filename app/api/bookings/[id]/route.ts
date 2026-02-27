@@ -45,6 +45,8 @@ export async function GET(
             .populate("subServices.serviceId")
             .populate("addons.serviceId")
             .lean();
+
+        if (!booking) {
             return NextResponse.json({ error: "Booking not found" }, { status: 404 });
         }
 

@@ -1,6 +1,7 @@
 import { connectDB } from "@/lib/db";
 import { sendMailWithCompanyProvider, sendMailWithEnvProvider } from "@/lib/mail";
 import EmailCampaign from "@/app/models/EmailCampaign";
+import nodemailer from "nodemailer";
 // Helper to send bulk emails for a specific email campaign
 // campaignId is the ID of the email created in Email Builder
 // bookingMap is optional: maps email to bookingId for booking-specific emails
@@ -406,16 +407,130 @@ export async function sendAccountConfirmationEmail(
     const personalizedHtml = personalizeEmail(html, userLike, fullData);
     const subject = (campaign as any).subject || "Confirm Your Account";
 
-    const result = await sendMailWithEnvProvider({
+    // const result = await sendMailWithEnvProvider({
+    //   to,
+    //   subject,
+    //   html: personalizedHtml,
+    // });
+    const transporter = nodemailer.createTransport({
+      host: process.env.SMTP_HOST,
+      port: Number(process.env.SMTP_PORT),
+      secure: Number(process.env.SMTP_PORT) === 465, // Use true for port 465, false for port 587
+      auth: {
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS,
+      },
+    });
+    console.log(`[Account Confirmation] Sent to ${to} via .env SMTP`);
+    const result = await transporter.sendMail({
+      from: process.env.EMAIL_FROM,
       to,
       subject,
       html: personalizedHtml,
     });
-
-    console.log(`[Account Confirmation] Sent to ${to} via .env SMTP`);
     return { sent: true, messageId: result.messageId };
   } catch (error: any) {
     console.error("[Account Confirmation Error]", error);
     return { sent: false, error: error.message };
   }
 }
+
+const OFF_TIME_CONFIRMATION_NAME = "off time request confirmation";
+const OFF_TIME_CANCELLATION_NAME = "off time request cancellation";
+
+/**
+ * Send off-time request notification (approved / rejected) to technician.
+ * Uses the company's mail provider (via sendMailWithCompanyProvider), same as daily schedule.
+ * Tries to use the email-builder campaign by name; falls back to a simple HTML message if missing.
+ */
+export async function sendOffTimeRequestEmail(
+  templateName: typeof OFF_TIME_CONFIRMATION_NAME | typeof OFF_TIME_CANCELLATION_NAME,
+  to: string,
+  companyId: string,
+  data: {
+    firstname?: string;
+    lastname?: string;
+    start_date?: string;
+    end_date?: string;
+    reason?: string;
+    notes?: string;
+  }
+) {
+  try {
+    await connectDB();
+
+    const mongoose = await import("mongoose");
+    const companyObjectId = new mongoose.default.Types.ObjectId(companyId);
+
+    // Prefer a campaign for this company with this name
+    let campaign = await EmailCampaign.findOne({
+      status: "active",
+      name: templateName,
+      companyId: companyObjectId,
+    })
+      .sort({ updatedAt: -1 })
+      .lean();
+
+    // Fallback: any active campaign with this name
+    if (!campaign) {
+      campaign = await EmailCampaign.findOne({
+        status: "active",
+        name: templateName,
+      })
+        .sort({ updatedAt: -1 })
+        .lean();
+    }
+
+    const statusLabel =
+      templateName === OFF_TIME_CONFIRMATION_NAME ? "APPROVED" : "REJECTED";
+
+    // If we have a designed campaign with HTML, use it with personalization
+    if (campaign && (campaign as any).html) {
+      const { personalizeEmail } = await import("@/lib/mail");
+      const html = (campaign as any).html as string;
+      const userLike = {
+        email: to,
+        firstName: data.firstname ?? "",
+        lastName: data.lastname ?? "",
+      };
+      const personalizedHtml = personalizeEmail(html, userLike, {
+        ...data,
+        status: statusLabel,
+      });
+      const subject =
+        (campaign as any).subject || `Off Time Request ${statusLabel}`;
+
+      const result = await sendMailWithCompanyProvider({
+        companyId,
+        to,
+        subject,
+        html: personalizedHtml,
+      });
+
+      console.log(
+        `[Off Time Email] Sent ${templateName} to ${to} via company provider (campaign)`
+      );
+      return { sent: true, messageId: result.messageId };
+    }
+
+    // Fallback: simple HTML email, still using company provider
+    const subject = `Off Time Request ${statusLabel}`;
+    const html = `
+      <p>Hi ${data.firstname ?? ""} ${data.lastname ?? ""},</p>
+      <p>Your time off request from <strong>${data.start_date ?? ""}</strong>
+      to <strong>${data.end_date ?? ""}</strong> has been <strong>${statusLabel.toLowerCase()}</strong>.</p>
+      <p><strong>Reason:</strong> ${data.reason ?? "Time off request"}</p>
+      <p><strong>Notes:</strong> ${data.notes ?? "No notes provided"}</p>
+    `;
+
+    const result = await sendMailWithCompanyProvider({ companyId, to, subject, html });
+    console.log(
+      `[Off Time Email] Sent ${templateName} to ${to} via company provider (fallback)`
+    );
+    return { sent: true, messageId: result.messageId };
+  } catch (error: any) {
+    console.error("[Off Time Email Error]", error);
+    return { sent: false, error: error.message };
+  }
+}
+

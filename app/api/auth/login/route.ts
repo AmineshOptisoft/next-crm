@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
 import { User } from "../../../models/User";
+import { Company } from "@/app/models/Company";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { loginSchema } from "@/app/(auth)/login/schema";
@@ -19,10 +20,13 @@ export async function POST(req: NextRequest) {
   }
 
   const { email, password } = parseResult.data;
+  const sourceSubdomainRaw = (body as any).sourceSubdomain;
+  const sourceSubdomain =
+    typeof sourceSubdomainRaw === "string" ? sourceSubdomainRaw.trim().toLowerCase() : "";
 
-  const user = await User.findOne({ email }).select(
-    "_id passwordHash email role companyId firstName lastName companyName"
-  ).lean();
+  const user = await User.findOne({ email })
+    .select("_id passwordHash email role companyId firstName lastName companyName leadSource")
+    .lean();
   if (!user) {
     return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
   }
@@ -30,6 +34,42 @@ export async function POST(req: NextRequest) {
   const isMatch = await bcrypt.compare(password, user.passwordHash);
   if (!isMatch) {
     return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
+  }
+
+  // If this login came from a public site URL like /{subdomain},
+  // and the user is a contact without a company yet, attach them
+  // to the matching company so they show up under that company's contacts.
+  if (sourceSubdomain && user.role === "contact" && !user.companyId) {
+    try {
+      const company = await Company.findOne({
+        $or: [{ subdomain: sourceSubdomain }, { "publicSites.subdomain": sourceSubdomain }],
+      })
+        .select("_id name")
+        .lean();
+
+      if (company) {
+        await User.updateOne(
+          { _id: user._id },
+          {
+            $set: {
+              companyId: company._id,
+              companyName: company.name,
+              leadSource: user.leadSource || "website",
+            },
+          }
+        );
+
+        // Also update the in-memory user object so the JWT
+        // and welcome email use the fresh company data.
+        (user as any).companyId = company._id;
+        (user as any).companyName = company.name;
+        if (!user.leadSource) {
+          (user as any).leadSource = "website";
+        }
+      }
+    } catch (e) {
+      console.error("Error linking contact to company on login:", e);
+    }
   }
 
   const token = jwt.sign(

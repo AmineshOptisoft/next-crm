@@ -181,12 +181,12 @@ export function CompanyPromocodes() {
                                 <Input
                                     id="limit"
                                     type="number"
-                                    placeholder="0 for unlimited"
+                                    placeholder="-1 for unlimited"
                                     value={newPromocode.limit}
                                     onChange={(e) => setNewPromocode({ ...newPromocode, limit: e.target.value })}
                                     className="h-10"
                                 />
-                                <p className="text-[0.8rem] text-muted-foreground">Leave 0 for unlimited usage</p>
+                                <p className="text-[0.8rem] text-muted-foreground">Use -1 for unlimited usage; 0 means no uses left</p>
                             </div>
                             <div className="space-y-2">
                                 <Label htmlFor="expiry" className="text-sm font-medium">Expiry Date</Label>
@@ -246,7 +246,7 @@ export function CompanyPromocodes() {
                                     </TableCell>
                                     <TableCell className="capitalize">{promo.type}</TableCell>
                                     <TableCell>
-                                        {promo.limit === 0 ? <Badge variant="secondary">Unlimited</Badge> : promo.limit}
+                                        {promo.limit === -1 ? <Badge variant="secondary">Unlimited</Badge> : promo.limit}
                                     </TableCell>
                                     <TableCell>{promo.usageCount || 0}</TableCell>
                                     <TableCell>

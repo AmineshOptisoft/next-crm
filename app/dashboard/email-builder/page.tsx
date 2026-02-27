@@ -244,9 +244,9 @@ export default function EmailBuilderListPage() {
 
             {/* Set Reminder Sheet (Right Side) */}
             <Sheet open={isReminderDialogOpen} onOpenChange={setIsReminderDialogOpen}>
-                <SheetContent side="right" className="p-0 overflow-hidden border-l shadow-xl w-full sm:max-w-lg flex flex-col bg-white">
-                    <SheetHeader className="px-4 sm:px-8 py-6 border-b flex flex-row items-center justify-between bg-white">
-                        <SheetTitle className="text-xl font-bold text-zinc-800">
+                <SheetContent side="right" className="p-0 overflow-hidden border-l border-border shadow-xl w-full sm:max-w-lg flex flex-col bg-background dark:bg-zinc-900">
+                    <SheetHeader className="px-4 sm:px-8 py-6 border-b border-border flex flex-row items-center justify-between bg-background dark:bg-zinc-900">
+                        <SheetTitle className="text-xl font-bold text-zinc-900 dark:text-zinc-100">
                             Set Reminders
                         </SheetTitle>
                     </SheetHeader>
@@ -254,7 +254,7 @@ export default function EmailBuilderListPage() {
                     <div className="flex-1 overflow-y-auto px-4 sm:px-8 py-6 space-y-8">
                         {reminders.map((reminder) => (
                             <div key={reminder.id} className="space-y-3">
-                                <h4 className="text-[15px] font-semibold text-zinc-800">
+                                <h4 className="text-[15px] font-semibold text-zinc-900 dark:text-zinc-100">
                                     Send {reminder.label} Reminder Before
                                 </h4>
 
@@ -265,7 +265,7 @@ export default function EmailBuilderListPage() {
                                             value={reminder.unit}
                                             onValueChange={(val) => handleUpdateReminder(reminder.id, "unit", val)}
                                         >
-                                            <SelectTrigger className="h-11 bg-zinc-50 border-zinc-200 text-zinc-600 rounded-md">
+                                            <SelectTrigger className="h-11 bg-muted border-border text-foreground rounded-md">
                                                 <SelectValue placeholder="Select Unit" />
                                             </SelectTrigger>
                                             <SelectContent>
@@ -280,7 +280,7 @@ export default function EmailBuilderListPage() {
                                             value={reminder.value}
                                             onValueChange={(val) => handleUpdateReminder(reminder.id, "value", val)}
                                         >
-                                            <SelectTrigger className="h-11 bg-zinc-50 border-zinc-200 text-zinc-600 rounded-md">
+                                            <SelectTrigger className="h-11 bg-muted border-border text-foreground rounded-md">
                                                 <SelectValue placeholder="Select Value" />
                                             </SelectTrigger>
                                             <SelectContent>
@@ -295,9 +295,9 @@ export default function EmailBuilderListPage() {
                                         <Switch
                                             checked={reminder.enabled}
                                             onCheckedChange={() => handleToggleReminder(reminder.id)}
-                                            className="data-[state=checked]:bg-zinc-800 data-[state=unchecked]:bg-zinc-200"
+                                            className="data-[state=checked]:bg-emerald-500 data-[state=unchecked]:bg-zinc-200"
                                         />
-                                        <span className="text-sm font-medium text-zinc-500 w-14">
+                                        <span className="text-sm font-medium text-zinc-500 dark:text-zinc-400 w-14">
                                             {reminder.enabled ? 'Enable' : 'Disable'}
                                         </span>
                                     </div>
@@ -309,14 +309,14 @@ export default function EmailBuilderListPage() {
                             <Button
                                 variant="outline"
                                 onClick={handleResetReminders}
-                                className="w-full border-zinc-200 text-zinc-500 hover:bg-zinc-50 hover:text-zinc-800 h-10 rounded-md"
+                                className="w-full border border-border text-muted-foreground hover:bg-muted hover:text-foreground h-10 rounded-md"
                             >
                                 Reset All Reminders
                             </Button>
                         </div>
                     </div>
 
-                    <SheetFooter className="px-4 sm:px-8 py-6 border-t bg-white">
+                    <SheetFooter className="px-4 sm:px-8 py-6 border-t border-border bg-background dark:bg-zinc-900">
                         <Button
                             onClick={handleSaveReminders}
                             className="w-full bg-zinc-900 hover:bg-black text-white h-12 font-bold rounded-md"
@@ -329,9 +329,9 @@ export default function EmailBuilderListPage() {
 
             {/* Template Selection Dialog */}
             <Dialog open={isTemplateDialogOpen} onOpenChange={setIsTemplateDialogOpen}>
-                <DialogContent className="sm:max-w-[650px] p-0 overflow-hidden border-none rounded-[20px] shadow-xl bg-white">
-                    <div className="bg-[#E5E5E5] px-4 sm:px-6 py-4 flex items-center justify-between">
-                        <h2 className="text-xl font-bold text-[#333333] tracking-tight">Choose your templates</h2>
+                <DialogContent className="sm:max-w-[650px] p-0 overflow-hidden border-none rounded-[20px] shadow-xl bg-background dark:bg-zinc-900">
+                    <div className="bg-muted px-4 sm:px-6 py-4 flex items-center justify-between">
+                        <h2 className="text-xl font-bold text-foreground tracking-tight">Choose your templates</h2>
                     </div>
 
                     <div className="flex-1 overflow-y-auto px-4 sm:px-8 py-4 flex flex-col max-h-[80vh] space-y-1">
@@ -343,10 +343,10 @@ export default function EmailBuilderListPage() {
                             >
                                 <div className="w-5 h-5 rounded-full border border-zinc-400 shrink-0 flex items-center justify-center transition-colors">
                                     {selectedTemplateId === tpl.id && (
-                                        <div className="w-2.5 h-2.5 rounded-full bg-zinc-800" />
+                                        <div className="w-2.5 h-2.5 rounded-full bg-zinc-900 dark:bg-zinc-100" />
                                     )}
                                 </div>
-                                <span className="text-[16px] text-[#333333] font-normal leading-tight">
+                                <span className="text-[16px] text-foreground font-normal leading-tight">
                                     {tpl.name}
                                 </span>
                             </button>

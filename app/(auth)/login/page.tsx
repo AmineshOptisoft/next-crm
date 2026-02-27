@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -27,6 +27,8 @@ import Link from "next/link";
 
 export default function LoginPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const sourceSubdomain = searchParams.get("subdomain") || "";
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -47,7 +49,12 @@ export default function LoginPage() {
       const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(values),
+        body: JSON.stringify({
+          ...values,
+          // Pass through originating subdomain (if any) so backend
+          // can associate this login with the correct company contacts
+          sourceSubdomain: sourceSubdomain || undefined,
+        }),
         credentials: "include", // Important for cookies
       });
 

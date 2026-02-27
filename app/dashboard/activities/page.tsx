@@ -176,6 +176,7 @@ export default function ActivitiesPage() {
           duration: formData.duration ? parseInt(formData.duration) : undefined,
           dealId: formData.dealId || undefined,
           assignedTo: formData.assignedTo || undefined,
+          outcome: formData.outcome || undefined,
         }),
       });
 

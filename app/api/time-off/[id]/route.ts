@@ -69,14 +69,15 @@ export async function PATCH(
                 // Because Mongoose types can be strict, assert the populated user type
                 const tech = updatedTimeOff.technicianId as any; 
                 
+                // Use company mail provider (like daily schedule) with custom templateId "17_custom_email"
                 if (tech && tech.email && tech.companyId) {
                     const { sendTransactionalEmail } = await import("@/lib/sendmailhelper");
-                    const emailName = status === "APPROVED" 
-                        ? "off time request confirmation" 
-                        : "off time request cancellation";
+                    
+                    const statusLabel = status === "APPROVED" ? "approved" : "rejected";
+                    const emailType = status === "APPROVED" ? "confirmation" : "cancellation";
                     
                     sendTransactionalEmail(
-                        emailName,
+                        "17_custom_email", // custom template id shared by both mails
                         tech.email,
                         {
                             firstname: tech.firstName,
@@ -84,10 +85,12 @@ export async function PATCH(
                             start_date: updatedTimeOff.startDate ? new Date(updatedTimeOff.startDate).toLocaleDateString() : "",
                             end_date: updatedTimeOff.endDate ? new Date(updatedTimeOff.endDate).toLocaleDateString() : "",
                             reason: updatedTimeOff.reason || "Time off request",
-                            notes: updatedTimeOff.notes || "No notes provided"
+                            notes: updatedTimeOff.notes || "No notes provided",
+                            status: statusLabel,
+                            email_type: emailType,
                         },
                         tech.companyId.toString()
-                    ).catch(e => console.error(`Failed sending ${emailName} async:`, e));
+                    ).catch(e => console.error(`Failed sending off-time ${emailType} email async:`, e));
                 }
             } catch (e) {
                 console.error("Failed to trigger time off email:", e);

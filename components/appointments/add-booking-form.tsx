@@ -1,7 +1,7 @@
 "use client";
 
 import { toast } from "sonner";
-import useSWR from "swr";
+import useSWR, { useSWRConfig } from "swr";
 
 const fetcher = (url: string) => fetch(url, { credentials: "include" }).then((res) => res.json());
 
@@ -61,6 +61,7 @@ interface AddBookingFormProps {
 }
 
 export function AddBookingForm({ open, onOpenChange, initialData }: AddBookingFormProps) {
+    const { mutate } = useSWRConfig();
     const [userType, setUserType] = useState("new");
     const [sections, setSections] = useState({
         personal: true,
@@ -78,23 +79,14 @@ export function AddBookingForm({ open, onOpenChange, initialData }: AddBookingFo
         initialData?.technicianId ?? null
     );
 
-    // Technicians: always-on SWR — calendar.tsx pre-warms this cache on mount,
-    // so the data is ready BEFORE the sheet opens (0 waiting time for the user).
-    const { data: techData } = useSWR(
+    // Technicians + calendar data share the same SWR cache entry to avoid duplicate requests
+    const { data: resourcesData } = useSWR(
         '/api/appointments/resources',
         fetcher,
         { revalidateOnFocus: false, dedupingInterval: 30_000 }
     );
-    const allTechnicians: any[] = techData?.resources || [];
-
-    // Also read the pre-warmed calendar data (same key as calendar.tsx) to get
-    // availability blocks & time-offs without an extra network call.
-    const { data: calendarData } = useSWR(
-        '/api/appointments/resources',
-        fetcher,
-        { revalidateOnFocus: false, dedupingInterval: 30_000 }
-    );
-    const calendarEvents: any[] = calendarData?.events || [];
+    const allTechnicians: any[] = resourcesData?.resources || [];
+    const calendarEvents: any[] = resourcesData?.events || [];
 
     // Contacts: only fetched when the "existing" tab is visible
     const { data: contactsData } = useSWR(
@@ -395,16 +387,28 @@ export function AddBookingForm({ open, onOpenChange, initialData }: AddBookingFo
     useEffect(() => {
         if (selectedPromocode && selectedPromocode !== "none") {
             const promo = promocodes.find(p => p.code === selectedPromocode);
-            if (promo) {
+            if (promo && promo.limit !== 0) {
                 let val = promo.type === 'percentage'
                     ? total * (Number(promo.value) / 100)
                     : Number(promo.value);
                 setDiscount(Number(Math.min(val, total).toFixed(2)));
+            } else if (promo && promo.limit === 0) {
+                setDiscount(0);
             }
         } else if (selectedPromocode === "none") {
             setDiscount(0);
         }
     }, [selectedPromocode, total, promocodes]);
+
+    // Clear selected promo if it has run out (limit 0)
+    useEffect(() => {
+        if (selectedPromocode && selectedPromocode !== "none") {
+            const promo = promocodes.find(p => p.code === selectedPromocode);
+            if (promo && promo.limit === 0) {
+                setSelectedPromocode("none");
+            }
+        }
+    }, [promocodes, selectedPromocode]);
 
     const finalAmount = total - discount;
 
@@ -594,7 +598,14 @@ export function AddBookingForm({ open, onOpenChange, initialData }: AddBookingFo
                 : "Recurring bookings created successfully!");
 
             onOpenChange(false);
-            window.location.reload();
+            // Revalidate all appointment resource views (any date range) without a full page reload
+            mutate(
+                (key) =>
+                    typeof key === "string" &&
+                    key.startsWith("/api/appointments/resources"),
+                undefined,
+                { revalidate: true }
+            );
         } catch (error: any) {
             console.error("Booking creation error:", error);
             toast.error(error.message || "Failed to create booking. Please try again.");
@@ -1109,7 +1120,7 @@ export function AddBookingForm({ open, onOpenChange, initialData }: AddBookingFo
                                         </SelectTrigger>
                                         <SelectContent className="z-[150]" position="popper">
                                             <SelectItem value="none">None</SelectItem>
-                                            {promocodes.map((promo) => (
+                                            {promocodes.filter((p) => p.limit === -1).map((promo) => (
                                                 <SelectItem key={promo._id} value={promo.code}>
                                                     {promo.code} - {promo.type === 'percentage' ? `${promo.value}%` : `$${promo.value}`}
                                                 </SelectItem>

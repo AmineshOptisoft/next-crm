@@ -38,7 +38,7 @@ const PromocodeSchema: Schema = new Schema(
         },
         limit: {
             type: Number,
-            default: 0, // 0 means unlimited or specified count
+            default: -1, // -1 means unlimited; 0 means no uses left
         },
         usageCount: {
             type: Number,

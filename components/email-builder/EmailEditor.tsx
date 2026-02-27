@@ -31,6 +31,9 @@ function EmailEditorInner({ initialData, mode = "add" }: EmailEditorComponentPro
     const [emailSubjectError, setEmailSubjectError] = useState(false);
     const [loading, setLoading] = useState(false);
 
+    const editorTheme =
+        resolvedTheme === "dark" ? "modern_dark" : "modern_light";
+
     const templateParam = searchParams.get('template');
     const templateKey = templateParam || null;
     
@@ -145,9 +148,9 @@ function EmailEditorInner({ initialData, mode = "add" }: EmailEditorComponentPro
     };
 
     return (
-        <div className="flex flex-col h-[calc(100vh-140px)] -m-4">
+        <div className="flex flex-col h-[calc(100vh-140px)] -m-4 bg-background text-foreground">
             {/* Builder Top Bar */}
-            <div className="border-b bg-background px-6 py-3 flex items-center justify-between shadow-sm z-10">
+            <div className="border-b border-border bg-background px-6 py-3 flex items-center justify-between shadow-sm z-10">
                 <div className="flex items-center gap-4">
                     <Button variant="ghost" size="sm" onClick={() => router.push("/dashboard/email-builder")}>
                         <ChevronRight className="h-4 w-4 rotate-180 mr-2" />
@@ -217,13 +220,14 @@ function EmailEditorInner({ initialData, mode = "add" }: EmailEditorComponentPro
 
             <div className="flex-1 flex flex-col overflow-hidden relative">
                 <UnlayerEmailEditor
+                    key={editorTheme}
                     ref={emailEditorRef}
                     onLoad={onLoad}
                     onReady={onReady}
                     style={{ height: "100%", minHeight: "calc(100vh - 200px)" }}
                     options={{
                         appearance: {
-                            theme: resolvedTheme === 'dark' ? 'modern_dark' : 'modern_light',
+                            theme: editorTheme,
                         },
                         mergeTags: {
                             booking_date: { name: 'booking_date', value: '{{booking_date}}' },

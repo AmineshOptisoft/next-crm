@@ -19,11 +19,17 @@ export function HeroSection() {
               href="/signup"
               className="inline-flex items-center justify-center rounded-lg bg-primary-foreground px-6 py-3 text-sm font-semibold text-primary transition hover:opacity-90"
             >
-              Get Started
+              Register
+            </Link>
+            <Link
+              href="/login"
+              className="inline-flex items-center justify-center rounded-lg border-2 border-primary-foreground bg-transparent px-6 py-3 text-sm font-semibold text-primary-foreground transition hover:bg-primary-foreground/10"
+            >
+              Login
             </Link>
             <Link
               href="#how-it-works"
-              className="inline-flex items-center justify-center rounded-lg border-2 border-primary-foreground bg-transparent px-6 py-3 text-sm font-semibold text-primary-foreground transition hover:bg-primary-foreground/10"
+              className="inline-flex items-center justify-center rounded-lg border border-primary-foreground/40 bg-primary-foreground/5 px-6 py-3 text-sm font-semibold text-primary-foreground/90 transition hover:bg-primary-foreground/15"
             >
               Learn More
             </Link>

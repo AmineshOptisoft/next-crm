@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { signupSchema, type SignupInput } from "./schema";
@@ -82,6 +83,8 @@ async function loadCities(stateId: string): Promise<City[]> {
 }
 
 export default function SignupPage() {
+  const router = useRouter();
+
   const form = useForm<SignupInput>({
     resolver: zodResolver(signupSchema),
     defaultValues: {
@@ -192,8 +195,11 @@ export default function SignupPage() {
       }
       return;
     }
-    alert("Registered. Check your email to verify.");
+
+    // Inform user and redirect to login as soon as mail is sent
+    alert("Registered. Please check your email to verify, then log in.");
     form.reset();
+    router.push("/login");
   }
 
   return (

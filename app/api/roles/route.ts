@@ -21,11 +21,9 @@ export async function GET(req: NextRequest) {
   await connectDB();
   const companyFilter = buildCompanyFilter(user);
   const getDefaultRoles = await Role.find({
-    ...companyFilter,
     isDefaultRole: true,
     isSystemRole: true,
-  })
-    .populate("createdBy", "firstName lastName email")
+  }).populate("createdBy", "firstName lastName email")
     .populate("companyId", "name")
     .lean();
 

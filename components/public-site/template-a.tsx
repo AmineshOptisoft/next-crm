@@ -2,9 +2,10 @@ import { Mail, MapPin, Phone } from "lucide-react";
 
 type PublicTemplateProps = {
   company: any;
+  subdomain?: string;
 };
 
-export function PublicTemplateA({ company }: PublicTemplateProps) {
+export function PublicTemplateA({ company, subdomain }: PublicTemplateProps) {
   const addressParts = [
     company?.address?.street,
     company?.address?.city,
@@ -36,17 +37,37 @@ export function PublicTemplateA({ company }: PublicTemplateProps) {
               <h1 className="text-xl font-bold tracking-tight">{company.name}</h1>
             </div>
           </div>
-          <div className="hidden text-xs text-slate-400 sm:block">
-            {company.website && (
+          <div className="flex items-center gap-4">
+            <div className="hidden text-xs text-slate-400 sm:block">
+              {company.website && (
+                <a
+                  href={company.website}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="hover:text-slate-100"
+                >
+                  {company.website.replace(/^https?:\/\//, "")}
+                </a>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
               <a
-                href={company.website}
-                target="_blank"
-                rel="noreferrer"
-                className="hover:text-slate-100"
+                href={subdomain ? `/login?subdomain=${encodeURIComponent(subdomain)}` : "/login"}
+                className="rounded-full border border-slate-700 px-4 py-1.5 text-xs font-medium text-slate-100 hover:border-emerald-400 hover:text-emerald-300"
               >
-                {company.website.replace(/^https?:\/\//, "")}
+                Login
               </a>
-            )}
+              <a
+                href={
+                  subdomain
+                    ? `/register?subdomain=${encodeURIComponent(subdomain)}`
+                    : "/register"
+                }
+                className="rounded-full bg-emerald-500 px-4 py-1.5 text-xs font-semibold text-emerald-950 shadow-lg shadow-emerald-500/30 hover:bg-emerald-400"
+              >
+                Register
+              </a>
+            </div>
           </div>
         </div>
       </header>

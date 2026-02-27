@@ -107,8 +107,49 @@ export default function CompanySettingsPage() {
         }
     }, [company]);
 
+    // Basic front-end validation to avoid obviously invalid payloads
+    const validateFormData = () => {
+        if (!formData.name.trim()) {
+            toast.error("Company name is required");
+            return false;
+        }
+        if (!formData.email.trim()) {
+            toast.error("Company email is required");
+            return false;
+        }
+        const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailPattern.test(formData.email.trim())) {
+            toast.error("Please enter a valid email address");
+            return false;
+        }
+        if (!formData.phone.trim()) {
+            toast.error("Company phone is required");
+            return false;
+        }
+        // If address is partially filled, encourage completing it
+        const { street, city, state, country, zipCode } = formData.address;
+        const hasAnyAddressField = !!(street || city || state || country || zipCode);
+        const allAddressFieldsFilled = !!(
+            street &&
+            city &&
+            state &&
+            country &&
+            zipCode
+        );
+        if (hasAnyAddressField && !allAddressFieldsFilled) {
+            toast.error("Please complete all address fields (street, city, state, country, zip)");
+            return false;
+        }
+        return true;
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+
+        if (!validateFormData()) {
+            return;
+        }
+
         setSaving(true);
 
         try {

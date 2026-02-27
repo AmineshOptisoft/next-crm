@@ -17,20 +17,35 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Find and update the booking status
-    // bookingId is the MongoDB _id sent from email
-    const booking = await Booking.findOneAndUpdate(
-      { _id: bookingId },
-      { status: "cancelled" },
-      { new: true }
-    );
+    // Find the primary booking document first
+    const primaryBooking = await Booking.findById(bookingId);
 
-    if (!booking) {
+    if (!primaryBooking) {
       return NextResponse.json(
         { error: "Booking not found" },
         { status: 404 }
       );
     }
+
+    // Build update filter:
+    // - If this booking is part of a recurring/multi-tech group, update ALL
+    //   bookings in the same slot (same recurringGroupId + startDateTime +
+    //   companyId) so every technician's booking stays in sync.
+    // - Otherwise, update this single booking only.
+    let updateFilter: any = { _id: primaryBooking._id };
+
+    if (primaryBooking.recurringGroupId && primaryBooking.startDateTime) {
+      updateFilter = {
+        recurringGroupId: primaryBooking.recurringGroupId,
+        startDateTime: primaryBooking.startDateTime,
+        companyId: primaryBooking.companyId,
+      };
+    }
+
+    await Booking.updateMany(updateFilter, { status: "cancelled" });
+
+    const booking = primaryBooking;
+    booking.status = "cancelled";
 
     console.log(`Booking ${bookingId} cancelled. New status:`, booking.status);
 
@@ -85,14 +100,10 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Find and update the booking status
-    const booking = await Booking.findOneAndUpdate(
-      { _id: bookingId },
-      { status: "cancelled" },
-      { new: true }
-    );
+    // Find the primary booking document first
+    const primaryBooking = await Booking.findById(bookingId);
 
-    if (!booking) {
+    if (!primaryBooking) {
       return new Response(
         `
         <!DOCTYPE html>
@@ -133,6 +144,24 @@ export async function GET(request: NextRequest) {
         }
       );
     }
+
+    // Build update filter as in POST:
+    // if this is part of a recurring/multi-tech group, update all bookings
+    // in the same slot; otherwise just this one.
+    let updateFilter: any = { _id: primaryBooking._id };
+
+    if (primaryBooking.recurringGroupId && primaryBooking.startDateTime) {
+      updateFilter = {
+        recurringGroupId: primaryBooking.recurringGroupId,
+        startDateTime: primaryBooking.startDateTime,
+        companyId: primaryBooking.companyId,
+      };
+    }
+
+    await Booking.updateMany(updateFilter, { status: "cancelled" });
+
+    const booking = primaryBooking;
+    booking.status = "cancelled";
 
     console.log(`Booking ${bookingId} cancelled via email link. New status:`, booking.status);
 

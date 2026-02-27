@@ -2,9 +2,10 @@ import { Mail, Phone } from "lucide-react";
 
 type PublicTemplateProps = {
   company: any;
+  subdomain?: string;
 };
 
-export function PublicTemplateB({ company }: PublicTemplateProps) {
+export function PublicTemplateB({ company, subdomain }: PublicTemplateProps) {
   return (
     <div className="min-h-screen bg-white text-slate-900">
       <header className="border-b border-slate-200 bg-white/80 backdrop-blur">
@@ -28,15 +29,33 @@ export function PublicTemplateB({ company }: PublicTemplateProps) {
               )}
             </div>
           </div>
-          {company.phone && (
+          <div className="flex items-center gap-2">
+            {company.phone && (
+              <a
+                href={`tel:${company.phone}`}
+                className="hidden items-center gap-2 rounded-full border border-slate-200 px-3 py-1.5 text-xs font-medium hover:bg-slate-50 sm:inline-flex"
+              >
+                <Phone className="h-3.5 w-3.5" />
+                {company.phone}
+              </a>
+            )}
             <a
-              href={`tel:${company.phone}`}
-              className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-3 py-1.5 text-xs font-medium hover:bg-slate-50"
+              href={subdomain ? `/login?subdomain=${encodeURIComponent(subdomain)}` : "/login"}
+              className="rounded-full border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
             >
-              <Phone className="h-3.5 w-3.5" />
-              {company.phone}
+              Login
             </a>
-          )}
+            <a
+              href={
+                subdomain
+                  ? `/register?subdomain=${encodeURIComponent(subdomain)}`
+                  : "/register"
+              }
+              className="rounded-full bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-slate-800"
+            >
+              Register
+            </a>
+          </div>
         </div>
       </header>
 

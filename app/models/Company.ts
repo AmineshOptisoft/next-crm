@@ -18,6 +18,12 @@ const CompanySchema = new Schema(
       lowercase: true,
       unique: true,
       sparse: true,
+      // Normalize empty strings to undefined so they don't collide in the unique index
+      set: (value: string | undefined | null) => {
+        if (!value) return undefined;
+        const normalized = value.trim().toLowerCase();
+        return normalized === "" ? undefined : normalized;
+      },
     },
     publicTemplate: {
       type: String,
@@ -47,6 +53,11 @@ const CompanySchema = new Schema(
           type: String,
           trim: true,
           lowercase: true,
+          set: (value: string | undefined | null) => {
+            if (!value) return undefined;
+            const normalized = value.trim().toLowerCase();
+            return normalized === "" ? undefined : normalized;
+          },
         },
         template: {
           type: String,

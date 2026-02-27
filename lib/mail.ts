@@ -55,6 +55,11 @@ export function personalizeEmail(html: string, user: any, bookingData?: any): st
   // Build confirm and cancel URLs with query parameters
   let confirmUrl = `${baseUrl}/api/bookings/confirm`;
   let cancelUrl = `${baseUrl}/api/bookings/cancel`;
+  // Prefer explicit verify_url passed in bookingData (e.g. account confirmation),
+  // otherwise fall back to generic verify page.
+  let verifyUrl =
+    (bookingData && bookingData.verify_url) ||
+    `${baseUrl}/verify`;
   
   if (bookingData) {
     const params = new URLSearchParams();
@@ -83,7 +88,36 @@ export function personalizeEmail(html: string, user: any, bookingData?: any): st
     .replace(/\{\{\s*confirm_url\s*\}\}/gi, confirmUrl)
     // Legacy support
     .replace(/\{\{\s*cancel_booking\s*\}\}/gi, cancelUrl)
-    .replace(/\{\{\s*confirm_booking\s*\}\}/gi, confirmUrl);
+    .replace(/\{\{\s*confirm_booking\s*\}\}/gi, confirmUrl)
+    // Verification links (support both old and new placeholders)
+    .replace(/\{\{\s*VERIFICATION_LINK\s*\}\}/gi, verifyUrl)
+    .replace(/\{\{\s*verify_url\s*\}\}/gi, verifyUrl);
+
+
+  // Map common bookingData aliases to template placeholders (e.g. customer_name -> customerName)
+  if (bookingData) {
+    const aliasMap: Record<string, any> = {
+      // Customer details
+      customerName: bookingData.customer_name ?? bookingData.customerName,
+      customerEmail: bookingData.customer_email ?? bookingData.customerEmail,
+      customerPhone: bookingData.customer_phone ?? bookingData.customerPhone,
+      customerAddress: bookingData.customer_address ?? bookingData.customerAddress,
+      // Booking details
+      bookingStatus: bookingData.booking_status ?? bookingData.bookingStatus,
+      // Schedule / time fields
+      start: bookingData.start ?? bookingData.start_time ?? bookingData.booking_time,
+      end: bookingData.end ?? bookingData.end_time,
+      // Notes
+      notes: bookingData.notes ?? bookingData.additional_notes,
+    };
+
+    Object.entries(aliasMap).forEach(([key, val]) => {
+      if (val !== undefined && val !== null && typeof val !== "object") {
+        const regex = new RegExp(`\\{\\{\\s*${key}\\s*\\}\\}`, "gi");
+        result = result.replace(regex, String(val));
+      }
+    });
+  }
 
   // Dynamic replacement for additional data fields (e.g. customer_name, addons, etc.)
   if (bookingData) {
@@ -118,20 +152,26 @@ async function getCompanyIdFromCampaign(campaignId: string): Promise<string> {
 export async function getCompanyTransporter(companyId: string): Promise<any> {
   const company = await Company.findById(companyId);
 
-  // If no per-company mail config is set, fall back to legacy SMTP (from .env)
-  if (!company || !company.mailConfig) {
-    return getLegacyTransporter();
+  // For company-scoped emails we now REQUIRE a configured provider.
+  // If not configured, callers should treat this as "don't send email".
+  if (!company || !company.mailConfig || !company.mailConfig.provider) {
+    throw new Error("Company mail provider not configured");
   }
 
   const { provider, smtp, gmail: gmailConfig } = company.mailConfig;
 
-  if (provider === "gmail" && gmailConfig?.email) {
-    const clientId = process.env.GMAIL_CLIENT_ID || "689336639215-ebbah3bm91rl13v5lp4m3b0ncu2on28c.apps.googleusercontent.com";
-    const clientSecret = process.env.GMAIL_CLIENT_SECRET || "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";
-
-    if (!gmailConfig.refreshToken) {
-      throw new Error("Gmail disconnected: Refresh token missing. Please reconnect Google account in Settings.");
+  if (provider === "gmail") {
+    if (!gmailConfig?.email || !gmailConfig.refreshToken) {
+      throw new Error(
+        "Gmail provider is incomplete. Please configure Gmail email and refresh token in Company Settings."
+      );
     }
+
+    const clientId =
+      process.env.GMAIL_CLIENT_ID ||
+      "689336639215-ebbah3bm91rl13v5lp4m3b0ncu2on28c.apps.googleusercontent.com";
+    const clientSecret =
+      process.env.GMAIL_CLIENT_SECRET || "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";
 
     const oauth2Client = new google.auth.OAuth2(clientId, clientSecret);
     oauth2Client.setCredentials({ refresh_token: gmailConfig.refreshToken });
@@ -147,8 +187,8 @@ export async function getCompanyTransporter(companyId: string): Promise<any> {
           {
             $set: {
               "mailConfig.gmail.accessToken": token,
-              "mailConfig.gmail.expiryDate": oauth2Client.credentials.expiry_date
-            }
+              "mailConfig.gmail.expiryDate": oauth2Client.credentials.expiry_date,
+            },
           }
         );
       }
@@ -159,15 +199,22 @@ export async function getCompanyTransporter(companyId: string): Promise<any> {
       verify: async () => {
         const gmail = google.gmail({ version: "v1", auth: oauth2Client });
         await getFreshToken();
-        await gmail.users.getProfile({ userId: 'me' });
+        await gmail.users.getProfile({ userId: "me" });
         return true;
       },
-      sendMail: async (options: { from: string, to: string, subject: string, html: string }) => {
+      sendMail: async (options: {
+        from: string;
+        to: string;
+        subject: string;
+        html: string;
+      }) => {
         const gmail = google.gmail({ version: "v1", auth: oauth2Client });
         await getFreshToken();
 
         // Prepare email content as per user request
-        const utf8Subject = `=?utf-8?B?${Buffer.from(options.subject).toString("base64")}?=`;
+        const utf8Subject = `=?utf-8?B?${Buffer.from(options.subject).toString(
+          "base64"
+        )}?=`;
         const messageParts = [
           `From: ${options.from}`,
           `To: ${options.to}`,
@@ -193,30 +240,36 @@ export async function getCompanyTransporter(companyId: string): Promise<any> {
         });
 
         return { messageId: res.data.id };
-      }
+      },
     };
   }
 
-  if (provider === "smtp" && smtp?.host) {
+  if (provider === "smtp") {
+    if (!smtp?.host || !smtp.username || !smtp.password) {
+      throw new Error(
+        "SMTP provider is incomplete. Please configure host, username and password in Company Settings."
+      );
+    }
+
     const transporter = smtp.host.includes("gmail.com")
       ? nodemailer.createTransport({
-        service: "gmail",
-        auth: { user: smtp.username, pass: smtp.password },
-        tls: { rejectUnauthorized: false }
-      })
+          service: "gmail",
+          auth: { user: smtp.username, pass: smtp.password },
+          tls: { rejectUnauthorized: false },
+        })
       : nodemailer.createTransport({
-        host: smtp.host,
-        port: smtp.port || 587,
-        secure: smtp.port === 465,
-        auth: { user: smtp.username, pass: smtp.password },
-        tls: { rejectUnauthorized: false }
-      });
+          host: smtp.host,
+          port: smtp.port || 587,
+          secure: smtp.port === 465,
+          auth: { user: smtp.username, pass: smtp.password },
+          tls: { rejectUnauthorized: false },
+        });
 
     return transporter;
   }
 
-  // Fallback: use legacy transporter (env-based) if provider is unknown or not fully configured
-  return getLegacyTransporter();
+  // Unsupported or misconfigured provider – treat as "no provider"
+  throw new Error("Unsupported or misconfigured mail provider");
 }
 
 /**
@@ -299,16 +352,24 @@ export async function sendMailWithCompanyProvider({
   subject: string;
   html: string;
 }) {
-  const mailTransporter = await getCompanyTransporter(companyId);
-  const fromEmail = await getCompanyFromEmail(companyId);
-  const fromName = await getCompanyFromName(companyId);
+  try {
+    const mailTransporter = await getCompanyTransporter(companyId);
+    const fromEmail = await getCompanyFromEmail(companyId);
+    const fromName = await getCompanyFromName(companyId);
 
-  return await mailTransporter.sendMail({
-    from: `"${fromName}" <${fromEmail}>`,
-    to,
-    subject,
-    html,
-  });
+    return await mailTransporter.sendMail({
+      from: `"${fromName}" <${fromEmail}>`,
+      to,
+      subject,
+      html,
+    });
+  } catch (err: any) {
+    console.error(
+      `[Mail] Skipping send for company ${companyId}: ${err?.message || "Mail provider not configured"}`
+    );
+    // Standardize a minimal result object so callers don't crash
+    return { messageId: undefined, skipped: true, error: err?.message };
+  }
 }
 
 /**

@@ -78,7 +78,7 @@ export async function POST(req: NextRequest) {
     subject,
     description,
     duration,
-    outcome,
+    outcome: outcome || undefined,
     scheduledAt: scheduledAt ? new Date(scheduledAt) : undefined,
     completedAt: completedAt ? new Date(completedAt) : undefined,
     status: status || "scheduled",

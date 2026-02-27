@@ -53,12 +53,13 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: "Promocode already exists" }, { status: 400 });
         }
 
+        const limitNum = limit === "" || limit === undefined || limit === null ? -1 : Number(limit);
         const promocode = await Promocode.create({
             companyId: user.companyId,
             code,
             type,
             value: Number(value),
-            limit: Number(limit),
+            limit: limitNum,
             expiryDate: new Date(expiryDate),
         });
 

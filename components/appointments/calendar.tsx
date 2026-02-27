@@ -11,17 +11,18 @@ import {
 import interactionPlugin from "@fullcalendar/interaction";
 import FullCalendar from "@fullcalendar/react";
 import resourceTimelinePlugin from '@fullcalendar/resource-timeline';
-import { useRef, useState, useEffect, useMemo } from "react";
+import { useRef, useState, useEffect, useMemo, useCallback } from "react";
 import { CalendarEvent } from "@/utils/calendar-data";
 import { Card } from "@/components/ui/card";
 import type { AppointmentDetails } from "./appointment-details-sheet";
 import { toast } from "sonner";
 import useSWR, { useSWRConfig } from "swr";
 import dynamic from "next/dynamic";
+import { AddBookingForm } from "./add-booking-form";
 
 const fetcher = (url: string) => fetch(url, { credentials: "include" }).then((res) => res.json());
 
-// Lazy-load heavy modals so they don't block initial render; load only when opened
+// Lazy-load only the details / edit modals; AddBookingForm is imported eagerly
 const EventEditForm = dynamic(
   () => import("./event-edit-form").then((m) => m.EventEditForm),
   { ssr: false }
@@ -30,12 +31,6 @@ const AppointmentDetailsSheet = dynamic(
   () => import("./appointment-details-sheet").then((m) => ({ default: m.AppointmentDetailsSheet })),
   { ssr: false, loading: () => <div className="h-0 w-0" aria-hidden /> }
 );
-const AddBookingForm = dynamic(
-  () => import("./add-booking-form").then((m) => m.AddBookingForm),
-  { ssr: false, loading: () => <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80"><span className="text-sm text-muted-foreground">Opening...</span></div> }
-);
-
-
 export default function Calendar() {
   const {
     eventAddOpen,
@@ -66,11 +61,14 @@ export default function Calendar() {
   const userPermissions: any[] = meData?.user?.permissions ?? [];
   const isAdminRole = userRole === 'super_admin' || userRole === 'company_admin';
 
-  const hasAppointmentPermission = (action: 'canCreate' | 'canEdit' | 'canDelete') => {
-    if (isAdminRole) return true;
-    const perm = userPermissions.find((p: any) => p.module === 'appointments');
-    return perm?.[action] === true;
-  };
+  const hasAppointmentPermission = useCallback(
+    (action: 'canCreate' | 'canEdit' | 'canDelete') => {
+      if (isAdminRole) return true;
+      const perm = userPermissions.find((p: any) => p.module === 'appointments');
+      return perm?.[action] === true;
+    },
+    [isAdminRole, userPermissions]
+  );
 
   // ── Pre-warm technician list cache ─────────────────────────────────────────
   // This SWR runs as soon as the calendar mounts, so that by the time the user
@@ -83,7 +81,7 @@ export default function Calendar() {
   const { mutate } = useSWRConfig();
 
   // Calendar events with date-range key for the timeline view
-  const { data, isLoading } = useSWR(
+  const { data } = useSWR(
     visibleRange ? `/api/appointments/resources?start=${visibleRange.start.toISOString()}&end=${visibleRange.end.toISOString()}` : null,
     fetcher,
     { revalidateOnFocus: false, dedupingInterval: 10000 }
@@ -106,7 +104,7 @@ export default function Calendar() {
     });
   }, [events, currentView]);
 
-  const handleEventClick = (info: EventClickArg) => {
+  const handleEventClick = useCallback((info: EventClickArg) => {
     const props = info.event.extendedProps as Record<string, any>;
 
     if (props?.type === "booking") {
@@ -178,16 +176,16 @@ export default function Calendar() {
 
     setIsDrag(false);
     setSelectedOldEvent(event);
-    setSelectedEvent(event);
-    setEventEditOpen(true);
-  };
+      setSelectedEvent(event);
+      // setEventEditOpen(true);
+  }, [hasAppointmentPermission]);
 
-  const handleEventChange = (info: EventChangeArg) => {
-    // Logic for updating event (would need API call)
-  };
+  const handleEventChange = useCallback((info: EventChangeArg) => {
+    // Placeholder for future API update logic; kept stable to avoid re-renders
+    void info;
+  }, []);
 
-
-  const handleDateSelect = (info: DateSelectArg) => {
+  const handleDateSelect = useCallback((info: DateSelectArg) => {
     // ── Permission guard ──────────────────────────────────────────────────────
     if (!hasAppointmentPermission('canCreate')) {
       toast.error("You don't have permission to create bookings.");
@@ -218,7 +216,7 @@ export default function Calendar() {
       const key = `/api/users/${info.resource.id}/services`;
       mutate(key, fetcher(key));
     }
-  };
+  }, [currentView, events, hasAppointmentPermission, mutate]);
 
   const [windowWidth, setWindowWidth] = useState(1200);
 
@@ -230,6 +228,27 @@ export default function Calendar() {
   }, []);
 
   const isMobile = windowWidth < 768;
+
+  const headerToolbar = useMemo(
+    () =>
+      isMobile
+        ? {
+            left: 'prev,today,next',
+            center: 'title',
+            right: 'resourceTimelineDay,resourceTimelineWeek,resourceTimelineMonth',
+          }
+        : {
+            left: 'prev,today,next',
+            center: 'title',
+            right: 'resourceTimelineDay,resourceTimelineWeek,resourceTimelineMonth',
+          },
+    [isMobile]
+  );
+
+  const handleDatesSet = useCallback((arg: DatesSetArg) => {
+    setCurrentView(arg.view.type);
+    setVisibleRange({ start: arg.start, end: arg.end });
+  }, []);
 
   return (
     <div className="space-y-5 h-full">
@@ -243,15 +262,7 @@ export default function Calendar() {
             interactionPlugin,
           ]}
           initialView="resourceTimelineDay"
-          headerToolbar={isMobile ? {
-            left: 'prev,today,next',
-            center: 'title',
-            right: 'resourceTimelineDay,resourceTimelineWeek,resourceTimelineMonth'
-          } : {
-            left: 'prev,today,next',
-            center: 'title',
-            right: 'resourceTimelineDay,resourceTimelineWeek,resourceTimelineMonth'
-          }}
+          headerToolbar={headerToolbar}
           resourceAreaWidth={isMobile ? "45%" : "15%"}
           resourceAreaHeaderContent="Technicians"
           resources={resources}
@@ -267,10 +278,7 @@ export default function Calendar() {
           select={handleDateSelect}
           eventClick={handleEventClick}
           eventChange={handleEventChange}
-          datesSet={(arg: DatesSetArg) => {
-            setCurrentView(arg.view.type);
-            setVisibleRange({ start: arg.start, end: arg.end });
-          }}
+          datesSet={handleDatesSet}
           views={{
             resourceTimelineDay: {
               buttonText: 'Day',
@@ -320,17 +328,15 @@ export default function Calendar() {
         />
       )}
 
-      {eventAddOpen && (
-        <AddBookingForm
-          open={eventAddOpen}
-          onOpenChange={setEventAddOpen}
-          initialData={{
-            start: selectedStart,
-            end: selectedEnd,
-            technicianId: selectedTechnicianId
-          }}
-        />
-      )}
+      <AddBookingForm
+        open={eventAddOpen}
+        onOpenChange={setEventAddOpen}
+        initialData={{
+          start: selectedStart,
+          end: selectedEnd,
+          technicianId: selectedTechnicianId
+        }}
+      />
       <style>
         {`
           .fc-datagrid-cell-main{

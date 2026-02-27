@@ -40,8 +40,8 @@ export default async function PublicSiteByPathPage({ params }: PageProps) {
   }
 
   if (template === "templateB") {
-    return <PublicTemplateB company={company} />;
+    return <PublicTemplateB company={company} subdomain={subdomain} />;
   }
 
-  return <PublicTemplateA company={company} />;
+  return <PublicTemplateA company={company} subdomain={subdomain} />;
 }
