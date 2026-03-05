@@ -16,6 +16,8 @@ import { Separator } from "@/components/ui/separator";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger, SheetFooter, SheetClose } from "@/components/ui/sheet";
 import { ServiceDefaults } from "./ServiceDefaults";
 import { Country, State, City } from "country-state-city";
+import { Search, Send, ArrowLeft } from "lucide-react";
+import { EmailEditor } from "@/components/email-builder/EmailEditor";
 
 export default function ContactDetailPage({ params }: { params: Promise<{ id: string }> }) {
     const router = useRouter();
@@ -25,6 +27,11 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
     const [loading, setLoading] = useState(true);
     const [data, setData] = useState<any>(null);
     const [uploading, setUploading] = useState(false);
+    const [emailTemplates, setEmailTemplates] = useState<any[]>([]);
+    const [emailSearch, setEmailSearch] = useState("");
+    const [selectedTemplate, setSelectedTemplate] = useState<any>(null);
+    const [emailDropdownOpen, setEmailDropdownOpen] = useState(false);
+    const [sendingEmail, setSendingEmail] = useState(false);
     const [sameAsBilling, setSameAsBilling] = useState(false);
 
     // Cascading Location Logic - Billing Address
@@ -62,7 +69,48 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
 
     useEffect(() => {
         if (id) fetchContact();
+        fetchEmailTemplates();
     }, [id]);
+
+    async function fetchEmailTemplates() {
+        try {
+            const res = await fetch("/api/email-campaigns");
+            if (res.ok) {
+                const json = await res.json();
+                setEmailTemplates(json.data || []);
+            }
+        } catch (e) {
+            console.error("Failed to load email templates", e);
+        }
+    }
+
+    async function handleSendEmail() {
+        if (!selectedTemplate) { toast.error("Please select an email template"); return; }
+        setSendingEmail(true);
+        try {
+            const res = await fetch("/api/email-campaigns", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    templateId: selectedTemplate._id || selectedTemplate.id,
+                    contactId: id,
+                    email: data.email,
+                }),
+            });
+            if (res.ok) {
+                toast.success(`Email "${selectedTemplate.name}" sent to ${data.email}`);
+                setSelectedTemplate(null);
+                setEmailSearch("");
+            } else {
+                const err = await res.json();
+                toast.error(err.error || "Failed to send email");
+            }
+        } catch (e) {
+            toast.error("Failed to send email");
+        } finally {
+            setSendingEmail(false);
+        }
+    }
 
     async function fetchContact() {
         try {
@@ -290,6 +338,7 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
                                     { value: "booking", label: "Booking Data" },
                                     { value: "service", label: "Service Defaults" },
                                     { value: "shipping", label: "Shipping Addresses" },
+                                    { value: "email", label: "Email" },
                                 ].map((tab) => (
                                     <TabsTrigger
                                         key={tab.value}
@@ -642,6 +691,101 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
                                     )}
                                 </div>
                             </div>
+                        </TabsContent>
+
+                        {/* ── Email Tab ── */}
+                        <TabsContent value="email" className="flex-1 mt-0 overflow-hidden">
+                            {selectedTemplate ? (
+                                /* ─ Inline Email Editor ─ */
+                                <div className="flex flex-col h-full">
+                                    <div className="flex items-center gap-3 px-4 py-2 border-b bg-muted/30 shrink-0">
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            className="flex items-center gap-1 text-muted-foreground hover:text-foreground"
+                                            onClick={() => { setSelectedTemplate(null); setEmailSearch(""); }}
+                                        >
+                                            <ArrowLeft className="h-4 w-4" /> Back
+                                        </Button>
+                                        <span className="text-sm font-medium text-foreground">{selectedTemplate.name}</span>
+                                        <span className="text-xs text-muted-foreground ml-auto">Editing for: {data.email}</span>
+                                    </div>
+                                    <div className="flex-1 overflow-hidden">
+                                        <EmailEditor
+                                            mode="edit"
+                                            initialData={{
+                                                id: selectedTemplate._id || selectedTemplate.id,
+                                                name: selectedTemplate.name,
+                                                subject: selectedTemplate.subject || selectedTemplate.defaultSubject || "",
+                                                content: selectedTemplate.html || selectedTemplate.content || "",
+                                                design: selectedTemplate.design || null
+                                            }}
+                                        />
+                                    </div>
+                                </div>
+                            ) : (
+                                /* ─ Template Selector ─ */
+                                <div className="p-6 max-w-xl space-y-6">
+                                    <div>
+                                        <h3 className="font-semibold text-foreground">Send Email to Contact</h3>
+                                        <p className="text-sm text-muted-foreground mt-1">Select an email template to edit and send to <span className="font-medium text-foreground">{data.email || "this contact"}</span></p>
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <Label>Select Email Template</Label>
+                                        <div className="relative">
+                                            <div
+                                                className="flex items-center gap-2 w-full border rounded-md px-3 py-2 bg-background cursor-pointer hover:border-primary transition-colors"
+                                                onClick={() => setEmailDropdownOpen(!emailDropdownOpen)}
+                                            >
+                                                <Search className="h-4 w-4 text-muted-foreground shrink-0" />
+                                                <input
+                                                    type="text"
+                                                    className="flex-1 bg-transparent outline-none text-sm placeholder:text-muted-foreground"
+                                                    placeholder="Search email templates..."
+                                                    value={emailSearch}
+                                                    onChange={(e) => { setEmailSearch(e.target.value); setEmailDropdownOpen(true); }}
+                                                    onFocus={() => setEmailDropdownOpen(true)}
+                                                />
+                                            </div>
+
+                                            {emailDropdownOpen && (
+                                                <>
+                                                    <div className="fixed inset-0 z-10" onClick={() => setEmailDropdownOpen(false)} />
+                                                    <div className="absolute z-20 w-full mt-1 bg-popover border rounded-md shadow-lg max-h-64 overflow-y-auto">
+                                                        {emailTemplates
+                                                            .filter(t =>
+                                                                !emailSearch ||
+                                                                t.name.toLowerCase().includes(emailSearch.toLowerCase())
+                                                            )
+                                                            .map((template) => (
+                                                                <button
+                                                                    key={template._id || template.id}
+                                                                    type="button"
+                                                                    onClick={() => {
+                                                                        setSelectedTemplate(template);
+                                                                        setEmailSearch("");
+                                                                        setEmailDropdownOpen(false);
+                                                                    }}
+                                                                    className="w-full text-left px-4 py-3 hover:bg-muted transition-colors border-b last:border-0"
+                                                                >
+                                                                    <p className="text-sm font-medium text-foreground">{template.name}</p>
+                                                                </button>
+                                                            ))
+                                                        }
+                                                        {emailTemplates.filter(t =>
+                                                            !emailSearch || t.name.toLowerCase().includes(emailSearch.toLowerCase())
+                                                        ).length === 0 && (
+                                                            <div className="px-4 py-6 text-center text-sm text-muted-foreground">No templates found</div>
+                                                        )}
+                                                    </div>
+                                                </>
+                                            )}
+                                        </div>
+                                    </div>
+                                    {!data.email && <p className="text-xs text-destructive">This contact has no email address.</p>}
+                                </div>
+                            )}
                         </TabsContent>
                     </Tabs>
                 </div>
