@@ -40,10 +40,11 @@ export async function POST(req: NextRequest) {
                 const emailHtml = personalizeEmail(campaign.html, recipientUser);
 
                 await sendMailWithCampaignProvider({
-                    campaignId: campaign._id.toString(),
+                    campaignId: campaign._id?.toString(),
                     to: targetEmail,
                     subject: campaign.subject,
                     html: emailHtml,
+                    companyIdForContext: user.companyId?.toString(),
                 });
 
                 console.log(`[Bulk Send] ✅ Sent to ${targetEmail}`);

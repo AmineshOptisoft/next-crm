@@ -111,6 +111,17 @@ export async function PUT(req: NextRequest, context: Context) {
     return NextResponse.json({ error: "Contact not found" }, { status: 404 });
   }
 
+  // Validate email uniqueness if it is being changed
+  if (email && email !== existingContact.email) {
+    const emailInUse = await User.findOne({ email, _id: { $ne: id } }).lean();
+    if (emailInUse) {
+      return NextResponse.json(
+        { error: "This email address is already in use. Please use a different email." },
+        { status: 400 }
+      );
+    }
+  }
+
   // Prepare update data
   const updateData: any = {
     firstName: firstName || fullName.split(' ')[0],

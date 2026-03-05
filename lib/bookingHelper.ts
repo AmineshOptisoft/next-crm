@@ -34,6 +34,7 @@ export async function sendImmediateCampaign({
             to: targetEmail,
             subject: campaign.subject,
             html: html,
+            companyIdForContext: campaign.companyId?.toString(),
         });
 
         return { success: true };

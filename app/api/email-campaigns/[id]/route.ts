@@ -66,6 +66,14 @@ export async function PATCH(
 
         const isDefaultCampaign = !!existing.isDefault;
 
+        // Default system campaigns are read-only and cannot be modified.
+        if (isDefaultCampaign) {
+            return NextResponse.json(
+                { error: 'Default email campaigns cannot be modified.' },
+                { status: 403 }
+            );
+        }
+
         const update: any = {
             $set: {
                 ...(name && { name }),

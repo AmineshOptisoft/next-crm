@@ -19,9 +19,18 @@ import templates from "@/lib/greenfrog_templates_unlayer_format.json";
 interface EmailEditorComponentProps {
     initialData?: any;
     mode?: "add" | "edit";
+    /**
+     * When true, disables saving and subject editing.
+     * Used for default (read-only) system campaigns.
+     */
+    readOnly?: boolean;
+    /**
+     * Layout style: "full" for standalone pages, "embedded" for nested views.
+     */
+    layout?: "full" | "embedded";
 }
 
-function EmailEditorInner({ initialData, mode = "add" }: EmailEditorComponentProps) {
+function EmailEditorInner({ initialData, mode = "add", readOnly = false, layout = "full" }: EmailEditorComponentProps) {
     const router = useRouter();
     const searchParams = useSearchParams();
     const { resolvedTheme } = useTheme();
@@ -147,8 +156,13 @@ function EmailEditorInner({ initialData, mode = "add" }: EmailEditorComponentPro
         });
     };
 
+    const containerClassName =
+        layout === "embedded"
+            ? "flex flex-col h-full bg-background text-foreground border rounded-md overflow-hidden"
+            : "flex flex-col h-[calc(100vh-140px)] -m-4 bg-background text-foreground";
+
     return (
-        <div className="flex flex-col h-[calc(100vh-140px)] -m-4 bg-background text-foreground">
+        <div className={containerClassName}>
             {/* Builder Top Bar */}
             <div className="border-b border-border bg-background px-6 py-3 flex items-center justify-between shadow-sm z-10">
                 <div className="flex items-center gap-4">
@@ -198,6 +212,7 @@ function EmailEditorInner({ initialData, mode = "add" }: EmailEditorComponentPro
                                 setEmailSubject(e.target.value);
                                 setEmailSubjectError(false);
                             }}
+                            disabled={readOnly}
                             className={emailSubjectError ? "border-red-500" : ""}
                         />
                         {emailSubjectError && <p className="text-[10px] text-red-500 absolute mt-1">Email subject is required</p>}
@@ -212,9 +227,16 @@ function EmailEditorInner({ initialData, mode = "add" }: EmailEditorComponentPro
                         <Eye className="mr-2 h-4 w-4" />
                         Preview
                     </Button>
-                    <Button size="sm" onClick={exportHtml} disabled={loading} className="bg-zinc-900 hover:bg-zinc-800 text-white px-6">
-                        {loading ? "Saving..." : "Save Template"}
-                    </Button>
+                    {!readOnly && (
+                        <Button
+                            size="sm"
+                            onClick={exportHtml}
+                            disabled={loading}
+                            className="bg-zinc-900 hover:bg-zinc-800 text-white px-6"
+                        >
+                            {loading ? "Saving..." : "Save Template"}
+                        </Button>
+                    )}
                 </div>
             </div>
 

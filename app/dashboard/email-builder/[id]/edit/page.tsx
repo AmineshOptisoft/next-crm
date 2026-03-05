@@ -45,5 +45,14 @@ export default function EditEmailBuilderPage() {
         return <div className="flex h-screen items-center justify-center">Loading campaign...</div>;
     }
 
-    return <EmailEditor mode="edit" initialData={initialData} />;
+    const isDefault = !!initialData?.isDefault;
+
+    return (
+        <EmailEditor
+            mode="edit"
+            initialData={initialData}
+            readOnly={isDefault}
+            layout="full"
+        />
+    );
 }

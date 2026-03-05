@@ -25,7 +25,9 @@ export async function POST(req: NextRequest) {
     typeof sourceSubdomainRaw === "string" ? sourceSubdomainRaw.trim().toLowerCase() : "";
 
   const user = await User.findOne({ email })
-    .select("_id passwordHash email role companyId firstName lastName companyName leadSource")
+    .select(
+      "_id passwordHash email role companyId firstName lastName companyName leadSource isVerified"
+    )
     .lean();
   if (!user) {
     return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
@@ -34,6 +36,14 @@ export async function POST(req: NextRequest) {
   const isMatch = await bcrypt.compare(password, user.passwordHash);
   if (!isMatch) {
     return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
+  }
+
+  // Block login for users who haven't verified their email yet
+  if (!user.isVerified) {
+    return NextResponse.json(
+      { error: "Please verify your email before logging in." },
+      { status: 403 }
+    );
   }
 
   // If this login came from a public site URL like /{subdomain},

@@ -18,11 +18,10 @@ import type { AppointmentDetails } from "./appointment-details-sheet";
 import { toast } from "sonner";
 import useSWR, { useSWRConfig } from "swr";
 import dynamic from "next/dynamic";
-import { AddBookingForm } from "./add-booking-form";
 
 const fetcher = (url: string) => fetch(url, { credentials: "include" }).then((res) => res.json());
 
-// Lazy-load only the details / edit modals; AddBookingForm is imported eagerly
+// Lazy-load heavy sheets and modals so the main calendar bundle stays light
 const EventEditForm = dynamic(
   () => import("./event-edit-form").then((m) => m.EventEditForm),
   { ssr: false }
@@ -30,6 +29,17 @@ const EventEditForm = dynamic(
 const AppointmentDetailsSheet = dynamic(
   () => import("./appointment-details-sheet").then((m) => ({ default: m.AppointmentDetailsSheet })),
   { ssr: false, loading: () => <div className="h-0 w-0" aria-hidden /> }
+);
+const AddBookingForm = dynamic(
+  () => import("./add-booking-form").then((m) => m.AddBookingForm),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="fixed inset-y-0 right-0 w-full sm:w-[480px] bg-background border-l flex items-center justify-center z-[120]">
+        <span className="text-sm text-muted-foreground">Loading booking form…</span>
+      </div>
+    ),
+  }
 );
 export default function Calendar() {
   const {
@@ -76,6 +86,14 @@ export default function Calendar() {
   useSWR('/api/appointments/resources', fetcher, {
     revalidateOnFocus: false,
     dedupingInterval: 30_000,
+  });
+
+  // ── Pre-warm promocodes for booking form ───────────────────────────────────
+  // Fetch once per minute in the background so opening the AddBookingForm
+  // does not need to wait on /api/promocodes.
+  useSWR('/api/promocodes', fetcher, {
+    revalidateOnFocus: false,
+    dedupingInterval: 60_000,
   });
 
   const { mutate } = useSWRConfig();
@@ -211,10 +229,20 @@ export default function Calendar() {
     setSelectedEnd(info.end);
     setSelectedTechnicianId(info.resource?.id);
     setEventAddOpen(true);
-    // Prefetch services for this technician so AddBookingForm finds data ready when it mounts
+
+    // Prefetch services for this technician with a single shared request.
+    // The result is stored in SWR's cache so that AddBookingForm can read it
+    // immediately without triggering an extra network call on mount.
     if (info.resource?.id) {
       const key = `/api/users/${info.resource.id}/services`;
-      mutate(key, fetcher(key));
+      mutate(
+        key,
+        fetcher(key),
+        {
+          revalidate: false,
+          populateCache: true,
+        }
+      );
     }
   }, [currentView, events, hasAppointmentPermission, mutate]);
 
@@ -328,15 +356,19 @@ export default function Calendar() {
         />
       )}
 
-      <AddBookingForm
-        open={eventAddOpen}
-        onOpenChange={setEventAddOpen}
-        initialData={{
-          start: selectedStart,
-          end: selectedEnd,
-          technicianId: selectedTechnicianId
-        }}
-      />
+      {eventAddOpen && (
+        <AddBookingForm
+          open={eventAddOpen}
+          onOpenChange={setEventAddOpen}
+          initialData={{
+            start: selectedStart,
+            end: selectedEnd,
+            technicianId: selectedTechnicianId
+          }}
+          technicians={resources}
+          calendarEvents={events}
+        />
+      )}
       <style>
         {`
           .fc-datagrid-cell-main{

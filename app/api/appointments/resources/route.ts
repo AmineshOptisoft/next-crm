@@ -43,6 +43,7 @@ const TIME_CACHE = new Map<string, number>();
 // ─── GET handler ──────────────────────────────────────────────────────────────
 
 export async function GET(req: NextRequest) {
+    const startedAt = Date.now();
     try {
         // 1. Auth + URL parsing (no DB yet)
         const user = await getCurrentUser();
@@ -375,10 +376,14 @@ export async function GET(req: NextRequest) {
             };
         });
 
-        return NextResponse.json({
+        const durationMs = Date.now() - startedAt;
+        const response = NextResponse.json({
             resources,
             events: [...availabilityEvents, ...bookingEvents, ...timeOffEvents],
         });
+        response.headers.set("X-Execution-Time-ms", durationMs.toString());
+        console.log("[GET /api/appointments/resources]", durationMs, "ms");
+        return response;
 
     } catch (error: any) {
         console.error("Error fetching appointment resources:", error);

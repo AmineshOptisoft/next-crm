@@ -9,6 +9,7 @@ export async function GET(
     req: NextRequest,
     { params }: { params: Promise<{ id: string }> }
 ) {
+    const startedAt = Date.now();
     try {
         const user = await getCurrentUser();
         if (!user || !user.companyId) {
@@ -72,7 +73,11 @@ export async function GET(
             addons: byParent[main._id.toString()]?.addon ?? [],
         }));
 
-        return NextResponse.json(servicesWithHierarchy);
+        const durationMs = Date.now() - startedAt;
+        const response = NextResponse.json(servicesWithHierarchy);
+        response.headers.set("X-Execution-Time-ms", durationMs.toString());
+        console.log("[GET /api/users/[id]/services]", durationMs, "ms");
+        return response;
     } catch (error: any) {
         console.error("Error fetching technician services:", error);
         return NextResponse.json(

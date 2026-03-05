@@ -3,6 +3,7 @@ import { connectDB } from "@/lib/db";
 import { User } from "@/app/models/User";
 
 export async function GET(request: Request) {
+    const startedAt = Date.now();
     try {
         await connectDB();
 
@@ -21,10 +22,14 @@ export async function GET(request: Request) {
             .select("_id")
             .lean();
 
-        return NextResponse.json({
+        const durationMs = Date.now() - startedAt;
+        const response = NextResponse.json({
             exists: !!existingUser,
             email: email
         });
+        response.headers.set("X-Execution-Time-ms", durationMs.toString());
+        console.log("[GET /api/users/check-email]", durationMs, "ms");
+        return response;
     } catch (error: any) {
         console.error("Error checking email:", error);
         return NextResponse.json(

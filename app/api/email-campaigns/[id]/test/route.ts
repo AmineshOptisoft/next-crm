@@ -49,7 +49,8 @@ export async function POST(
             campaignId: id,
             to: testEmail,
             subject: `[TEST] ${campaign.subject}`,
-            html: html
+            html: html,
+            companyIdForContext: user.companyId?.toString(),
         });
 
         return NextResponse.json({ success: true, message: "Test email sent successfully" });

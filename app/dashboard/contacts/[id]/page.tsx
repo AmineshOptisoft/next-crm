@@ -27,6 +27,13 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
     const [uploading, setUploading] = useState(false);
     const [sameAsBilling, setSameAsBilling] = useState(false);
 
+    // Email campaigns for this contact (Email tab)
+    const [emailCampaigns, setEmailCampaigns] = useState<any[]>([]);
+    const [campaignsLoading, setCampaignsLoading] = useState(false);
+    const [selectedCampaign, setSelectedCampaign] = useState<any | null>(null);
+    const [selectedCampaignLoading, setSelectedCampaignLoading] = useState(false);
+    const [sendingEmail, setSendingEmail] = useState(false);
+
     // Cascading Location Logic - Billing Address
     const countries = Country.getAllCountries();
     const billingSelectedCountry = countries.find((c) => c.name === data?.billingAddress?.country);
@@ -90,6 +97,79 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
             toast.error("Error loading contact");
         } finally {
             setLoading(false);
+        }
+    }
+
+    useEffect(() => {
+        const fetchEmailCampaigns = async () => {
+            try {
+                setCampaignsLoading(true);
+                const res = await fetch("/api/email-campaigns");
+                const json = await res.json();
+                if (json.success) {
+                    setEmailCampaigns(json.data || []);
+                }
+            } catch (error) {
+                console.error("Failed to load email campaigns:", error);
+            } finally {
+                setCampaignsLoading(false);
+            }
+        };
+
+        fetchEmailCampaigns();
+    }, []);
+
+    async function handleSelectCampaign(campaign: any) {
+        try {
+            setSelectedCampaignLoading(true);
+            const res = await fetch(`/api/email-campaigns/${campaign._id}`);
+            const json = await res.json();
+            if (json.success) {
+                setSelectedCampaign(json.data);
+            } else {
+                toast.error(json.error || "Failed to load email campaign");
+            }
+        } catch (error) {
+            console.error("Failed to load email campaign:", error);
+            toast.error("Failed to load email campaign");
+        } finally {
+            setSelectedCampaignLoading(false);
+        }
+    }
+
+    async function handleSendSelectedCampaign() {
+        if (!selectedCampaign) {
+            toast.error("Please select an email campaign first");
+            return;
+        }
+        if (!data?.email) {
+            toast.error("This contact does not have an email address");
+            return;
+        }
+
+        try {
+            setSendingEmail(true);
+            const res = await fetch("/api/campaigns/bulk-send", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    campaignId: selectedCampaign._id,
+                    emails: [data.email],
+                }),
+            });
+            const json = await res.json();
+
+            if (!res.ok || !json.success) {
+                toast.error(json.error || "Failed to send email");
+                return;
+            }
+
+            toast.success("Email sent to contact");
+        } catch (error) {
+            console.error("Failed to send email campaign:", error);
+            toast.error("Failed to send email");
+        } finally {
+            setSendingEmail(false);
         }
     }
 
@@ -290,6 +370,7 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
                                     { value: "booking", label: "Booking Data" },
                                     { value: "service", label: "Service Defaults" },
                                     { value: "shipping", label: "Shipping Addresses" },
+                                    { value: "email", label: "Email" },
                                 ].map((tab) => (
                                     <TabsTrigger
                                         key={tab.value}
@@ -306,7 +387,7 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
                         <TabsContent value="billing" className="flex-1 overflow-y-auto p-6 mt-0">
                             <div className="space-y-5">
                                 <h3 className="font-semibold text-foreground">Billing Address</h3>
-                                <div className="grid grid-cols-3 gap-4">
+                                <div className="grid grid-cols-2 gap-4">
                                     <div className="space-y-1">
                                         <Label>Street Address</Label>
                                         <Input value={data.billingAddress?.street || ""} onChange={(e) => updateBillingField("street", e.target.value)} />
@@ -354,7 +435,7 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
                                     </div>
                                 </div>
 
-                                <div className="flex items-center space-x-2 pt-2">
+                                <div className="flex items-center space-x-2 pt-2 w-full">
                                     <Checkbox id="same-as-billing" checked={sameAsBilling} onCheckedChange={handleSameAsBillingToggle} />
                                     <Label htmlFor="same-as-billing" className="text-sm cursor-pointer">Shipping address same as billing</Label>
                                 </div>
@@ -362,14 +443,14 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
                                 <Separator />
 
                                 <h3 className="font-semibold text-foreground">Shipping Address</h3>
-                                <div className="space-y-1 max-w-xs">
+                                <div className="space-y-1 w-full">
                                     <Label>Select Default Shipping Address</Label>
                                     <Select>
                                         <SelectTrigger className="w-full"><SelectValue placeholder="Select Default Shipping Address" /></SelectTrigger>
-                                        <SelectContent><SelectItem value="default">Default</SelectItem></SelectContent>
+                                        <SelectContent className="z-[150] w-full" position="popper"><SelectItem value="default">Default</SelectItem></SelectContent>
                                     </Select>
                                 </div>
-                                <div className="grid grid-cols-3 gap-4">
+                                <div className="grid grid-cols-2 gap-4">
                                     <div className="space-y-1">
                                         <Label>Street Address</Label>
                                         <Input value={data.shippingAddress?.street || ""} onChange={(e) => setData({ ...data, shippingAddress: { ...data.shippingAddress, street: e.target.value } })} disabled={sameAsBilling} />
@@ -379,7 +460,7 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
                                         <Input value={data.shippingAddress?.zipCode || ""} onChange={(e) => setData({ ...data, shippingAddress: { ...data.shippingAddress, zipCode: e.target.value } })} disabled={sameAsBilling} />
                                     </div>
                                 </div>
-                                <div className="grid grid-cols-3 gap-4">
+                                <div className="grid grid-cols-2 gap-4">
                                     <div className="space-y-1">
                                         <Label>Country</Label>
                                         <Select value={data.shippingAddress?.country} onValueChange={(v) => setData({ ...data, shippingAddress: { ...data.shippingAddress, country: v, state: "", city: "" } })} disabled={sameAsBilling}>
@@ -403,7 +484,7 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
                                         </Select>
                                     </div>
                                 </div>
-                                <div className="grid grid-cols-3 gap-4">
+                                <div className="grid grid-cols-2 gap-4">
                                     <div className="space-y-1">
                                         <Label>City</Label>
                                         <Select value={data.shippingAddress?.city} onValueChange={(v) => setData({ ...data, shippingAddress: { ...data.shippingAddress, city: v } })} disabled={sameAsBilling || !shippingStateCode}>
@@ -423,24 +504,24 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
                         <TabsContent value="booking" className="flex-1 overflow-y-auto p-6 mt-0">
                             <div className="space-y-4">
                                 <h3 className="font-semibold text-foreground">Booking Information</h3>
-                                <div className="grid grid-cols-3 gap-4">
+                                <div className="grid grid-cols-2 gap-4">
                                     <div className="space-y-1">
                                         <Label>Default Payment Method</Label>
                                         <Select value={data.defaultPaymentMethod} onValueChange={v => setData({ ...data, defaultPaymentMethod: v })}>
                                             <SelectTrigger className="w-full"><SelectValue placeholder="Select" /></SelectTrigger>
-                                            <SelectContent>
+                                            <SelectContent className="z-[150]" position="popper">
                                                 <SelectItem value="Fattmerchant">Fattmerchant</SelectItem>
                                                 <SelectItem value="Stripe">Stripe</SelectItem>
                                                 <SelectItem value="Cash">Cash</SelectItem>
                                             </SelectContent>
                                         </Select>
                                     </div>
-                                    <div className="space-y-1">
+                                    <div className="space-y-1 w-full">
                                         <Label>Billed Amount</Label>
                                         <Input value={data.billedAmount || ""} onChange={(e) => setData({ ...data, billedAmount: e.target.value })} />
                                     </div>
                                 </div>
-                                <div className="grid grid-cols-4 gap-4">
+                                <div className="grid grid-cols-2 gap-4">
                                     <div className="space-y-1">
                                         <Label>Bathrooms</Label>
                                         <Input value={data.bathrooms || ""} onChange={(e) => setData({ ...data, bathrooms: e.target.value })} />
@@ -450,7 +531,7 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
                                         <Input value={data.bedrooms || ""} onChange={(e) => setData({ ...data, bedrooms: e.target.value })} />
                                     </div>
                                 </div>
-                                <div className="grid grid-cols-4 gap-4">
+                                <div className="grid grid-cols-2 gap-4">
                                     <div className="space-y-1">
                                         <Label>Billed Hours (HH:mm)</Label>
                                         <Input value={data.billedHours || ""} onChange={(e) => setData({ ...data, billedHours: e.target.value })} />
@@ -639,6 +720,105 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
                                     ))}
                                     {(!data.shippingAddresses || data.shippingAddresses.length === 0) && (
                                         <div className="text-center text-muted-foreground text-sm py-8">No shipping addresses added yet</div>
+                                    )}
+                                </div>
+                            </div>
+                        </TabsContent>
+
+                        {/* ── Email Tab ── */}
+                        <TabsContent value="email" className="flex-1 overflow-hidden p-6 mt-0">
+                            <div className="flex flex-col h-full gap-4">
+                                <div className="space-y-2 max-w-full">
+                                    <h3 className="font-semibold text-sm">Send Email to Contact</h3>
+                                    <p className="text-xs text-muted-foreground">
+                                        Select an email campaign to open and customize it for{" "}
+                                        <span className="font-medium">{data.firstName} {data.lastName}</span>.
+                                    </p>
+                                    <Label className="text-xs">Select Email Campaign</Label>
+                                    <Select
+                                        onValueChange={(id) => {
+                                            const campaign = emailCampaigns.find((c: any) => c._id === id);
+                                            if (campaign) {
+                                                handleSelectCampaign(campaign);
+                                            }
+                                        }}
+                                    >
+                                        <SelectTrigger className="w-full">
+                                            <SelectValue placeholder={campaignsLoading ? "Loading campaigns..." : "Choose campaign"} />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {emailCampaigns.map((campaign) => (
+                                                <SelectItem key={campaign._id} value={campaign._id}>
+                                                    {campaign.name} {campaign.isDefault ? "(Default)" : ""}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+
+                                <div className="flex-1 min-w-0 flex flex-col mt-4">
+                                    {!selectedCampaign && (
+                                        <div className="h-full border border-dashed rounded-lg flex items-center justify-center text-sm text-muted-foreground">
+                                            After selecting a campaign from the dropdown, it will open here.
+                                        </div>
+                                    )}
+                                    {selectedCampaign && (
+                                        <div className="flex-1 flex flex-col gap-3 min-h-[400px]">
+                                            <div className="flex items-center justify-between gap-3">
+                                                <div>
+                                                    <h3 className="font-semibold text-sm">
+                                                        {selectedCampaign.name}
+                                                    </h3>
+                                                    <p className="text-xs text-muted-foreground">
+                                                        Subject: {selectedCampaign.subject}
+                                                    </p>
+                                                </div>
+                                                <div className="flex flex-col items-end gap-2">
+                                                    {selectedCampaign.isDefault && (
+                                                        <p className="text-xs text-amber-500 font-medium">
+                                                            This is a default campaign and cannot be edited.
+                                                        </p>
+                                                    )}
+                                                    <div className="flex gap-2">
+                                                        {!selectedCampaign.isDefault && (
+                                                            <Button
+                                                                variant="outline"
+                                                                size="sm"
+                                                                onClick={() => router.push(`/dashboard/email-builder/${selectedCampaign._id}/edit`)}
+                                                            >
+                                                                Edit Campaign
+                                                            </Button>
+                                                        )}
+                                                        <Button
+                                                            size="sm"
+                                                            onClick={handleSendSelectedCampaign}
+                                                            disabled={sendingEmail || !data?.email}
+                                                        >
+                                                            {sendingEmail ? "Sending..." : "Send Email"}
+                                                        </Button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            {selectedCampaignLoading ? (
+                                                <div className="flex-1 border rounded-lg flex items-center justify-center text-sm text-muted-foreground">
+                                                    Loading email preview...
+                                                </div>
+                                            ) : (
+                                                <div className="flex-1 min-h-[400px] border rounded-lg bg-background overflow-auto p-4">
+                                                    {selectedCampaign.html ? (
+                                                        <div
+                                                            className="prose max-w-none"
+                                                            // eslint-disable-next-line react/no-danger
+                                                            dangerouslySetInnerHTML={{ __html: selectedCampaign.html }}
+                                                        />
+                                                    ) : (
+                                                        <div className="text-sm text-muted-foreground">
+                                                            This campaign does not have any HTML content yet.
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </div>
                                     )}
                                 </div>
                             </div>

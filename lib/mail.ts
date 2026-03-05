@@ -64,10 +64,10 @@ export function personalizeEmail(html: string, user: any, bookingData?: any): st
   if (bookingData) {
     const params = new URLSearchParams();
     if (bookingData.bookingId) params.append('bookingId', bookingData.bookingId);
-    if (user._id) params.append('userId', user._id.toString());
+    if (user._id) params.append('userId', user._id?.toString());
     if (bookingData.campaignId) params.append('campaignId', bookingData.campaignId);
     
-    const queryString = params.toString();
+    const queryString = params?.toString();
     if (queryString) {
       confirmUrl += `?${queryString}`;
       cancelUrl += `?${queryString}`;
@@ -138,12 +138,31 @@ export function personalizeEmail(html: string, user: any, bookingData?: any): st
 }
 
 /**
- * Get internal company ID from a campaign
+ * Get internal company ID from a campaign.
+ *
+ * If the campaign is a default system campaign (isDefault: true) and a
+ * contextCompanyId is provided (eg. the logged-in user's company), we
+ * prefer that companyId so the email is sent using the caller's
+ * provider instead of the default campaign owner.
  */
-async function getCompanyIdFromCampaign(campaignId: string): Promise<string> {
+async function getCompanyIdFromCampaign(
+  campaignId: string,
+  contextCompanyId?: string
+): Promise<string> {
   const campaign = await EmailCampaign.findById(campaignId);
   if (!campaign) throw new Error("CampaignId is incorrect or campaign not found");
-  return campaign.companyId.toString();
+
+  // When using a default/global campaign, send using the login user's
+  // provider (context company) if supplied.
+  if ((campaign as any).isDefault && contextCompanyId) {
+    return contextCompanyId;
+  }
+
+  const companyId = campaign.companyId?.toString() || contextCompanyId;
+  if (!companyId) {
+    throw new Error("No company context available for this campaign");
+  }
+  return companyId;
 }
 
 /**
@@ -275,8 +294,11 @@ export async function getCompanyTransporter(companyId: string): Promise<any> {
 /**
  * Get mail transporter using campaignId
  */
-export async function getMailTransporter(campaignId: string) {
-  const companyId = await getCompanyIdFromCampaign(campaignId);
+export async function getMailTransporter(
+  campaignId: string,
+  contextCompanyId?: string
+) {
+  const companyId = await getCompanyIdFromCampaign(campaignId, contextCompanyId);
   return getCompanyTransporter(companyId);
 }
 
@@ -306,8 +328,11 @@ export async function getCompanyFromEmail(companyId: string): Promise<string> {
 /**
  * Get FROM email using campaignId
  */
-export async function getFromEmail(campaignId: string): Promise<string> {
-  const companyId = await getCompanyIdFromCampaign(campaignId);
+export async function getFromEmail(
+  campaignId: string,
+  contextCompanyId?: string
+): Promise<string> {
+  const companyId = await getCompanyIdFromCampaign(campaignId, contextCompanyId);
   return getCompanyFromEmail(companyId);
 }
 
@@ -333,8 +358,11 @@ export async function getCompanyFromName(companyId: string): Promise<string> {
 /**
  * Get FROM name using campaignId
  */
-export async function getFromName(campaignId: string): Promise<string> {
-  const companyId = await getCompanyIdFromCampaign(campaignId);
+export async function getFromName(
+  campaignId: string,
+  contextCompanyId?: string
+): Promise<string> {
+  const companyId = await getCompanyIdFromCampaign(campaignId, contextCompanyId);
   return getCompanyFromName(companyId);
 }
 
@@ -373,28 +401,37 @@ export async function sendMailWithCompanyProvider({
 }
 
 /**
- * Universal mail sender function using campaignId
+ * Universal mail sender function using campaignId.
+ *
+ * If the underlying email campaign is marked as default (isDefault: true),
+ * and companyIdForContext is provided, the email will be sent using the
+ * logged-in user's company mail provider instead of the default owner.
  */
 export async function sendMailWithCampaignProvider({
   campaignId,
   to,
   subject,
   html,
+  companyIdForContext,
 }: {
   campaignId: string;
   to: string;
   subject: string;
   html: string;
+  companyIdForContext?: string;
 }) {
-  const companyId = await getCompanyIdFromCampaign(campaignId);
+  const companyId = await getCompanyIdFromCampaign(campaignId, companyIdForContext);
   return sendMailWithCompanyProvider({ companyId, to, subject, html });
 }
 
 /**
  * Get provider type using campaignId
  */
-export async function getMailProviderType(campaignId: string): Promise<string> {
-  const companyId = await getCompanyIdFromCampaign(campaignId);
+export async function getMailProviderType(
+  campaignId: string,
+  contextCompanyId?: string
+): Promise<string> {
+  const companyId = await getCompanyIdFromCampaign(campaignId, contextCompanyId);
   const company = await Company.findById(companyId);
   return company?.mailConfig?.provider || "unknown";
 }
