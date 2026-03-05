@@ -1120,11 +1120,13 @@ export function AddBookingForm({ open, onOpenChange, initialData }: AddBookingFo
                                         </SelectTrigger>
                                         <SelectContent className="z-[150]" position="popper">
                                             <SelectItem value="none">None</SelectItem>
-                                            {promocodes.filter((p) => p.limit === -1).map((promo) => (
-                                                <SelectItem key={promo._id} value={promo.code}>
-                                                    {promo.code} - {promo.type === 'percentage' ? `${promo.value}%` : `$${promo.value}`}
-                                                </SelectItem>
-                                            ))}
+                                            {promocodes
+                                                .filter((p) => p.limit === -1 || p.limit > 0)
+                                                .map((promo) => (
+                                                    <SelectItem key={promo._id} value={promo.code}>
+                                                        {promo.code} - {promo.type === 'percentage' ? `${promo.value}%` : `$${promo.value}`}
+                                                    </SelectItem>
+                                                ))}
                                         </SelectContent>
                                     </Select>
                                 </div>
