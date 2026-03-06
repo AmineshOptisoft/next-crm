@@ -14,6 +14,7 @@ import {
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Save, Info } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { toast } from "sonner";
 
 const DAYS = [
     "Monday",
@@ -78,14 +79,14 @@ export function CompanyAvailability() {
             });
 
             if (response.ok) {
-                alert("Master availability updated successfully!");
+                toast.success("Master availability updated successfully!");
             } else {
                 const error = await response.json();
-                alert(error.error || "Failed to update availability");
+                toast.error(error.error || "Failed to update availability");
             }
         } catch (error) {
             console.error("Error saving master availability:", error);
-            alert("Error saving availability");
+            toast.error("Error saving availability");
         } finally {
             setSaving(false);
         }

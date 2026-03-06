@@ -8,9 +8,17 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { CheckCircle, CreditCard, Pencil, Trash2, XCircle, FileText, DollarSign, Archive } from "lucide-react";
+import { CheckCircle, CreditCard, Pencil, Trash2, XCircle, FileText, DollarSign, Archive, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import dynamic from "next/dynamic";
@@ -104,12 +112,15 @@ export function AppointmentDetailsSheet({
 
   const [editBookingOpen, setEditBookingOpen] = useState(false);
   const [isBillingModalOpen, setIsBillingModalOpen] = useState(false);
-  const [loading, setLoading] = useState(false);
+  /** Tracks which button's action is in progress; loader shows only on that button */
+  const [loadingAction, setLoadingAction] = useState<string | null>(null);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const router = useRouter();
+  const isLoading = loadingAction !== null;
 
   const handleStatusUpdate = async (newStatus: string) => {
     try {
-      setLoading(true);
+      setLoadingAction(newStatus);
       const res = await fetch(`/api/bookings/${appointment.bookingId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -126,15 +137,13 @@ export function AppointmentDetailsSheet({
       console.error(error);
       toast.error("Failed to update status");
     } finally {
-      setLoading(false);
+      setLoadingAction(null);
     }
   };
 
   const handleDelete = async () => {
-    if (!confirm("Are you sure you want to delete this booking?")) return;
-
     try {
-      setLoading(true);
+      setLoadingAction("delete");
       const res = await fetch(`/api/bookings/${appointment.bookingId}`, {
         method: "DELETE",
       });
@@ -149,7 +158,7 @@ export function AppointmentDetailsSheet({
       console.error(error);
       toast.error("Failed to delete booking");
     } finally {
-      setLoading(false);
+      setLoadingAction(null);
     }
   };
 
@@ -276,7 +285,7 @@ export function AppointmentDetailsSheet({
                   variant="outline"
                   className="min-w-[120px]"
                   onClick={() => setIsBillingModalOpen(true)}
-                  disabled={loading}
+                  disabled={isLoading}
                 >
                   <FileText className="h-4 w-4 mr-2" />
                   Bill client
@@ -290,18 +299,18 @@ export function AppointmentDetailsSheet({
                   variant="default"
                   className="min-w-[120px] bg-green-600 hover:bg-green-700"
                   onClick={() => handleStatusUpdate("confirmed")}
-                  disabled={loading}
+                  disabled={isLoading}
                 >
-                  <CheckCircle className="h-4 w-4 mr-2" />
+                  {loadingAction === "confirmed" ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <CheckCircle className="h-4 w-4 mr-2" />}
                   Confirm
                 </Button>
                 <Button
                   variant="destructive"
                   className="min-w-[120px]"
                   onClick={() => handleStatusUpdate("rejected")}
-                  disabled={loading}
+                  disabled={isLoading}
                 >
-                  <XCircle className="h-4 w-4 mr-2" />
+                  {loadingAction === "rejected" ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <XCircle className="h-4 w-4 mr-2" />}
                   Reject
                 </Button>
               </>
@@ -314,18 +323,18 @@ export function AppointmentDetailsSheet({
                   variant="secondary"
                   className="min-w-[120px]"
                   onClick={() => handleStatusUpdate("completed")}
-                  disabled={loading}
+                  disabled={isLoading}
                 >
-                  <CheckCircle className="h-4 w-4 mr-2" />
+                  {loadingAction === "completed" ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <CheckCircle className="h-4 w-4 mr-2" />}
                   Complete
                 </Button>
                 <Button
                   variant="destructive"
                   className="min-w-[120px]"
                   onClick={() => handleStatusUpdate("cancelled")}
-                  disabled={loading}
+                  disabled={isLoading}
                 >
-                  <XCircle className="h-4 w-4 mr-2" />
+                  {loadingAction === "cancelled" ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <XCircle className="h-4 w-4 mr-2" />}
                   Cancel
                 </Button>
               </>
@@ -336,10 +345,10 @@ export function AppointmentDetailsSheet({
               <Button
                 variant="outline"
                 className="min-w-[120px]"
-                onClick={() => handleStatusUpdate("confirmed")} // Reopen? or just show label
-                disabled={loading}
+                onClick={() => handleStatusUpdate("confirmed")}
+                disabled={isLoading}
               >
-                <XCircle className="h-4 w-4 mr-2" />
+                {loadingAction === "confirmed" ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <XCircle className="h-4 w-4 mr-2" />}
                 Re-open
               </Button>
             )}
@@ -349,8 +358,8 @@ export function AppointmentDetailsSheet({
               <Button
                 variant="destructive"
                 className="min-w-[120px]"
-                onClick={handleDelete}
-                disabled={loading}
+                onClick={() => setIsDeleteDialogOpen(true)}
+                disabled={isLoading}
               >
                 <Trash2 className="h-4 w-4 mr-2" />
                 Delete Permanently
@@ -364,18 +373,18 @@ export function AppointmentDetailsSheet({
                   variant="default"
                   className="min-w-[120px] bg-green-600 hover:bg-green-700"
                   onClick={() => handleStatusUpdate("paid")}
-                  disabled={loading}
+                  disabled={isLoading}
                 >
-                  <DollarSign className="h-4 w-4 mr-2" />
+                  {loadingAction === "paid" ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <DollarSign className="h-4 w-4 mr-2" />}
                   Payment Confirmed
                 </Button>
                 <Button
                   variant="outline"
                   className="min-w-[120px]"
                   onClick={() => handleStatusUpdate("confirmed")}
-                  disabled={loading}
+                  disabled={isLoading}
                 >
-                  <XCircle className="h-4 w-4 mr-2" />
+                  {loadingAction === "confirmed" ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <XCircle className="h-4 w-4 mr-2" />}
                   Undo Invoice
                 </Button>
               </>
@@ -388,9 +397,9 @@ export function AppointmentDetailsSheet({
                   variant="default"
                   className="min-w-[120px] bg-gray-600 hover:bg-gray-700"
                   onClick={() => handleStatusUpdate("closed")}
-                  disabled={loading}
+                  disabled={isLoading}
                 >
-                  <Archive className="h-4 w-4 mr-2" />
+                  {loadingAction === "closed" ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Archive className="h-4 w-4 mr-2" />}
                   Close Booking
                 </Button>
               </>
@@ -401,8 +410,8 @@ export function AppointmentDetailsSheet({
               <Button
                 variant="destructive"
                 className="min-w-[120px]"
-                onClick={handleDelete}
-                disabled={loading}
+                onClick={() => setIsDeleteDialogOpen(true)}
+                disabled={isLoading}
               >
                 <Trash2 className="h-4 w-4 mr-2" />
                 Delete Permanently
@@ -428,6 +437,39 @@ export function AppointmentDetailsSheet({
           bookingId={appointment.bookingId as string}
         />
       )}
+
+      <Dialog open={isDeleteDialogOpen} onOpenChange={(open) => !isLoading && setIsDeleteDialogOpen(open)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete booking</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete this booking? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setIsDeleteDialogOpen(false)}
+              disabled={isLoading}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                setIsDeleteDialogOpen(false);
+                handleDelete();
+              }}
+              disabled={isLoading}
+            >
+              {loadingAction === "delete" && (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              )}
+              Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Sheet>
   );
 }

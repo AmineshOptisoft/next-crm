@@ -10,15 +10,19 @@ import {
   Bell,
   Palette,
   Wrench,
-  UserCog,
+  Lock,
 } from "lucide-react";
 
 const sidebarNavItems = [
- 
   {
     title: "Account",
     href: "/dashboard/settings/account",
     icon: Wrench,
+  },
+  {
+    title: "Security",
+    href: "/dashboard/settings/security",
+    icon: Lock,
   },
   {
     title: "Appearance",

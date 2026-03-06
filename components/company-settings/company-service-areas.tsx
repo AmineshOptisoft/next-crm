@@ -23,6 +23,15 @@ import {
     SheetTitle,
     SheetTrigger,
 } from "@/components/ui/sheet";
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog";
+import { toast } from "sonner";
 
 interface ServiceArea {
     _id: string;
@@ -34,6 +43,8 @@ export function CompanyServiceAreas() {
     const [isSheetOpen, setIsSheetOpen] = useState(false);
     const [editingArea, setEditingArea] = useState<ServiceArea | null>(null);
     const [formData, setFormData] = useState({ name: "" });
+    const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+    const [areaToDelete, setAreaToDelete] = useState<string | null>(null);
 
     useEffect(() => {
         fetchServiceAreas();
@@ -53,7 +64,7 @@ export function CompanyServiceAreas() {
 
     const handleSubmit = async () => {
         if (!formData.name.trim()) {
-            alert("Please enter a service area name");
+            toast.error("Please enter a service area name");
             return;
         }
 
@@ -74,18 +85,18 @@ export function CompanyServiceAreas() {
                 setFormData({ name: "" });
                 setEditingArea(null);
                 fetchServiceAreas();
-                alert(
+                toast.success(
                     editingArea
                         ? "Service area updated successfully!"
                         : "Service area added successfully!"
                 );
             } else {
                 const error = await response.json();
-                alert(error.error || "Failed to save service area");
+                toast.error(error.error || "Failed to save service area");
             }
         } catch (error) {
             console.error("Error saving service area:", error);
-            alert("Error saving service area");
+            toast.error("Error saving service area");
         }
     };
 
@@ -95,24 +106,30 @@ export function CompanyServiceAreas() {
         setIsSheetOpen(true);
     };
 
-    const handleDelete = async (id: string) => {
-        if (!confirm("Are you sure you want to delete this service area?")) return;
+    const openDeleteConfirm = (id: string) => {
+        setAreaToDelete(id);
+        setDeleteConfirmOpen(true);
+    };
 
+    const handleDelete = async () => {
+        if (!areaToDelete) return;
         try {
-            const response = await fetch(`/api/service-areas/${id}`, {
+            const response = await fetch(`/api/service-areas/${areaToDelete}`, {
                 method: "DELETE",
             });
 
             if (response.ok) {
+                setDeleteConfirmOpen(false);
+                setAreaToDelete(null);
                 fetchServiceAreas();
-                alert("Service area deleted successfully!");
+                toast.success("Service area deleted successfully!");
             } else {
                 const error = await response.json();
-                alert(error.error || "Failed to delete service area");
+                toast.error(error.error || "Failed to delete service area");
             }
         } catch (error) {
             console.error("Error deleting service area:", error);
-            alert("Error deleting service area");
+            toast.error("Error deleting service area");
         }
     };
 
@@ -224,7 +241,7 @@ export function CompanyServiceAreas() {
                                                 variant="ghost"
                                                 size="sm"
                                                 className="text-destructive hover:text-destructive/90 hover:bg-destructive/10"
-                                                onClick={() => handleDelete(area._id)}
+                                                onClick={() => openDeleteConfirm(area._id)}
                                             >
                                                 <Trash2 className="h-4 w-4" />
                                             </Button>
@@ -236,6 +253,25 @@ export function CompanyServiceAreas() {
                     </Table>
                 )}
             </CardContent>
+
+            <Dialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle>Delete service area</DialogTitle>
+                        <DialogDescription>
+                            Are you sure you want to delete this service area? This action cannot be undone.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter className="gap-2 sm:gap-0">
+                        <Button variant="outline" onClick={() => setDeleteConfirmOpen(false)}>
+                            Cancel
+                        </Button>
+                        <Button variant="destructive" onClick={handleDelete}>
+                            Delete
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </Card>
     );
 }

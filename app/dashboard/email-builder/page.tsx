@@ -29,6 +29,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import {
     Dialog,
     DialogContent,
+    DialogDescription,
     DialogHeader,
     DialogTitle,
     DialogFooter,
@@ -48,7 +49,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
-import { Clock, Bell } from "lucide-react";
+import { Clock, Bell, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { usePermissions } from "@/hooks/usePermissions";
 
@@ -88,7 +89,10 @@ export default function EmailBuilderListPage() {
         booking_date: new Date().toLocaleDateString()
     });
     const [isSendingTest, setIsSendingTest] = useState(false);
+    const [isSavingReminders, setIsSavingReminders] = useState(false);
     const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
+    const [deleteCampaignId, setDeleteCampaignId] = useState<string | null>(null);
+    const [isDeletingCampaign, setIsDeletingCampaign] = useState(false);
 
     const [reminders, setReminders] = useState([
         { id: 1, label: "First", unit: "Hours", value: "6", enabled: true },
@@ -146,6 +150,7 @@ export default function EmailBuilderListPage() {
         if (!selectedEmailForReminder) return;
 
         try {
+            setIsSavingReminders(true);
             // Check if any reminder is enabled to decide status
             const isAnyReminderEnabled = reminders.some(r => r.enabled);
             // ⭐ FIXED: Set to "active" instead of "scheduled" so cron can find it
@@ -167,6 +172,8 @@ export default function EmailBuilderListPage() {
             fetchEmails();
         } catch (error) {
             toast.error("Failed to save reminders");
+        } finally {
+            setIsSavingReminders(false);
         }
     };
 
@@ -319,8 +326,10 @@ export default function EmailBuilderListPage() {
                     <SheetFooter className="px-4 sm:px-8 py-6 border-t border-border bg-background dark:bg-zinc-900">
                         <Button
                             onClick={handleSaveReminders}
+                            disabled={isSavingReminders}
                             className="w-full bg-zinc-900 hover:bg-black text-white h-12 font-bold rounded-md"
                         >
+                            {isSavingReminders && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                             Save Reminder Configuration
                         </Button>
                     </SheetFooter>
@@ -448,7 +457,7 @@ export default function EmailBuilderListPage() {
 
                                     <TableCell>
                                         <div className="flex items-center gap-1 justify-end">
-                                            {permissions.canEdit && (
+                                            {permissions.canEdit && !email.isDefault && (
                                                 <Button
                                                     variant="ghost"
                                                     size="icon"
@@ -495,18 +504,12 @@ export default function EmailBuilderListPage() {
                                                 </Button>
                                             )}
 
-                                            {permissions.canDelete && (
+                                            {permissions.canDelete && !email.isDefault && (
                                                 <Button
                                                     variant="ghost"
                                                     size="icon"
                                                     className="h-8 w-8 text-zinc-400 hover:text-red-600 hover:bg-red-50"
-                                                    onClick={async () => {
-                                                        if (confirm("Are you sure you want to delete this campaign?")) {
-                                                            await fetch(`/api/email-campaigns/${email._id}`, { method: 'DELETE' });
-                                                            toast.success("Deleted successfully");
-                                                            fetchEmails();
-                                                        }
-                                                    }}
+                                                    onClick={() => setDeleteCampaignId(email._id)}
                                                     title="Delete"
                                                 >
                                                     <Trash2 className="h-4 w-4" />
@@ -582,9 +585,63 @@ export default function EmailBuilderListPage() {
                         </div>
                     </div>
                     <DialogFooter>
-                        <Button variant="outline" onClick={() => setSelectedCampaignForTest(null)}>Cancel</Button>
+                        <Button variant="outline" onClick={() => setSelectedCampaignForTest(null)} disabled={isSendingTest}>Cancel</Button>
                         <Button onClick={handleSendTestMail} disabled={isSendingTest}>
+                            {isSendingTest && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                             {isSendingTest ? "Sending..." : "Send Test"}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Delete campaign confirmation */}
+            <Dialog
+                open={!!deleteCampaignId}
+                onOpenChange={(open) => {
+                    if (!open && !isDeletingCampaign) setDeleteCampaignId(null);
+                }}
+            >
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Delete campaign</DialogTitle>
+                        <DialogDescription>
+                            Are you sure you want to delete this email campaign? This action cannot be undone.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter>
+                        <Button
+                            variant="outline"
+                            onClick={() => setDeleteCampaignId(null)}
+                            disabled={isDeletingCampaign}
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            variant="destructive"
+                            disabled={!deleteCampaignId || isDeletingCampaign}
+                            onClick={async () => {
+                                if (!deleteCampaignId) return;
+                                setIsDeletingCampaign(true);
+                                try {
+                                    const res = await fetch(`/api/email-campaigns/${deleteCampaignId}`, { method: 'DELETE' });
+                                    if (res.ok) {
+                                        toast.success("Campaign deleted successfully");
+                                        await fetchEmails();
+                                    } else {
+                                        toast.error("Failed to delete campaign");
+                                    }
+                                } catch {
+                                    toast.error("Failed to delete campaign");
+                                } finally {
+                                    setIsDeletingCampaign(false);
+                                    setDeleteCampaignId(null);
+                                }
+                            }}
+                        >
+                            {isDeletingCampaign && (
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            )}
+                            Delete
                         </Button>
                     </DialogFooter>
                 </DialogContent>

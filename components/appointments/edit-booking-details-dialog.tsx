@@ -29,7 +29,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Minus, Plus } from "lucide-react";
+import { Minus, Plus, Loader2 } from "lucide-react";
 import type { AppointmentDetails } from "./appointment-details-sheet";
 import { DateTimePicker } from "@/components/ui/date-time-picker";
 import { format, addMinutes } from "date-fns";
@@ -499,6 +499,7 @@ export function EditBookingDetailsDialog({
             Cancel
           </Button>
           <Button onClick={handleSubmit} disabled={loading}>
+            {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             {loading ? "Updating..." : "Update"}
           </Button>
         </SheetFooter>

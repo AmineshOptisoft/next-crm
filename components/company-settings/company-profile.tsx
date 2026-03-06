@@ -17,6 +17,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Building2, Save, Upload, MapPin, X, Loader2 } from "lucide-react";
 import { Country, State, City } from "country-state-city";
 
+declare const google: any;
 
 interface CompanyProfileProps {
     formData: any;
@@ -29,10 +30,124 @@ interface CompanyProfileProps {
 }
 
 export function CompanyProfile({ formData, setFormData, saving, handleSubmit, industries, selectedLogo, setSelectedLogo }: CompanyProfileProps) {
+    const [errors, setErrors] = useState<Record<string, string | undefined>>({});
+
+    const clearError = (key: string) => {
+        setErrors((prev) => (prev[key] ? { ...prev, [key]: undefined } : prev));
+    };
+
+    const setError = (key: string, message: string) => {
+        setErrors((prev) => ({ ...prev, [key]: message }));
+    };
+
+    const isValidEmail = (value: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+
+    const isValidUrl = (value: string) => {
+        try {
+            // allow http(s) only
+            const url = new URL(value);
+            return url.protocol === "http:" || url.protocol === "https:";
+        } catch {
+            return false;
+        }
+    };
+
+    const validate = () => {
+        const next: Record<string, string> = {};
+
+        const name = (formData?.name ?? "").trim();
+        if (!name) next["name"] = "Company name is required.";
+        else if (name.length < 2) next["name"] = "Company name must be at least 2 characters.";
+
+        const email = (formData?.email ?? "").trim();
+        if (!email) next["email"] = "Email is required.";
+        else if (!isValidEmail(email)) next["email"] = "Enter a valid email address.";
+
+        const phone = (formData?.phone ?? "").trim();
+        if (!phone) next["phone"] = "Phone is required.";
+        else {
+            const digits = phone.replace(/\D/g, "");
+            if (digits.length < 7) next["phone"] = "Enter a valid phone number.";
+            else if (digits.length > 10) next["phone"] = "Phone number cannot be more than 10 digits.";
+        }
+
+        const website = (formData?.website ?? "").trim();
+        if (website && !isValidUrl(website)) next["website"] = "Enter a valid URL (must start with http:// or https://).";
+
+        if (industries.length > 0) {
+            const industry = (formData?.industry ?? "").trim();
+            if (!industry) next["industry"] = "Select industry.";
+        }
+
+        const street = (formData?.address?.street ?? "").trim();
+        if (!street) next["address.street"] = "Street is required.";
+
+        const country = (formData?.address?.country ?? "").trim();
+        if (!country) next["address.country"] = "Country is required.";
+
+        const state = (formData?.address?.state ?? "").trim();
+        if (!state) next["address.state"] = "State is required.";
+
+        const city = (formData?.address?.city ?? "").trim();
+        if (!city) next["address.city"] = "City is required.";
+
+        const zipCode = (formData?.address?.zipCode ?? "").trim();
+        if (!zipCode) next["address.zipCode"] = "Zip code is required.";
+
+        const latitude = formData?.address?.latitude;
+        const longitude = formData?.address?.longitude;
+        if (
+            latitude === undefined ||
+            latitude === null ||
+            longitude === undefined ||
+            longitude === null ||
+            latitude === "" ||
+            longitude === ""
+        ) {
+            next["address.location"] = "Select location in the map.";
+        }
+
+        const hasLogo = Boolean((formData?.logo ?? "").trim()) || Boolean(selectedLogo);
+        if (!hasLogo) next["logo"] = "Company logo is required.";
+
+        return next;
+    };
+
+    const fieldIdByErrorKey: Record<string, string> = {
+        logo: "logo",
+        name: "name",
+        industry: "industry",
+        website: "website",
+        email: "email",
+        phone: "phone",
+        "address.street": "street",
+        "address.country": "country",
+        "address.state": "state",
+        "address.city": "city",
+        "address.zipCode": "zipCode",
+        "address.location": "latitude",
+    };
+
+    const onSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        const next = validate();
+        setErrors(next);
+
+        const firstKey = Object.keys(next)[0];
+        if (firstKey) {
+            const fieldId = fieldIdByErrorKey[firstKey] ?? firstKey;
+            const el = document.getElementById(fieldId) as HTMLElement | null;
+            el?.focus?.();
+            return;
+        }
+
+        handleSubmit(e);
+    };
+
     // Google Maps initialization
     const mapRef = useRef<HTMLDivElement>(null);
-    const mapInstanceRef = useRef<google.maps.Map | null>(null);
-    const markerRef = useRef<google.maps.Marker | null>(null);
+    const mapInstanceRef = useRef<any | null>(null);
+    const markerRef = useRef<any | null>(null);
     const [isMapReady, setIsMapReady] = useState(false);
 
     // Initialize map function
@@ -63,7 +178,7 @@ export function CompanyProfile({ formData, setFormData, saving, handleSubmit, in
             }
 
             // Add click listener
-            map.addListener("click", (e: google.maps.MapMouseEvent) => {
+            map.addListener("click", (e: any) => {
                 if (e.latLng) {
                     const lat = e.latLng.lat();
                     const lng = e.latLng.lng();
@@ -76,6 +191,8 @@ export function CompanyProfile({ formData, setFormData, saving, handleSubmit, in
                             longitude: lng,
                         },
                     }));
+
+                    clearError("address.location");
 
                     // Update or create marker
                     if (markerRef.current) {
@@ -126,17 +243,19 @@ export function CompanyProfile({ formData, setFormData, saving, handleSubmit, in
         const file = e.target.files?.[0];
         if (file) {
             if (file.size > 5 * 1024 * 1024) {
-                alert("File size must be less than 5MB");
+                setError("logo", "File size must be less than 5MB.");
                 return;
             }
             setSelectedLogo(file);
             setFormData({ ...formData, logo: URL.createObjectURL(file) });
+            clearError("logo");
         }
     };
 
     const handleRemoveLogo = () => {
         setSelectedLogo(null);
         setFormData({ ...formData, logo: "" });
+        setError("logo", "Company logo is required.");
     };
 
     // Cascading Location Logic
@@ -148,10 +267,16 @@ export function CompanyProfile({ formData, setFormData, saving, handleSubmit, in
     const selectedState = states.find((s) => s.name === formData.address.state);
     const stateCode = selectedState?.isoCode;
 
-    const cities = (countryCode && stateCode) ? City.getCitiesOfState(countryCode, stateCode) : [];
+    const citiesFromLibrary = (countryCode && stateCode) ? City.getCitiesOfState(countryCode, stateCode) : [];
+    // Include saved city in options so it displays after refresh even if not in country-state-city list
+    const savedCity = (formData?.address?.city ?? "").trim();
+    const cityExists = citiesFromLibrary.some((c) => c.name === savedCity);
+    const cities = savedCity && !cityExists
+        ? [{ name: savedCity, stateCode: stateCode || "" }, ...citiesFromLibrary]
+        : citiesFromLibrary;
 
     return (
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={onSubmit} noValidate>
             <Script
                 src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAQODjSc_eWcBWoIdk7trMzl98oRHF9HFs&libraries=places"
                 onLoad={() => {
@@ -205,7 +330,14 @@ export function CompanyProfile({ formData, setFormData, saving, handleSubmit, in
                                     accept="image/png,image/jpeg,image/jpg"
                                     onChange={handleLogoUpload}
                                     className="cursor-pointer"
+                                    aria-invalid={Boolean(errors.logo)}
+                                    aria-describedby={errors.logo ? "logo-error" : undefined}
                                 />
+                                {errors.logo && (
+                                    <p id="logo-error" className="text-destructive text-sm mt-1">
+                                        {errors.logo}
+                                    </p>
+                                )}
                             </div>
                         </div>
                     </div>
@@ -215,25 +347,37 @@ export function CompanyProfile({ formData, setFormData, saving, handleSubmit, in
                             <Label htmlFor="name">Company Name *</Label>
                             <Input
                                 id="name"
-                                required
                                 value={formData.name}
                                 onChange={(e) =>
-                                    setFormData({ ...formData, name: e.target.value })
+                                    (setFormData({ ...formData, name: e.target.value }), clearError("name"))
                                 }
+                                aria-invalid={Boolean(errors.name)}
+                                aria-describedby={errors.name ? "name-error" : undefined}
                             />
+                            {errors.name && (
+                                <p id="name-error" className="text-destructive text-sm">
+                                    {errors.name}
+                                </p>
+                            )}
                         </div>
                         <div className="space-y-2">
                             <Label htmlFor="industry">Industry</Label>
                             <Select
                                 value={formData.industry || "none"}
-                                onValueChange={(value) =>
+                                onValueChange={(value) => {
                                     setFormData({
                                         ...formData,
                                         industry: value === "none" ? "" : value,
-                                    })
-                                }
+                                    });
+                                    clearError("industry");
+                                }}
                             >
-                                <SelectTrigger id="industry" className="w-full">
+                                <SelectTrigger
+                                    id="industry"
+                                    className="w-full"
+                                    aria-invalid={Boolean(errors.industry)}
+                                    aria-describedby={errors.industry ? "industry-error" : undefined}
+                                >
                                     <SelectValue placeholder="Select an industry" />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -245,6 +389,11 @@ export function CompanyProfile({ formData, setFormData, saving, handleSubmit, in
                                     ))}
                                 </SelectContent>
                             </Select>
+                            {errors.industry && (
+                                <p id="industry-error" className="text-destructive text-sm">
+                                    {errors.industry}
+                                </p>
+                            )}
                             {industries.length === 0 && (
                                 <p className="text-xs text-muted-foreground">
                                     No industries found. Add some in Administration → Industries.
@@ -274,23 +423,36 @@ export function CompanyProfile({ formData, setFormData, saving, handleSubmit, in
                                 type="url"
                                 value={formData.website}
                                 onChange={(e) =>
-                                    setFormData({ ...formData, website: e.target.value })
+                                    (setFormData({ ...formData, website: e.target.value }), clearError("website"))
                                 }
                                 placeholder="https://example.com"
+                                aria-invalid={Boolean(errors.website)}
+                                aria-describedby={errors.website ? "website-error" : undefined}
                             />
+                            {errors.website && (
+                                <p id="website-error" className="text-destructive text-sm">
+                                    {errors.website}
+                                </p>
+                            )}
                         </div>
                         <div className="space-y-2">
                             <Label htmlFor="email">Email *</Label>
                             <Input
                                 id="email"
                                 type="email"
-                                required
                                 value={formData.email}
                                 onChange={(e) =>
-                                    setFormData({ ...formData, email: e.target.value })
+                                    (setFormData({ ...formData, email: e.target.value }), clearError("email"))
                                 }
                                 placeholder="contact@company.com"
+                                aria-invalid={Boolean(errors.email)}
+                                aria-describedby={errors.email ? "email-error" : undefined}
                             />
+                            {errors.email && (
+                                <p id="email-error" className="text-destructive text-sm">
+                                    {errors.email}
+                                </p>
+                            )}
                         </div>
                     </div>
 
@@ -299,13 +461,19 @@ export function CompanyProfile({ formData, setFormData, saving, handleSubmit, in
                         <Input
                             id="phone"
                             type="tel"
-                            required
                             value={formData.phone}
                             onChange={(e) =>
-                                setFormData({ ...formData, phone: e.target.value })
+                                (setFormData({ ...formData, phone: e.target.value }), clearError("phone"))
                             }
                             placeholder="+1 (555) 123-4567"
+                            aria-invalid={Boolean(errors.phone)}
+                            aria-describedby={errors.phone ? "phone-error" : undefined}
                         />
+                        {errors.phone && (
+                            <p id="phone-error" className="text-destructive text-sm">
+                                {errors.phone}
+                            </p>
+                        )}
                     </div>
 
                     <div className="space-y-4">
@@ -314,15 +482,21 @@ export function CompanyProfile({ formData, setFormData, saving, handleSubmit, in
                             <Label htmlFor="street">Street *</Label>
                             <Input
                                 id="street"
-                                required
                                 value={formData.address.street}
                                 onChange={(e) =>
-                                    setFormData({
+                                    (setFormData({
                                         ...formData,
                                         address: { ...formData.address, street: e.target.value },
-                                    })
+                                    }), clearError("address.street"))
                                 }
+                                aria-invalid={Boolean(errors["address.street"])}
+                                aria-describedby={errors["address.street"] ? "street-error" : undefined}
                             />
+                            {errors["address.street"] && (
+                                <p id="street-error" className="text-destructive text-sm">
+                                    {errors["address.street"]}
+                                </p>
+                            )}
                         </div>
                         <div className="grid gap-4 md:grid-cols-2">
                             <div className="space-y-2">
@@ -339,9 +513,17 @@ export function CompanyProfile({ formData, setFormData, saving, handleSubmit, in
                                                 city: "",
                                             },
                                         });
+                                        clearError("address.country");
+                                        clearError("address.state");
+                                        clearError("address.city");
                                     }}
                                 >
-                                    <SelectTrigger id="country" className="w-full">
+                                    <SelectTrigger
+                                        id="country"
+                                        className="w-full"
+                                        aria-invalid={Boolean(errors["address.country"])}
+                                        aria-describedby={errors["address.country"] ? "country-error" : undefined}
+                                    >
                                         <SelectValue placeholder="Select Country" />
                                     </SelectTrigger>
                                     <SelectContent>
@@ -352,6 +534,11 @@ export function CompanyProfile({ formData, setFormData, saving, handleSubmit, in
                                         ))}
                                     </SelectContent>
                                 </Select>
+                                {errors["address.country"] && (
+                                    <p id="country-error" className="text-destructive text-sm">
+                                        {errors["address.country"]}
+                                    </p>
+                                )}
                             </div>
                             <div className="space-y-2">
                                 <Label htmlFor="state">State *</Label>
@@ -366,10 +553,17 @@ export function CompanyProfile({ formData, setFormData, saving, handleSubmit, in
                                                 city: "",
                                             },
                                         });
+                                        clearError("address.state");
+                                        clearError("address.city");
                                     }}
                                     disabled={!countryCode}
                                 >
-                                    <SelectTrigger id="state" className="w-full">
+                                    <SelectTrigger
+                                        id="state"
+                                        className="w-full"
+                                        aria-invalid={Boolean(errors["address.state"])}
+                                        aria-describedby={errors["address.state"] ? "state-error" : undefined}
+                                    >
                                         <SelectValue placeholder="Select State" />
                                     </SelectTrigger>
                                     <SelectContent>
@@ -380,23 +574,33 @@ export function CompanyProfile({ formData, setFormData, saving, handleSubmit, in
                                         ))}
                                     </SelectContent>
                                 </Select>
+                                {errors["address.state"] && (
+                                    <p id="state-error" className="text-destructive text-sm">
+                                        {errors["address.state"]}
+                                    </p>
+                                )}
                             </div>
                             <div className="space-y-2">
                                 <Label htmlFor="city">City *</Label>
                                 <Select
                                     value={formData.address.city || ""}
                                     onValueChange={(val) =>
-                                        setFormData({
+                                        (setFormData({
                                             ...formData,
                                             address: {
                                                 ...formData.address,
                                                 city: val,
                                             },
-                                        })
+                                        }), clearError("address.city"))
                                     }
                                     disabled={!stateCode}
                                 >
-                                    <SelectTrigger id="city" className="w-full">
+                                    <SelectTrigger
+                                        id="city"
+                                        className="w-full"
+                                        aria-invalid={Boolean(errors["address.city"])}
+                                        aria-describedby={errors["address.city"] ? "city-error" : undefined}
+                                    >
                                         <SelectValue placeholder="Select City" />
                                     </SelectTrigger>
                                     <SelectContent>
@@ -407,20 +611,31 @@ export function CompanyProfile({ formData, setFormData, saving, handleSubmit, in
                                         ))}
                                     </SelectContent>
                                 </Select>
+                                {errors["address.city"] && (
+                                    <p id="city-error" className="text-destructive text-sm">
+                                        {errors["address.city"]}
+                                    </p>
+                                )}
                             </div>
                             <div className="space-y-2">
                                 <Label htmlFor="zipCode">Zip Code *</Label>
                                 <Input
                                     id="zipCode"
-                                    required
                                     value={formData.address.zipCode}
                                     onChange={(e) =>
-                                        setFormData({
+                                        (setFormData({
                                             ...formData,
                                             address: { ...formData.address, zipCode: e.target.value },
-                                        })
+                                        }), clearError("address.zipCode"))
                                     }
+                                    aria-invalid={Boolean(errors["address.zipCode"])}
+                                    aria-describedby={errors["address.zipCode"] ? "zipCode-error" : undefined}
                                 />
+                                {errors["address.zipCode"] && (
+                                    <p id="zipCode-error" className="text-destructive text-sm">
+                                        {errors["address.zipCode"]}
+                                    </p>
+                                )}
                             </div>
                         </div>
 
@@ -433,6 +648,11 @@ export function CompanyProfile({ formData, setFormData, saving, handleSubmit, in
                             <p className="text-sm text-muted-foreground">
                                 Click on the map to select your company location
                             </p>
+                            {errors["address.location"] && (
+                                <p className="text-destructive text-sm">
+                                    {errors["address.location"]}
+                                </p>
+                            )}
                             <div
                                 ref={mapRef}
                                 className="w-full h-[400px] rounded-lg border-2 border-gray-200"

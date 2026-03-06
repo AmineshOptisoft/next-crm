@@ -6,10 +6,20 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Mail, Server, CheckCircle2, AlertCircle } from "lucide-react";
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog";
+import { Mail, Server, CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Separator } from "@/components/ui/separator";
 import { Company } from "./types";
+
+type ConfirmType = "smtp-over-gmail" | "gmail-over-smtp" | "disconnect-gmail" | null;
 
 interface CompanyMailSendingProps {
     company: Company | null;
@@ -28,6 +38,7 @@ export function CompanyMailSending({ company }: CompanyMailSendingProps) {
         fromName: company?.mailConfig?.smtp?.fromName || "",
     });
     const [isSaving, setIsSaving] = useState(false);
+    const [confirmOpen, setConfirmOpen] = useState<ConfirmType>(null);
 
     // Check Gmail connection from props
     const isGmailConnected = !!company?.mailConfig?.gmail?.email;
@@ -40,11 +51,13 @@ export function CompanyMailSending({ company }: CompanyMailSendingProps) {
     const handleSaveSmtp = async () => {
         // Warn if Gmail is currently connected
         if (isGmailConnected && company?.mailConfig?.provider === "gmail") {
-            if (!confirm("Saving SMTP settings will automatically disconnect your Gmail account. Do you want to continue?")) {
-                return;
-            }
+            setConfirmOpen("smtp-over-gmail");
+            return;
         }
+        await doSaveSmtp();
+    };
 
+    const doSaveSmtp = async () => {
         setIsSaving(true);
         try {
             // Update company settings using the same endpoint but specifically for mailConfig
@@ -94,11 +107,13 @@ export function CompanyMailSending({ company }: CompanyMailSendingProps) {
     const handleConnectGmail = async () => {
         // Warn if SMTP is currently active
         if (company?.mailConfig?.provider === "smtp" && company?.mailConfig?.smtp?.host) {
-            if (!confirm("Connecting Gmail will automatically switch from SMTP to Gmail as your email provider. Do you want to continue?")) {
-                return;
-            }
+            setConfirmOpen("gmail-over-smtp");
+            return;
         }
+        await doConnectGmail();
+    };
 
+    const doConnectGmail = async () => {
         // First set provider to gmail, then redirect to auth
         try {
             const payload = {
@@ -121,8 +136,10 @@ export function CompanyMailSending({ company }: CompanyMailSendingProps) {
     };
 
     const handleDisconnectGmail = async () => {
-        if (!confirm("Are you sure you want to disconnect Gmail?")) return;
+        setConfirmOpen("disconnect-gmail");
+    };
 
+    const doDisconnectGmail = async () => {
         setIsSaving(true);
         try {
             const payload = {
@@ -152,10 +169,7 @@ export function CompanyMailSending({ company }: CompanyMailSendingProps) {
 
             if (res.ok) {
                 toast.success("Gmail disconnected successfully");
-                // Use a short delay before reload to let the toast be seen
-                setTimeout(() => {
-                    window.location.reload();
-                }, 1000);
+                setTimeout(() => window.location.reload(), 1000);
             } else {
                 const data = await res.json();
                 toast.error(data.error || "Failed to disconnect Gmail");
@@ -336,6 +350,7 @@ export function CompanyMailSending({ company }: CompanyMailSendingProps) {
                         </div>
                         <div className="pt-2">
                             <Button onClick={handleSaveSmtp} disabled={isSaving} className="bg-zinc-900 hover:bg-zinc-800 text-white">
+                                {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                                 {isSaving ? "Saving Configuration..." : "Save SMTP Settings"}
                             </Button>
                         </div>
@@ -368,7 +383,8 @@ export function CompanyMailSending({ company }: CompanyMailSendingProps) {
                                 <div className="text-center">
                                     <h3 className="text-lg font-medium text-zinc-900">Connected to Google</h3>
                                     <p className="text-sm text-zinc-500 mb-4">{connectedGmailEmail}</p>
-                                    <Button variant="outline" className="text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200" onClick={handleDisconnectGmail}>
+                                    <Button variant="outline" className="text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200" onClick={handleDisconnectGmail} disabled={isSaving}>
+                                        {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                                         Disconnect Account
                                     </Button>
                                 </div>
@@ -391,6 +407,47 @@ export function CompanyMailSending({ company }: CompanyMailSendingProps) {
                     </div>
                 )}
             </CardContent>
+
+            <Dialog open={!!confirmOpen} onOpenChange={(open) => !open && setConfirmOpen(null)}>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle>
+                            {confirmOpen === "smtp-over-gmail" && "Switch to SMTP"}
+                            {confirmOpen === "gmail-over-smtp" && "Switch to Gmail"}
+                            {confirmOpen === "disconnect-gmail" && "Disconnect Gmail"}
+                        </DialogTitle>
+                        <DialogDescription>
+                            {confirmOpen === "smtp-over-gmail" &&
+                                "Saving SMTP settings will automatically disconnect your Gmail account. Do you want to continue?"}
+                            {confirmOpen === "gmail-over-smtp" &&
+                                "Connecting Gmail will automatically switch from SMTP to Gmail as your email provider. Do you want to continue?"}
+                            {confirmOpen === "disconnect-gmail" &&
+                                "Are you sure you want to disconnect Gmail?"}
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter className="gap-2 sm:gap-0">
+                        <Button variant="outline" onClick={() => setConfirmOpen(null)}>
+                            Cancel
+                        </Button>
+                        <Button
+                            onClick={async () => {
+                                if (confirmOpen === "smtp-over-gmail") {
+                                    setConfirmOpen(null);
+                                    await doSaveSmtp();
+                                } else if (confirmOpen === "gmail-over-smtp") {
+                                    setConfirmOpen(null);
+                                    await doConnectGmail();
+                                } else if (confirmOpen === "disconnect-gmail") {
+                                    setConfirmOpen(null);
+                                    await doDisconnectGmail();
+                                }
+                            }}
+                        >
+                            {confirmOpen === "disconnect-gmail" ? "Disconnect" : "Continue"}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </Card>
     );
 }

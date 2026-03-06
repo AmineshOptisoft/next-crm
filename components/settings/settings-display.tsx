@@ -17,10 +17,21 @@ import {
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { useLayoutPreferences } from "@/components/theme-provider";
+import { toast } from "sonner";
 
 export function SettingsDisplay() {
   const { showAvatars, setShowAvatars, tableDensity, setTableDensity } =
     useLayoutPreferences();
+
+  const handleShowAvatarsChange = (checked: boolean) => {
+    setShowAvatars(checked);
+    toast.success("Display preferences saved");
+  };
+
+  const handleTableDensityChange = (value: "comfortable" | "compact" | "spacious") => {
+    setTableDensity(value);
+    toast.success("Display preferences saved");
+  };
 
   return (
     <Card className="py-4">
@@ -36,7 +47,7 @@ export function SettingsDisplay() {
           <Select
             value={tableDensity}
             onValueChange={(value) =>
-              setTableDensity(value as "comfortable" | "compact" | "spacious")
+              handleTableDensityChange(value as "comfortable" | "compact" | "spacious")
             }
           >
             <SelectTrigger className="w-64">
@@ -57,7 +68,7 @@ export function SettingsDisplay() {
               Display user avatars in tables and lists.
             </p>
           </div>
-          <Switch checked={showAvatars} onCheckedChange={setShowAvatars} />
+          <Switch checked={showAvatars} onCheckedChange={handleShowAvatarsChange} />
         </div>
       </CardContent>
     </Card>

@@ -1,14 +1,23 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Country, State, City } from "country-state-city";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Camera, Loader2, User as UserIcon } from "lucide-react";
 import { toast } from "sonner";
+import { useSWRConfig } from "swr";
 
 type MeUser = {
   firstName?: string;
@@ -22,11 +31,44 @@ type MeUser = {
 };
 
 export function SettingsAccount() {
+  const { mutate } = useSWRConfig();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [user, setUser] = useState<MeUser | null>(null);
   const [uploading, setUploading] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState<string>("");
+  const [countryId, setCountryId] = useState<string>("");
+  const [stateId, setStateId] = useState<string>("");
+  const [cityId, setCityId] = useState<string>("");
+  const [errors, setErrors] = useState<Record<string, string | undefined>>({});
+
+  const clearError = (key: string) => {
+    setErrors((prev) => (prev[key] ? { ...prev, [key]: undefined } : prev));
+  };
+
+  const isValidEmail = (value: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+
+  const validate = (
+    form: HTMLFormElement,
+    opts: { countryId: string; stateId: string; cityId: string; avatarUrl: string }
+  ): Record<string, string> => {
+    const next: Record<string, string> = {};
+    const fd = new FormData(form);
+
+    const firstName = (fd.get("firstName") ?? "").toString().trim();
+    if (!firstName) next["firstName"] = "First name is required.";
+    else if (firstName.length < 2) next["firstName"] = "First name must be at least 2 characters.";
+
+    const lastName = (fd.get("lastName") ?? "").toString().trim();
+    if (!lastName) next["lastName"] = "Last name is required.";
+    else if (lastName.length < 2) next["lastName"] = "Last name must be at least 2 characters.";
+
+    const email = (fd.get("email") ?? "").toString().trim();
+    if (!email) next["email"] = "Email is required.";
+    else if (!isValidEmail(email)) next["email"] = "Enter a valid email address.";
+
+    return next;
+  };
 
   useEffect(() => {
     (async () => {
@@ -38,7 +80,10 @@ export function SettingsAccount() {
         }
         const data = await res.json();
         setUser(data.user);
-        setAvatarUrl(data.user.avatarUrl || "");
+        setAvatarUrl(data.user?.avatarUrl || "");
+        setCountryId(data.user?.countryId || "");
+        setStateId(data.user?.stateId || "");
+        setCityId(data.user?.cityId || "");
       } finally {
         setLoading(false);
       }
@@ -77,38 +122,72 @@ export function SettingsAccount() {
     const form = e.currentTarget;
     const formData = new FormData(form);
 
+    const nextErrors = validate(form, { countryId, stateId, cityId, avatarUrl });
+    if (Object.keys(nextErrors).length > 0) {
+      setErrors(nextErrors);
+      const firstId = Object.keys(nextErrors)[0];
+      document.getElementById(firstId)?.focus();
+      return;
+    }
+    setErrors({});
+
     const body = {
-      firstName: formData.get("firstName"),
-      lastName: formData.get("lastName"),
-      email: formData.get("email"),
-      companyName: formData.get("companyName"),
-      countryId: formData.get("countryId"),
-      stateId: formData.get("stateId"),
-      cityId: formData.get("cityId"),
-      avatarUrl: avatarUrl,
-      currentPassword: formData.get("currentPassword"),
-      newPassword: formData.get("newPassword"),
+      firstName: formData.get("firstName") ?? undefined,
+      lastName: formData.get("lastName") ?? undefined,
+      email: formData.get("email") ?? undefined,
+      companyName: formData.get("companyName") ?? undefined,
+      countryId: countryId || undefined,
+      stateId: stateId || undefined,
+      cityId: cityId || undefined,
+      avatarUrl: avatarUrl || undefined,
     };
 
     setSaving(true);
-    const res = await fetch("/api/settings/account", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-    setSaving(false);
+    try {
+      const res = await fetch("/api/settings/account", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json().catch(() => ({}));
 
-    if (!res.ok) {
-      // TODO: show toast from response.error
-      return;
+      if (!res.ok) {
+        toast.error(data.error || "Failed to save profile");
+        return;
+      }
+
+      toast.success("Profile updated successfully");
+      mutate("/api/auth/me");
+      const meRes = await fetch("/api/auth/me", { credentials: "include" });
+      if (meRes.ok) {
+        const meData = await meRes.json();
+        setUser(meData.user);
+        setAvatarUrl(meData.user?.avatarUrl || "");
+        setCountryId(meData.user?.countryId || "");
+        setStateId(meData.user?.stateId || "");
+        setCityId(meData.user?.cityId || "");
+      }
+    } finally {
+      setSaving(false);
     }
-
-    // Optionally refetch /api/auth/me or show success toast
   }
 
   if (loading || !user) {
     return <p className="text-sm text-muted-foreground">Loading account...</p>;
   }
+
+  const countries = Country.getAllCountries();
+  const countryCode = countryId || undefined;
+  const states = countryCode ? State.getStatesOfCountry(countryCode) : [];
+  const stateCode = stateId || undefined;
+  const citiesFromLibrary =
+    countryCode && stateCode ? City.getCitiesOfState(countryCode, stateCode) : [];
+  const savedCity = (cityId ?? "").trim();
+  const cityInList = citiesFromLibrary.some((c) => c.name === savedCity);
+  const cities =
+    savedCity && !cityInList
+      ? [{ name: savedCity, stateCode: stateCode || "" }, ...citiesFromLibrary]
+      : citiesFromLibrary;
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
@@ -116,7 +195,7 @@ export function SettingsAccount() {
         <CardHeader>
           <CardTitle>Account</CardTitle>
           <CardDescription>
-            Update your profile information, company details, and password.
+            Update your profile information and company details.
           </CardDescription>
         </CardHeader>
 
@@ -167,7 +246,16 @@ export function SettingsAccount() {
                 id="firstName"
                 name="firstName"
                 defaultValue={user.firstName || ""}
+                className={errors.firstName ? "border-destructive" : ""}
+                aria-invalid={Boolean(errors.firstName)}
+                aria-describedby={errors.firstName ? "firstName-error" : undefined}
+                onChange={() => clearError("firstName")}
               />
+              {errors.firstName && (
+                <p id="firstName-error" className="text-sm text-destructive">
+                  {errors.firstName}
+                </p>
+              )}
             </div>
             <div className="space-y-1">
               <Label htmlFor="lastName">Last name</Label>
@@ -175,7 +263,16 @@ export function SettingsAccount() {
                 id="lastName"
                 name="lastName"
                 defaultValue={user.lastName || ""}
+                className={errors.lastName ? "border-destructive" : ""}
+                aria-invalid={Boolean(errors.lastName)}
+                aria-describedby={errors.lastName ? "lastName-error" : undefined}
+                onChange={() => clearError("lastName")}
               />
+              {errors.lastName && (
+                <p id="lastName-error" className="text-sm text-destructive">
+                  {errors.lastName}
+                </p>
+              )}
             </div>
           </div>
 
@@ -189,7 +286,16 @@ export function SettingsAccount() {
               name="email"
               type="email"
               defaultValue={user.email}
+              className={errors.email ? "border-destructive" : ""}
+              aria-invalid={Boolean(errors.email)}
+              aria-describedby={errors.email ? "email-error" : undefined}
+              onChange={() => clearError("email")}
             />
+            {errors.email && (
+              <p id="email-error" className="text-sm text-destructive">
+                {errors.email}
+              </p>
+            )}
           </div>
 
           <Separator />
@@ -209,57 +315,73 @@ export function SettingsAccount() {
             <div className="grid gap-4 md:grid-cols-3">
               <div className="space-y-1">
                 <Label htmlFor="countryId">Country</Label>
-                <Input
-                  id="countryId"
-                  name="countryId"
-                  defaultValue={user.countryId || ""}
-                  placeholder="Country ID"
-                />
+                <Select
+                  value={countryId || "none"}
+                  onValueChange={(val) => {
+                    setCountryId(val === "none" ? "" : val);
+                    setStateId("");
+                    setCityId("");
+                  }}
+                >
+                  <SelectTrigger id="countryId" className="w-full">
+                    <SelectValue placeholder="Select country" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Select country</SelectItem>
+                    {countries.map((c) => (
+                      <SelectItem key={c.isoCode} value={c.isoCode}>
+                        {c.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-1">
                 <Label htmlFor="stateId">State</Label>
-                <Input
-                  id="stateId"
-                  name="stateId"
-                  defaultValue={user.stateId || ""}
-                  placeholder="State ID"
-                />
+                <Select
+                  value={stateId || "none"}
+                  onValueChange={(val) => {
+                    setStateId(val === "none" ? "" : val);
+                    setCityId("");
+                  }}
+                  disabled={!countryCode}
+                >
+                  <SelectTrigger id="stateId" className="w-full">
+                    <SelectValue placeholder="Select state" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Select state</SelectItem>
+                    {states.map((s) => (
+                      <SelectItem key={s.isoCode} value={s.isoCode}>
+                        {s.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-1">
                 <Label htmlFor="cityId">City</Label>
-                <Input
-                  id="cityId"
-                  name="cityId"
-                  defaultValue={user.cityId || ""}
-                  placeholder="City ID"
-                />
+                <Select
+                  value={cityId || "none"}
+                  onValueChange={(val) => setCityId(val === "none" ? "" : val)}
+                  disabled={!stateCode}
+                >
+                  <SelectTrigger id="cityId" className="w-full">
+                    <SelectValue placeholder="Select city" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Select city</SelectItem>
+                    {cities.map((c) => (
+                      <SelectItem key={c.name} value={c.name}>
+                        {c.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
           </div>
 
-          <Separator />
-
-          {/* Password */}
-          <div className="space-y-4">
-            <div className="space-y-1">
-              <Label htmlFor="currentPassword">Current password</Label>
-              <Input
-                id="currentPassword"
-                name="currentPassword"
-                type="password"
-                autoComplete="current-password"
-              />
-            </div>
-            <div className="space-y-1">
-              <Label htmlFor="newPassword">New password</Label>
-              <Input
-                id="newPassword"
-                name="newPassword"
-                type="password"
-                autoComplete="new-password"
-              />
-            </div>
-          </div>
         </CardContent>
 
         <CardFooter className="flex justify-between">

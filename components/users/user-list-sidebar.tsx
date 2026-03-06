@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Input } from "@/components/ui/input";
 import { User } from "@/types/user";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { useLayoutPreferences } from "@/components/theme-provider";
 import { cn } from "@/lib/utils";
 
 interface UserListSidebarProps {
@@ -13,6 +14,7 @@ interface UserListSidebarProps {
 }
 
 export function UserListSidebar({ users, selectedUserId, onSearch }: UserListSidebarProps) {
+  const { showAvatars } = useLayoutPreferences();
   return (
     <div className="w-80 border-r bg-background flex flex-col h-full">
       <div className="p-4 border-b space-y-4">
@@ -35,8 +37,14 @@ export function UserListSidebar({ users, selectedUserId, onSearch }: UserListSid
               )}
             >
               <Avatar className="mt-1">
-                <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${user.firstName}`} />
-                <AvatarFallback>{user.firstName[0]}{user.lastName[0]}</AvatarFallback>
+                <AvatarImage
+                  src={
+                    showAvatars
+                      ? `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.firstName}`
+                      : ""
+                  }
+                />
+                <AvatarFallback>{user.firstName?.[0]}{user.lastName?.[0]}</AvatarFallback>
               </Avatar>
               <div className="space-y-1">
                 <p className="font-medium text-sm">

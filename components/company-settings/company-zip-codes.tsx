@@ -30,6 +30,15 @@ import {
     SheetTitle,
     SheetTrigger,
 } from "@/components/ui/sheet";
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog";
+import { toast } from "sonner";
 
 interface ServiceArea {
     _id: string;
@@ -54,6 +63,8 @@ export function CompanyZipCodes() {
         serviceAreaId: "",
         code: "",
     });
+    const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+    const [zipToDelete, setZipToDelete] = useState<string | null>(null);
 
     useEffect(() => {
         fetchZipCodes();
@@ -86,7 +97,7 @@ export function CompanyZipCodes() {
 
     const handleSubmit = async () => {
         if (!formData.serviceAreaId || !formData.code.trim()) {
-            alert("Please select a service area and enter a zip code");
+            toast.error("Please select a service area and enter a zip code");
             return;
         }
 
@@ -101,35 +112,41 @@ export function CompanyZipCodes() {
                 setIsSheetOpen(false);
                 setFormData({ serviceAreaId: "", code: "" });
                 fetchZipCodes();
-                alert("Zip code added successfully!");
+                toast.success("Zip code added successfully!");
             } else {
                 const error = await response.json();
-                alert(error.error || "Failed to add zip code");
+                toast.error(error.error || "Failed to add zip code");
             }
         } catch (error) {
             console.error("Error adding zip code:", error);
-            alert("Error adding zip code");
+            toast.error("Error adding zip code");
         }
     };
 
-    const handleDelete = async (id: string) => {
-        if (!confirm("Are you sure you want to delete this zip code?")) return;
+    const openDeleteConfirm = (id: string) => {
+        setZipToDelete(id);
+        setDeleteConfirmOpen(true);
+    };
 
+    const handleDelete = async () => {
+        if (!zipToDelete) return;
         try {
-            const response = await fetch(`/api/zip-codes/${id}`, {
+            const response = await fetch(`/api/zip-codes/${zipToDelete}`, {
                 method: "DELETE",
             });
 
             if (response.ok) {
+                setDeleteConfirmOpen(false);
+                setZipToDelete(null);
                 fetchZipCodes();
-                alert("Zip code deleted successfully!");
+                toast.success("Zip code deleted successfully!");
             } else {
                 const error = await response.json();
-                alert(error.error || "Failed to delete zip code");
+                toast.error(error.error || "Failed to delete zip code");
             }
         } catch (error) {
             console.error("Error deleting zip code:", error);
-            alert("Error deleting zip code");
+            toast.error("Error deleting zip code");
         }
     };
 
@@ -278,7 +295,7 @@ export function CompanyZipCodes() {
                                             variant="ghost"
                                             size="sm"
                                             className="text-destructive hover:text-destructive/90 hover:bg-destructive/10"
-                                            onClick={() => handleDelete(zip._id)}
+                                            onClick={() => openDeleteConfirm(zip._id)}
                                         >
                                             <Trash2 className="h-4 w-4" />
                                         </Button>
@@ -289,6 +306,25 @@ export function CompanyZipCodes() {
                     </Table>
                 )}
             </CardContent>
+
+            <Dialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle>Delete zip code</DialogTitle>
+                        <DialogDescription>
+                            Are you sure you want to delete this zip code? This action cannot be undone.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter className="gap-2 sm:gap-0">
+                        <Button variant="outline" onClick={() => setDeleteConfirmOpen(false)}>
+                            Cancel
+                        </Button>
+                        <Button variant="destructive" onClick={handleDelete}>
+                            Delete
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </Card>
     );
 }

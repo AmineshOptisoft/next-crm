@@ -27,6 +27,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { useLayoutPreferences } from "@/components/theme-provider";
 
 // Single app card
 const appInfo = {
@@ -470,6 +471,7 @@ const fetcher = (url: string) => fetch(url, { credentials: "include" }).then((re
 export function AppSidebar() {
   const pathname = usePathname();
   const router = useRouter();
+  const { showAvatars } = useLayoutPreferences();
   const [profileCompleted, setProfileCompleted] = useState<boolean>(true); // Default true to avoid flicker
 
   const { data: meData } = useSWR("/api/auth/me", fetcher, {
@@ -684,7 +686,10 @@ export function AppSidebar() {
                   className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
                 >
                   <Avatar className="h-8 w-8 rounded-lg">
-                    <AvatarImage src={me?.avatarUrl} alt={displayName} />
+                    <AvatarImage
+                      src={showAvatars && me?.avatarUrl ? me.avatarUrl : ""}
+                      alt={displayName}
+                    />
                     <AvatarFallback className="rounded-lg bg-primary text-primary-foreground">
                       {initials}
                     </AvatarFallback>
@@ -709,7 +714,10 @@ export function AppSidebar() {
                 <DropdownMenuLabel className="p-0 font-normal">
                   <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
                     <Avatar className="h-8 w-8 rounded-lg">
-                      <AvatarImage src={me?.avatarUrl} alt={displayName} />
+                      <AvatarImage
+                        src={showAvatars && me?.avatarUrl ? me.avatarUrl : ""}
+                        alt={displayName}
+                      />
                       <AvatarFallback className="rounded-lg">
                         {initials}
                       </AvatarFallback>

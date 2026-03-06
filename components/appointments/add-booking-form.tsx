@@ -20,7 +20,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { DateTimePicker } from "@/components/ui/date-time-picker";
 import {
     Check, ChevronsUpDown, X, Calendar as CalendarIcon,
-    DollarSign, Clock, ChevronDown, ChevronUp, Plus, Minus
+    DollarSign, Clock, ChevronDown, ChevronUp, Plus, Minus, Loader2
 } from "lucide-react";
 import {
     useState, useEffect, useCallback, useMemo, useRef,
@@ -262,6 +262,7 @@ export function AddBookingForm({
 
     const [discount, setDiscount] = useState(0);
     const [selectedPromocode, setSelectedPromocode] = useState<string>("");
+    const [isSaving, setIsSaving] = useState(false);
 
     // ── Reset all form state when the sheet closes, so re-opening is instant
     //    (no stale state, no re-render debt from old heavy values).
@@ -546,6 +547,7 @@ export function AddBookingForm({
     // ── Submit
     const handleSubmit = async () => {
         try {
+            setIsSaving(true);
             let contactId = selectedContact?._id;
             let newContactData = null;
 
@@ -670,6 +672,8 @@ export function AddBookingForm({
             );
         } catch (error: any) {
             toast.error(error.message || "Failed to create booking. Please try again.");
+        } finally {
+            setIsSaving(false);
         }
     };
 
@@ -1135,8 +1139,11 @@ export function AddBookingForm({
                         </div>
                     </div>
                     <div className="flex justify-end gap-2 w-full sm:w-auto">
-                        <Button variant="default" onClick={handleSubmit}>Create Booking</Button>
-                        <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+                        <Button variant="default" onClick={handleSubmit} disabled={isSaving}>
+                            {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                            Create Booking
+                        </Button>
+                        <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isSaving}>Cancel</Button>
                     </div>
                 </SheetFooter>
             </SheetContent>

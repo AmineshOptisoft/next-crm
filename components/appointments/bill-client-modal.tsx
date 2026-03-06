@@ -17,6 +17,7 @@ import {
     Trash2,
     RefreshCw,
     FileText,
+    Loader2,
 } from "lucide-react";
 import {
     Table,
@@ -296,7 +297,7 @@ export function BillClientModal({
                                 onClick={handleCreateInvoice}
                                 disabled={loading}
                             >
-                                {loading ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : <Plus className="h-4 w-4 mr-2" />}
+                                {loading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                                 Create Invoice
                             </Button>
                         </div>

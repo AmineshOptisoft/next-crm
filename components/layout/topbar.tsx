@@ -10,6 +10,7 @@ import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { useLayoutPreferences } from "@/components/theme-provider";
 import {
   Search,
   Moon,
@@ -60,6 +61,7 @@ export function Topbar() {
   const pathname = usePathname();
   const router = useRouter();
   const { theme, setTheme } = useTheme();
+  const { showAvatars } = useLayoutPreferences();
 
   const [userName, setUserName] = useState<string | undefined>();
   const [userEmail, setUserEmail] = useState<string | undefined>();
@@ -220,7 +222,10 @@ export function Topbar() {
                 className="h-9 gap-2 rounded-full px-2 pr-3"
               >
                 <Avatar className="h-7 w-7">
-                  <AvatarImage src={avatarUrl} alt={userName} />
+                  <AvatarImage
+                    src={showAvatars && avatarUrl ? avatarUrl : ""}
+                    alt={userName}
+                  />
                   <AvatarFallback className="bg-primary text-primary-foreground text-[11px]">
                     {initials}
                   </AvatarFallback>

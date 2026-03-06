@@ -28,10 +28,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Pencil, Trash2, FileText, Eye } from "lucide-react";
+import { Plus, Pencil, Trash2, FileText, Eye, Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { usePermissions } from "@/hooks/usePermissions";
+import { toast } from "sonner";
 
 interface Invoice {
   _id: string;
@@ -83,6 +84,10 @@ export default function InvoicesPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [viewInvoice, setViewInvoice] = useState<Invoice | null>(null);
   const [filterStatus, setFilterStatus] = useState<string>("all");
+  const [savingInvoice, setSavingInvoice] = useState(false);
+  const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
+  const [actionLoadingType, setActionLoadingType] = useState<string | null>(null);
+  const [deleteDialogInvoiceId, setDeleteDialogInvoiceId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     contactId: "",
     issueDate: new Date().toISOString().split("T")[0],
@@ -139,6 +144,7 @@ export default function InvoicesPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setSavingInvoice(true);
     try {
       const response = await fetch("/api/invoices", {
         method: "POST",
@@ -153,27 +159,38 @@ export default function InvoicesPage() {
       }
     } catch (error) {
       console.error("Error creating invoice:", error);
+    } finally {
+      setSavingInvoice(false);
     }
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this invoice?")) return;
-
     try {
+      setActionLoadingId(id);
+      setActionLoadingType("delete");
       const response = await fetch(`/api/invoices/${id}`, {
         method: "DELETE",
       });
 
       if (response.ok) {
+        toast.success("Invoice deleted");
         fetchInvoices();
+      } else {
+        toast.error("Failed to delete invoice");
       }
     } catch (error) {
       console.error("Error deleting invoice:", error);
+      toast.error("Failed to delete invoice");
+    } finally {
+      setActionLoadingId(null);
+      setActionLoadingType(null);
     }
   };
 
   const handleStatusChange = async (id: string, status: string) => {
     try {
+      setActionLoadingId(id);
+      setActionLoadingType(status);
       const response = await fetch(`/api/invoices/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -181,10 +198,17 @@ export default function InvoicesPage() {
       });
 
       if (response.ok) {
+        toast.success("Invoice status updated");
         fetchInvoices();
+      } else {
+        toast.error("Failed to update status");
       }
     } catch (error) {
       console.error("Error updating invoice:", error);
+      toast.error("Failed to update status");
+    } finally {
+      setActionLoadingId(null);
+      setActionLoadingType(null);
     }
   };
 
@@ -430,10 +454,16 @@ export default function InvoicesPage() {
                   type="button"
                   variant="outline"
                   onClick={() => setIsDialogOpen(false)}
+                  disabled={savingInvoice}
                 >
                   Cancel
                 </Button>
-                <Button type="submit">Create Invoice</Button>
+                <Button type="submit" disabled={savingInvoice}>
+                  {savingInvoice && (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  )}
+                  {savingInvoice ? "Creating..." : "Create Invoice"}
+                </Button>
               </DialogFooter>
             </form>
           </DialogContent>
@@ -525,7 +555,12 @@ export default function InvoicesPage() {
                                 onClick={() =>
                                   handleStatusChange(invoice._id, "sent")
                                 }
+                                disabled={actionLoadingId === invoice._id}
                               >
+                                {actionLoadingId === invoice._id &&
+                                  actionLoadingType === "sent" && (
+                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                  )}
                                 Send
                               </Button>
                             )}
@@ -536,7 +571,12 @@ export default function InvoicesPage() {
                                 onClick={() =>
                                   handleStatusChange(invoice._id, "paid")
                                 }
+                                disabled={actionLoadingId === invoice._id}
                               >
+                                {actionLoadingId === invoice._id &&
+                                  actionLoadingType === "paid" && (
+                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                  )}
                                 Mark Paid
                               </Button>
                             )}
@@ -544,7 +584,8 @@ export default function InvoicesPage() {
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                onClick={() => handleDelete(invoice._id)}
+                                onClick={() => setDeleteDialogInvoiceId(invoice._id)}
+                                disabled={actionLoadingId === invoice._id}
                               >
                                 <Trash2 className="h-4 w-4" />
                               </Button>
@@ -654,6 +695,47 @@ export default function InvoicesPage() {
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Invoice Confirmation */}
+      <Dialog
+        open={!!deleteDialogInvoiceId}
+        onOpenChange={(open) => {
+          if (!open) setDeleteDialogInvoiceId(null);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete invoice</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete this invoice? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setDeleteDialogInvoiceId(null)}
+              disabled={!!actionLoadingId}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={!deleteDialogInvoiceId || !!actionLoadingId}
+              onClick={() => {
+                if (deleteDialogInvoiceId) {
+                  handleDelete(deleteDialogInvoiceId);
+                }
+              }}
+            >
+              {actionLoadingId === deleteDialogInvoiceId &&
+                actionLoadingType === "delete" && (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                )}
+              Delete
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

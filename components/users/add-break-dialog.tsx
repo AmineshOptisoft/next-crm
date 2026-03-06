@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DateTimePicker } from "@/components/ui/date-time-picker";
 import { format } from "date-fns";
-import { X } from "lucide-react";
+import { X, Loader2 } from "lucide-react";
 
 interface AddBreakDialogProps {
     open: boolean;
@@ -124,6 +124,7 @@ export function AddBreakDialog({ open, onOpenChange, onSave, loading }: AddBreak
                         className=" hover:bg-zinc-300 text-black min-w-[100px]"
                         disabled={loading}
                     >
+                        {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                         {loading ? "Saving..." : "Save"}
                     </Button>
                 </DialogFooter>

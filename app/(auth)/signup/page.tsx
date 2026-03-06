@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -29,58 +29,19 @@ import {
   SelectContent,
   SelectItem,
 } from "@/components/ui/select";
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogAction,
+} from "@/components/ui/alert-dialog";
 import Link from "next/link";
-
-type Country = { id: string; name: string };
-type StateType = { id: string; name: string };
-type City = { id: string; name: string };
-
-let countriesCache: Country[] | null = null;
-const statesCache = new Map<string, StateType[]>();
-const citiesCache = new Map<string, City[]>();
-
-async function loadCountries(): Promise<Country[]> {
-  if (countriesCache) return countriesCache;
-
-  const res = await fetch("/api/geo/countries");
-  if (!res.ok) {
-    throw new Error("Failed to load countries");
-  }
-
-  const data = (await res.json()) as Country[];
-  countriesCache = data;
-  return data;
-}
-
-async function loadStates(countryId: string): Promise<StateType[]> {
-  if (statesCache.has(countryId)) {
-    return statesCache.get(countryId)!;
-  }
-
-  const res = await fetch(`/api/geo/states?countryId=${countryId}`);
-  if (!res.ok) {
-    throw new Error("Failed to load states");
-  }
-
-  const data = (await res.json()) as StateType[];
-  statesCache.set(countryId, data);
-  return data;
-}
-
-async function loadCities(stateId: string): Promise<City[]> {
-  if (citiesCache.has(stateId)) {
-    return citiesCache.get(stateId)!;
-  }
-
-  const res = await fetch(`/api/geo/cities?stateId=${stateId}`);
-  if (!res.ok) {
-    throw new Error("Failed to load cities");
-  }
-
-  const data = (await res.json()) as City[];
-  citiesCache.set(stateId, data);
-  return data;
-}
+import { Loader2 } from "lucide-react";
+import { toast } from "sonner";
+import { Country, State, City } from "country-state-city";
 
 export default function SignupPage() {
   const router = useRouter();
@@ -100,80 +61,22 @@ export default function SignupPage() {
     },
   });
 
-  const [countries, setCountries] = useState<Country[]>([]);
-  const [states, setStates] = useState<StateType[]>([]);
-  const [cities, setCities] = useState<City[]>([]);
-  const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    let isMounted = true;
-
-    loadCountries()
-      .then((data) => {
-        if (!isMounted) return;
-        setCountries(data);
-      })
-      .catch((error) => {
-        console.error(error);
-      });
-
-    return () => {
-      isMounted = false;
-    };
-  }, []);
-
   const countryId = form.watch("countryId");
   const stateId = form.watch("stateId");
 
-  useEffect(() => {
-    if (!countryId) {
-      setStates([]);
-      form.setValue("stateId", "");
-      return;
-    }
+  const countries = Country.getAllCountries();
+  const selectedCountry = countries.find((c) => c.name === countryId);
+  const countryCode = selectedCountry?.isoCode;
 
-    let isMounted = true;
+  const states = countryCode ? State.getStatesOfCountry(countryCode) : [];
+  const selectedState = states.find((s) => s.name === stateId);
+  const stateCode = selectedState?.isoCode;
 
-    loadStates(countryId)
-      .then((data) => {
-        if (!isMounted) return;
-        setStates(data);
-        setCities([]);
-        form.setValue("stateId", "");
-        form.setValue("cityId", "");
-      })
-      .catch((error) => {
-        console.error(error);
-      });
+  const cities =
+    countryCode && stateCode ? City.getCitiesOfState(countryCode, stateCode) : [];
 
-    return () => {
-      isMounted = false;
-    };
-  }, [countryId, form]);
-
-  useEffect(() => {
-    if (!stateId) {
-      setCities([]);
-      form.setValue("cityId", "");
-      return;
-    }
-
-    let isMounted = true;
-
-    loadCities(stateId)
-      .then((data) => {
-        if (!isMounted) return;
-        setCities(data);
-        form.setValue("cityId", "");
-      })
-      .catch((error) => {
-        console.error(error);
-      });
-
-    return () => {
-      isMounted = false;
-    };
-  }, [stateId, form]);
+  const [loading, setLoading] = useState(false);
+  const [successDialogOpen, setSuccessDialogOpen] = useState(false);
 
   async function onSubmit(values: SignupInput) {
     setLoading(true);
@@ -186,20 +89,20 @@ export default function SignupPage() {
     });
     const data = await res.json();
     setLoading(false);
+
     if (!res.ok) {
       const field = data.field as keyof SignupInput | undefined;
       if (field) {
         form.setError(field, { message: data.error });
       } else {
-        alert(data.error || "Signup failed");
+        toast.error(data.error || "Signup failed");
       }
       return;
     }
 
-    // Inform user and redirect to login as soon as mail is sent
-    alert("Registered. Please check your email to verify, then log in.");
+    // ✅ Open dialog BEFORE reset to prevent state being cleared
+    setSuccessDialogOpen(true);
     form.reset();
-    router.push("/login");
   }
 
   return (
@@ -250,11 +153,7 @@ export default function SignupPage() {
                   <FormItem>
                     <FormLabel>Email</FormLabel>
                     <FormControl>
-                      <Input
-                        type="email"
-                        placeholder="you@company.com"
-                        {...field}
-                      />
+                      <Input type="email" placeholder="you@company.com" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -313,17 +212,21 @@ export default function SignupPage() {
                       <FormLabel>Country</FormLabel>
                       <Select
                         value={field.value}
-                        onValueChange={(value) => field.onChange(value)}
+                        onValueChange={(value) => {
+                          field.onChange(value);
+                          form.setValue("stateId", "");
+                          form.setValue("cityId", "");
+                        }}
                       >
                         <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select" />
+                          <SelectTrigger className="w-full">
+                            <SelectValue placeholder="Select Country" />
                           </SelectTrigger>
                         </FormControl>
-                        <SelectContent>
-                          {countries.map((c) => (
-                            <SelectItem key={c.id} value={c.id}>
-                              {c.name}
+                        <SelectContent position="popper" sideOffset={5} className="z-[200]">
+                          {countries.map((country) => (
+                            <SelectItem key={country.isoCode} value={country.name}>
+                              {country.name}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -340,18 +243,21 @@ export default function SignupPage() {
                       <FormLabel>State</FormLabel>
                       <Select
                         value={field.value}
-                        onValueChange={(value) => field.onChange(value)}
-                        disabled={!countryId}
+                        onValueChange={(value) => {
+                          field.onChange(value);
+                          form.setValue("cityId", "");
+                        }}
+                        disabled={!countryCode}
                       >
                         <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select" />
+                          <SelectTrigger className="w-full">
+                            <SelectValue placeholder="Select State" />
                           </SelectTrigger>
                         </FormControl>
-                        <SelectContent>
-                          {states.map((s) => (
-                            <SelectItem key={s.id} value={s.id}>
-                              {s.name}
+                        <SelectContent position="popper" sideOffset={5} className="z-[200]">
+                          {states.map((state) => (
+                            <SelectItem key={state.isoCode} value={state.name}>
+                              {state.name}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -369,17 +275,17 @@ export default function SignupPage() {
                       <Select
                         value={field.value}
                         onValueChange={(value) => field.onChange(value)}
-                        disabled={!stateId}
+                        disabled={!stateCode}
                       >
                         <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select" />
+                          <SelectTrigger className="w-full">
+                            <SelectValue placeholder="Select City" />
                           </SelectTrigger>
                         </FormControl>
-                        <SelectContent>
-                          {cities.map((c) => (
-                            <SelectItem key={c.id} value={c.id}>
-                              {c.name}
+                        <SelectContent position="popper" sideOffset={5} className="z-[200]">
+                          {cities.map((city) => (
+                            <SelectItem key={city.name} value={city.name}>
+                              {city.name}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -391,12 +297,13 @@ export default function SignupPage() {
               </div>
 
               <Button type="submit" className="w-full" disabled={loading}>
+                {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 {loading ? "Creating account..." : "Sign up"}
               </Button>
             </form>
           </Form>
 
-          <p className="text-center text-sm text-muted-foreground">
+          <p className="mt-4 text-center text-sm text-muted-foreground">
             Already have an account?{" "}
             <Link href="/login" className="text-primary">
               Login
@@ -404,6 +311,23 @@ export default function SignupPage() {
           </p>
         </CardContent>
       </Card>
+
+      {/* ✅ Sibling to Card, outside Form context */}
+      <AlertDialog open={successDialogOpen} onOpenChange={setSuccessDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Account created! 🎉</AlertDialogTitle>
+            <AlertDialogDescription>
+              Your account has been successfully created. First Verify your email, then log in.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction onClick={() => router.push("/login")}>
+              Go to Login
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

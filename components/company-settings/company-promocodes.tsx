@@ -31,12 +31,23 @@ import {
     SheetTitle,
     SheetTrigger,
 } from "@/components/ui/sheet";
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog";
 import { format } from "date-fns";
+import { toast } from "sonner";
 import { Promocode } from "./types";
 
 export function CompanyPromocodes() {
     const [promocodes, setPromocodes] = useState<Promocode[]>([]);
     const [isPromocodeDialogOpen, setIsPromocodeDialogOpen] = useState(false);
+    const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+    const [promocodeToDelete, setPromocodeToDelete] = useState<string | null>(null);
     const [newPromocode, setNewPromocode] = useState({
         code: "",
         type: "percentage",
@@ -79,30 +90,39 @@ export function CompanyPromocodes() {
                     expiryDate: ""
                 });
                 fetchPromocodes();
-                alert("Promocode created successfully!");
+                toast.success("Promocode created successfully!");
             } else {
                 const error = await response.json();
-                alert(error.error || "Failed to create promocode");
+                toast.error(error.error || "Failed to create promocode");
             }
         } catch (error) {
             console.error("Error creating promocode:", error);
-            alert("Error creating promocode");
+            toast.error("Error creating promocode");
         }
     };
 
-    const handleDeletePromocode = async (id: string) => {
-        if (!confirm("Are you sure you want to delete this promocode?")) return;
+    const openDeleteConfirm = (id: string) => {
+        setPromocodeToDelete(id);
+        setDeleteConfirmOpen(true);
+    };
+
+    const handleDeletePromocode = async () => {
+        if (!promocodeToDelete) return;
         try {
-            const response = await fetch(`/api/promocodes/${id}`, {
+            const response = await fetch(`/api/promocodes/${promocodeToDelete}`, {
                 method: "DELETE",
             });
             if (response.ok) {
+                setDeleteConfirmOpen(false);
+                setPromocodeToDelete(null);
                 fetchPromocodes();
+                toast.success("Promocode deleted successfully.");
             } else {
-                alert("Failed to delete promocode");
+                toast.error("Failed to delete promocode");
             }
         } catch (error) {
             console.error("Error deleting promocode:", error);
+            toast.error("Error deleting promocode");
         }
     };
 
@@ -260,7 +280,7 @@ export function CompanyPromocodes() {
                                             variant="ghost"
                                             size="sm"
                                             className="text-destructive hover:text-destructive/90 hover:bg-destructive/10"
-                                            onClick={() => handleDeletePromocode(promo._id)}
+                                            onClick={() => openDeleteConfirm(promo._id)}
                                         >
                                             <Trash2 className="h-4 w-4" />
                                         </Button>
@@ -271,6 +291,25 @@ export function CompanyPromocodes() {
                     </Table>
                 )}
             </CardContent>
+
+            <Dialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle>Delete promocode</DialogTitle>
+                        <DialogDescription>
+                            Are you sure you want to delete this promocode? This action cannot be undone.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter className="gap-2 sm:gap-0">
+                        <Button variant="outline" onClick={() => setDeleteConfirmOpen(false)}>
+                            Cancel
+                        </Button>
+                        <Button variant="destructive" onClick={handleDeletePromocode}>
+                            Delete
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </Card>
     );
 }

@@ -14,6 +14,7 @@ import { Pencil, Trash2, X, User, Camera, Loader2, Copy as CopyIcon, Mail, Phone
 import { toast } from "sonner";
 import { Separator } from "@/components/ui/separator";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger, SheetFooter, SheetClose } from "@/components/ui/sheet";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { ServiceDefaults } from "./ServiceDefaults";
 import { Country, State, City } from "country-state-city";
 
@@ -26,6 +27,7 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
     const [data, setData] = useState<any>(null);
     const [uploading, setUploading] = useState(false);
     const [sameAsBilling, setSameAsBilling] = useState(false);
+    const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
     // Email campaigns for this contact (Email tab)
     const [emailCampaigns, setEmailCampaigns] = useState<any[]>([]);
@@ -33,6 +35,7 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
     const [selectedCampaign, setSelectedCampaign] = useState<any | null>(null);
     const [selectedCampaignLoading, setSelectedCampaignLoading] = useState(false);
     const [sendingEmail, setSendingEmail] = useState(false);
+    const [updating, setUpdating] = useState(false);
 
     // Cascading Location Logic - Billing Address
     const countries = Country.getAllCountries();
@@ -175,6 +178,7 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
 
     async function handleUpdate() {
         try {
+            setUpdating(true);
             const updatePayload = {
                 ...data,
                 phone: data.phoneNumber,
@@ -195,11 +199,12 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
             }
         } catch (e) {
             toast.error("Update failed");
+        } finally {
+            setUpdating(false);
         }
     }
 
     async function handleDelete() {
-        if (!confirm("Are you sure?")) return;
         try {
             await fetch(`/api/contacts/${id}`, { method: "DELETE" });
             toast.success("Deleted successfully");
@@ -354,11 +359,49 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
 
                     {/* Action Buttons */}
                     <div className="p-4 border-t flex gap-2">
-                        <Button className="flex-1" onClick={handleUpdate}>Update</Button>
-                        <Button variant="destructive" size="icon" onClick={handleDelete}><Trash2 className="h-4 w-4" /></Button>
+                        <Button className="flex-1" onClick={handleUpdate} disabled={updating}>
+                            {updating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                            Update
+                        </Button>
+                        <Button
+                            variant="destructive"
+                            size="icon"
+                            onClick={() => setDeleteDialogOpen(true)}
+                        >
+                            <Trash2 className="h-4 w-4" />
+                        </Button>
                         <Button variant="outline" onClick={() => router.push('/dashboard/contacts')}>Cancel</Button>
                     </div>
                 </div>
+
+                {/* Delete Contact Confirmation */}
+                <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+                    <DialogContent>
+                        <DialogHeader>
+                            <DialogTitle>Delete contact</DialogTitle>
+                            <DialogDescription>
+                                Are you sure you want to delete this contact? This action cannot be undone.
+                            </DialogDescription>
+                        </DialogHeader>
+                        <DialogFooter>
+                            <Button
+                                variant="outline"
+                                onClick={() => setDeleteDialogOpen(false)}
+                            >
+                                Cancel
+                            </Button>
+                            <Button
+                                variant="destructive"
+                                onClick={async () => {
+                                    setDeleteDialogOpen(false);
+                                    await handleDelete();
+                                }}
+                            >
+                                Delete
+                            </Button>
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
 
                 {/* ── RIGHT PANEL: Tabs ── */}
                 <div className="flex-1 flex flex-col min-w-0 bg-background">
@@ -794,6 +837,7 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
                                                             onClick={handleSendSelectedCampaign}
                                                             disabled={sendingEmail || !data?.email}
                                                         >
+                                                            {sendingEmail && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                                                             {sendingEmail ? "Sending..." : "Send Email"}
                                                         </Button>
                                                     </div>

@@ -68,10 +68,6 @@ import { Separator } from "@/components/ui/separator";
 import { DataTable } from "@/components/data-table";
 import { ColumnDef } from "@tanstack/react-table";
 import { Country, State, City } from "country-state-city";
-import { usePermissions } from "@/hooks/usePermissions";
-import useSWR from "swr";
-
-const fetcher = (url: string) => fetch(url, { credentials: "include" }).then((res) => res.json());
 
 interface ContactType {
   _id: string;
@@ -101,9 +97,6 @@ interface ContactType {
 }
 
 export default function ContactsPage() {
-  // Check permissions for this module
-  const permissions = usePermissions("contacts");
-  
   const router = useRouter();
   const [contacts, setContacts] = useState<ContactType[]>([]);
   const [loading, setLoading] = useState(true);
@@ -184,38 +177,67 @@ export default function ContactsPage() {
   const [zonesList, setZonesList] = useState<string[]>([]);
   const [usersList, setUsersList] = useState<any[]>([]);
 
-  const { data: contactsData, isLoading: isLoadingContacts } = useSWR('/api/contacts', fetcher, { revalidateOnFocus: false });
-  const { data: usersData } = useSWR('/api/users', fetcher, { revalidateOnFocus: false });
-  const { data: zonesData } = useSWR('/api/service-areas', fetcher, { revalidateOnFocus: false });
-  const { data: meData } = useSWR('/api/auth/me', fetcher, { revalidateOnFocus: false });
-
   useEffect(() => {
-    if (contactsData) {
-      setContacts(contactsData);
+    fetchContacts();
+    fetchCurrentUser();
+    fetchZones();
+    fetchUsers();
+  }, []);
+
+  async function fetchUsers() {
+    try {
+      const res = await fetch("/api/users");
+      if (res.ok) {
+        const data = await res.json();
+        setUsersList(data);
+      }
+    } catch (e) {
+      console.error("Failed to fetch users", e);
+    }
+  }
+
+  async function fetchZones() {
+    try {
+      const res = await fetch("/api/service-areas");
+      if (res.ok) {
+        const data = await res.json();
+        const uniqueZones = Array.from(
+          new Set(
+            (data as any[])
+              .map((area: any) => area?.name as string | undefined)
+              .filter(Boolean)
+          )
+        ) as string[];
+        setZonesList(uniqueZones);
+      }
+    } catch (e) {
+      console.error("Failed to fetch zones", e);
+    }
+  }
+
+  async function fetchCurrentUser() {
+    try {
+      const res = await fetch("/api/auth/me");
+      if (res.ok) {
+        const data = await res.json();
+        setCurrentUser(data.user);
+      }
+    } catch (e) { console.error(e); }
+  }
+
+  async function fetchContacts() {
+    try {
+      const res = await fetch("/api/contacts");
+      if (res.ok) {
+        const data = await res.json();
+        setContacts(data);
+      }
+    } catch (e) {
+      toast.error("Failed to fetch contacts");
+    } finally {
       setLoading(false);
     }
-  }, [contactsData]);
-
-  useEffect(() => {
-    if (meData?.user) setCurrentUser(meData.user);
-  }, [meData]);
-
-  useEffect(() => {
-    if (usersData) setUsersList(usersData);
-  }, [usersData]);
-
-  useEffect(() => {
-    if (zonesData) {
-      const uniqueZones = Array.from(
-        new Set(
-          (zonesData as any[])
-            .map((area: any) => area?.name as string | undefined)
-            .filter(Boolean)
-        )
-      ) as string[];
-      setZonesList(uniqueZones);
-    }
-  }, [zonesData]);
+  }
 
   // --- Image Handling ---
 
@@ -326,10 +348,9 @@ export default function ContactsPage() {
 
       if (res.ok) {
         toast.success(editingContact ? "Updated successfully" : "Created successfully");
-        // We can artificially mutate SWR or rely on mutate via mutate("/api/contacts");
+        await fetchContacts();
         setIsSheetOpen(false);
         resetForm();
-        window.location.reload(); // Hard fallback till we wire up proper mutate
       } else {
         const error = await res.json();
         toast.error(error.error || "Operation failed");
@@ -352,8 +373,8 @@ export default function ContactsPage() {
     try {
       await fetch(`/api/contacts/${contactToDelete}`, { method: "DELETE" });
       toast.success("Deleted successfully");
+      fetchContacts();
       setIsDeleteDialogOpen(false);
-      window.location.reload();
     } catch (e) {
       toast.error("Failed to delete");
     } finally {
@@ -397,9 +418,6 @@ export default function ContactsPage() {
   // --- Export CSV ---
 
   const filteredContacts = contacts.filter(contact => {
-    // Ensure only users with role "contact" are shown
-    if (contact.role !== "contact") return false;
-
     // Search by Name or Email (Keywords input)
     if (filterData.name) {
       const search = filterData.name.toLowerCase();
@@ -535,19 +553,15 @@ export default function ContactsPage() {
         </DropdownMenu>
 
         <div className="flex flex-col md:flex-row items-stretch md:items-center gap-2 w-full md:w-auto">
-          {permissions.canExport && (
-            <Button variant="outline" onClick={exportCSV} className="w-full md:w-auto">
-              <Download className="mr-2 h-4 w-4" /> Export CSV
-            </Button>
-          )}
-          {permissions.canCreate && (
-            <Button onClick={() => { resetForm(); setIsSheetOpen(true); }} className="w-full md:w-auto">
-              <Plus className="mr-2 h-4 w-4" /> Add New Client
-            </Button>
-          )}
-          <Button variant="outline" onClick={() => setIsFilterModalOpen(true)} className="w-full md:w-auto">
-            <Filter className="mr-2 h-4 w-4" /> Filter
+          <Button variant="outline" onClick={exportCSV} className="w-full md:w-auto">
+            <Download className="mr-2 h-4 w-4" /> Export CSV
           </Button>
+          <Button onClick={() => { resetForm(); setIsSheetOpen(true); }} className="w-full md:w-auto">
+            <Plus className="mr-2 h-4 w-4" /> Add New Client
+          </Button>
+          {/* <Button variant="outline" onClick={() => setIsFilterModalOpen(true)} className="w-full md:w-auto">
+            <Filter className="mr-2 h-4 w-4" /> Filter
+          </Button> */}
         </div>
       </div>
 
@@ -648,20 +662,16 @@ export default function ContactsPage() {
               const contact = row.original;
               return (
                 <div className="flex items-center gap-2">
-                  {permissions.canEdit && (
-                    <Button size="icon" variant="ghost" onClick={() => router.push(`/dashboard/contacts/${contact._id}`)}>
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                  )}
-                  {permissions.canDelete && (
-                    <Button size="icon" variant="ghost" className="text-destructive hover:text-destructive" onClick={() => openDeleteDialog(contact._id)} disabled={deletingId === contact._id}>
-                      {deletingId === contact._id ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <Trash2 className="h-4 w-4" />
-                      )}
-                    </Button>
-                  )}
+                  <Button size="icon" variant="ghost" onClick={() => router.push(`/dashboard/contacts/${contact._id}`)}>
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+                  <Button size="icon" variant="ghost" className="text-destructive hover:text-destructive" onClick={() => openDeleteDialog(contact._id)} disabled={deletingId === contact._id}>
+                    {deletingId === contact._id ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Trash2 className="h-4 w-4" />
+                    )}
+                  </Button>
                 </div>
               );
             },
@@ -999,8 +1009,8 @@ export default function ContactsPage() {
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2"><Label>Bathrooms</Label><Input value={formData.bathrooms} onChange={e => setFormData({ ...formData, bathrooms: e.target.value })} /></div>
-                <div className="space-y-2"><Label>Bedrooms</Label><Input value={formData.bedrooms} onChange={e => setFormData({ ...formData, bedrooms: e.target.value })} /></div>
+                <div className="space-y-2"><Label>Bathrooms</Label><Input type="number" value={formData.bathrooms} onChange={e => setFormData({ ...formData, bathrooms: e.target.value })} /></div>
+                <div className="space-y-2"><Label>Bedrooms</Label><Input type="number" value={formData.bedrooms} onChange={e => setFormData({ ...formData, bedrooms: e.target.value })} /></div>
               </div>
 
               <div className="space-y-2"><Label>Street Address</Label><Input value={formData.streetAddress} onChange={e => setFormData({ ...formData, streetAddress: e.target.value })} /></div>

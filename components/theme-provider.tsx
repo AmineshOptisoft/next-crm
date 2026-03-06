@@ -5,6 +5,41 @@ import { ThemeProvider as NextThemesProvider } from "next-themes";
 
 type TableDensity = "comfortable" | "compact" | "spacious";
 
+const LAYOUT_STORAGE_KEY = "layout-preferences";
+
+function getStoredPreferences() {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = localStorage.getItem(LAYOUT_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as {
+      showAvatars?: boolean;
+      tableDensity?: TableDensity;
+      compact?: boolean;
+    };
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function setStoredPreferences(prefs: {
+  showAvatars?: boolean;
+  tableDensity?: TableDensity;
+  compact?: boolean;
+}) {
+  if (typeof window === "undefined") return;
+  try {
+    const existing = getStoredPreferences() || {};
+    localStorage.setItem(
+      LAYOUT_STORAGE_KEY,
+      JSON.stringify({ ...existing, ...prefs })
+    );
+  } catch {
+    // ignore
+  }
+}
+
 type LayoutPreferences = {
   compact: boolean;
   setCompact: (value: boolean) => void;
@@ -23,10 +58,31 @@ export function ThemeProvider({
   children: React.ReactNode;
   defaultTheme?: "light" | "dark" | "system";
 }) {
-  const [compact, setCompact] = React.useState(false);
-  const [showAvatars, setShowAvatars] = React.useState(true);
-  const [tableDensity, setTableDensity] =
-    React.useState<TableDensity>("comfortable");
+  const stored = getStoredPreferences();
+  const [compact, setCompact] = React.useState(stored?.compact ?? false);
+  const [showAvatars, setShowAvatars] = React.useState(
+    stored?.showAvatars ?? true
+  );
+  const [tableDensity, setTableDensity] = React.useState<TableDensity>(
+    stored?.tableDensity ?? "comfortable"
+  );
+
+  React.useEffect(() => {
+    const prefs = getStoredPreferences();
+    if (prefs?.showAvatars !== undefined) setShowAvatars(prefs.showAvatars);
+    if (prefs?.tableDensity) setTableDensity(prefs.tableDensity);
+    if (prefs?.compact !== undefined) setCompact(prefs.compact);
+  }, []);
+
+  const setShowAvatarsPersisted = React.useCallback((value: boolean) => {
+    setShowAvatars(value);
+    setStoredPreferences({ showAvatars: value });
+  }, []);
+
+  const setTableDensityPersisted = React.useCallback((value: TableDensity) => {
+    setTableDensity(value);
+    setStoredPreferences({ tableDensity: value });
+  }, []);
 
   return (
     <NextThemesProvider
@@ -40,9 +96,9 @@ export function ThemeProvider({
           compact,
           setCompact,
           showAvatars,
-          setShowAvatars,
+          setShowAvatars: setShowAvatarsPersisted,
           tableDensity,
-          setTableDensity,
+          setTableDensity: setTableDensityPersisted,
         }}
       >
         {children}

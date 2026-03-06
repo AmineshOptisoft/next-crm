@@ -3,6 +3,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { connectDB } from "@/lib/db";
 import { ServiceArea } from "@/app/models/ServiceArea";
 import { ZipCode } from "@/app/models/ZipCode";
+import { log } from "console";
 
 // PUT - Update a service area
 export async function PUT(
@@ -61,19 +62,23 @@ export async function PUT(
 // DELETE - Delete a service area
 export async function DELETE(
     req: NextRequest,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
     try {
+        const { id } = await params;
+        console.log(id);
         const user = await getCurrentUser();
+        console.log(user);
         if (!user || !user.companyId) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 
         await connectDB();
 
-        // Check if any zip codes are using this service area
+        // Check if any zip codes for this company are using this service area
         const zipCodesCount = await ZipCode.countDocuments({
-            serviceAreaId: params.id,
+            serviceAreaId: id,
+            companyId: user.companyId,
         });
 
         if (zipCodesCount > 0) {
@@ -83,8 +88,8 @@ export async function DELETE(
             );
         }
 
-        const serviceArea = await ServiceArea.findOneAndDelete({
-            _id: params.id,
+        const serviceArea = await ServiceArea.findByIdAndDelete({
+            _id: id,
             companyId: user.companyId,
         });
 

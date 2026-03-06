@@ -14,6 +14,7 @@ import {
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Save } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { toast } from "sonner";
 import { Switch } from "@/components/ui/switch";
 
 export function CompanyPayments() {
@@ -73,13 +74,13 @@ export function CompanyPayments() {
             });
 
             if (response.ok) {
-                alert("Payment settings saved successfully!");
+                toast.success("Payment settings saved successfully!");
             } else {
-                alert("Failed to save payment settings");
+                toast.error("Failed to save payment settings");
             }
         } catch (error) {
             console.error("Error saving payment settings:", error);
-            alert("Error saving payment settings");
+            toast.error("Error saving payment settings");
         }
     };
 

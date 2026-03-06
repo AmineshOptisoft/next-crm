@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Star, Plus } from "lucide-react";
+import { Star, Plus, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -31,6 +31,7 @@ interface UserReviewsProps {
 
 export function UserReviews({ reviews, onSave }: UserReviewsProps) {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [newReview, setNewReview] = useState<Partial<Review>>({
       rating: 5,
       title: "",
@@ -40,16 +41,21 @@ export function UserReviews({ reviews, onSave }: UserReviewsProps) {
 
   const handleSave = () => {
       if (!newReview.title || !newReview.text) return;
-      
-      onSave({
-          title: newReview.title,
-          rating: newReview.rating || 5,
-          text: newReview.text,
-          reviewer: newReview.reviewer || "Admin",
-          createdAt: new Date().toISOString()
-      });
-      setIsDialogOpen(false);
-      setNewReview({ rating: 5, title: "", text: "", reviewer: "Admin" });
+      setSaving(true);
+
+      try {
+        onSave({
+            title: newReview.title,
+            rating: newReview.rating || 5,
+            text: newReview.text,
+            reviewer: newReview.reviewer || "Admin",
+            createdAt: new Date().toISOString()
+        });
+        setIsDialogOpen(false);
+        setNewReview({ rating: 5, title: "", text: "", reviewer: "Admin" });
+      } finally {
+        setSaving(false);
+      }
   };
 
   return (
@@ -105,8 +111,20 @@ export function UserReviews({ reviews, onSave }: UserReviewsProps) {
                       </div>
                   </div>
                   <DialogFooter>
-                      <Button variant="outline" onClick={() => setIsDialogOpen(false)}>Cancel</Button>
-                      <Button onClick={handleSave}>Save Review</Button>
+                      <Button
+                        variant="outline"
+                        onClick={() => setIsDialogOpen(false)}
+                        disabled={saving}
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        onClick={handleSave}
+                        disabled={saving || !newReview.title || !newReview.text}
+                      >
+                        {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        {saving ? "Saving..." : "Save Review"}
+                      </Button>
                   </DialogFooter>
               </DialogContent>
           </Dialog>

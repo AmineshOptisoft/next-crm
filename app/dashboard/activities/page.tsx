@@ -29,10 +29,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Pencil, Trash2, Activity as ActivityIcon, Phone, Mail, Calendar, FileText } from "lucide-react";
+import { Plus, Pencil, Trash2, Activity as ActivityIcon, Phone, Mail, Calendar, FileText, Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { usePermissions } from "@/hooks/usePermissions";
+import { toast } from "sonner";
 
 interface Activity {
   _id: string;
@@ -102,6 +103,10 @@ export default function ActivitiesPage() {
     status: "scheduled",
     assignedTo: "",
   });
+  const [savingActivity, setSavingActivity] = useState(false);
+  const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
+  const [actionLoadingType, setActionLoadingType] = useState<string | null>(null);
+  const [deleteDialogActivityId, setDeleteDialogActivityId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchActivities();
@@ -162,6 +167,7 @@ export default function ActivitiesPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setSavingActivity(true);
     try {
       const url = editingActivity
         ? `/api/activities/${editingActivity._id}`
@@ -181,28 +187,41 @@ export default function ActivitiesPage() {
       });
 
       if (response.ok) {
+        toast.success(editingActivity ? "Activity updated" : "Activity logged");
         fetchActivities();
         setIsDialogOpen(false);
         resetForm();
+      } else {
+        toast.error("Failed to save activity");
       }
     } catch (error) {
       console.error("Error saving activity:", error);
+      toast.error("Failed to save activity");
+    } finally {
+      setSavingActivity(false);
     }
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this activity?")) return;
-
     try {
+      setActionLoadingId(id);
+      setActionLoadingType("delete");
       const response = await fetch(`/api/activities/${id}`, {
         method: "DELETE",
       });
 
       if (response.ok) {
+        toast.success("Activity deleted");
         fetchActivities();
+      } else {
+        toast.error("Failed to delete activity");
       }
     } catch (error) {
       console.error("Error deleting activity:", error);
+      toast.error("Failed to delete activity");
+    } finally {
+      setActionLoadingId(null);
+      setActionLoadingType(null);
     }
   };
 
@@ -227,6 +246,8 @@ export default function ActivitiesPage() {
 
   const handleComplete = async (id: string) => {
     try {
+      setActionLoadingId(id);
+      setActionLoadingType("complete");
       const response = await fetch(`/api/activities/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -241,6 +262,9 @@ export default function ActivitiesPage() {
       }
     } catch (error) {
       console.error("Error completing activity:", error);
+    } finally {
+      setActionLoadingId(null);
+      setActionLoadingType(null);
     }
   };
 
@@ -524,10 +548,14 @@ export default function ActivitiesPage() {
                   type="button"
                   variant="outline"
                   onClick={() => setIsDialogOpen(false)}
+                  disabled={savingActivity}
                 >
                   Cancel
                 </Button>
-                <Button type="submit">
+                <Button type="submit" disabled={savingActivity}>
+                  {savingActivity && (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  )}
                   {editingActivity ? "Update" : "Log Activity"}
                 </Button>
               </DialogFooter>
@@ -618,7 +646,12 @@ export default function ActivitiesPage() {
                                 variant="ghost"
                                 size="sm"
                                 onClick={() => handleComplete(activity._id)}
+                                disabled={actionLoadingId === activity._id}
                               >
+                                {actionLoadingId === activity._id &&
+                                  actionLoadingType === "complete" && (
+                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                  )}
                                 Complete
                               </Button>
                             )}
@@ -627,6 +660,7 @@ export default function ActivitiesPage() {
                                 variant="ghost"
                                 size="icon"
                                 onClick={() => handleEdit(activity)}
+                                disabled={actionLoadingId === activity._id}
                               >
                                 <Pencil className="h-4 w-4" />
                               </Button>
@@ -635,7 +669,8 @@ export default function ActivitiesPage() {
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                onClick={() => handleDelete(activity._id)}
+                                onClick={() => setDeleteDialogActivityId(activity._id)}
+                                disabled={actionLoadingId === activity._id}
                               >
                                 <Trash2 className="h-4 w-4" />
                               </Button>
@@ -651,6 +686,47 @@ export default function ActivitiesPage() {
           )}
         </TabsContent>
       </Tabs>
+
+      {/* Delete Activity Confirmation */}
+      <Dialog
+        open={!!deleteDialogActivityId}
+        onOpenChange={(open) => {
+          if (!open) setDeleteDialogActivityId(null);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete activity</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete this activity? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setDeleteDialogActivityId(null)}
+              disabled={!!actionLoadingId}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={!deleteDialogActivityId || !!actionLoadingId}
+              onClick={() => {
+                if (deleteDialogActivityId) {
+                  handleDelete(deleteDialogActivityId);
+                }
+              }}
+            >
+              {actionLoadingId === deleteDialogActivityId &&
+                actionLoadingType === "delete" && (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                )}
+              Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

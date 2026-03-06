@@ -24,6 +24,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import Link from "next/link";
+import { Loader2 } from "lucide-react";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -130,6 +131,9 @@ export default function LoginPage() {
                 )}
               />
               <Button type="submit" className="w-full" disabled={loading}>
+                {loading && (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                )}
                 {loading ? "Logging in..." : "Login"}
               </Button>
             </form>

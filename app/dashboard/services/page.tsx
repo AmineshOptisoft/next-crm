@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
@@ -601,8 +601,14 @@ export default function ServicesPage() {
                                         Cancel
                                     </Button>
                                 </SheetClose>
-                                <Button type="submit" size="lg" className="min-w-[140px]  shadow-sm" disabled={isSaving}>
-                                {editingService ? "Update" : "Create"}
+                                <Button
+                                    type="submit"
+                                    size="lg"
+                                    className="min-w-[140px] shadow-sm"
+                                    disabled={isSaving}
+                                >
+                                    {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                    {editingService ? "Update" : "Create"}
                                 </Button>
                             </div>
                         </form>
