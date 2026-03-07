@@ -26,7 +26,7 @@ interface Review {
 
 interface UserReviewsProps {
     reviews: Review[];
-    onSave: (review: Review) => void;
+    onSave: (review: Review) => void | Promise<void>;
 }
 
 export function UserReviews({ reviews, onSave }: UserReviewsProps) {
@@ -39,18 +39,19 @@ export function UserReviews({ reviews, onSave }: UserReviewsProps) {
       reviewer: "Admin"
   });
 
-  const handleSave = () => {
+  const handleSave = async () => {
       if (!newReview.title || !newReview.text) return;
       setSaving(true);
 
       try {
-        onSave({
+        const reviewToSave: Review = {
             title: newReview.title,
             rating: newReview.rating || 5,
             text: newReview.text,
             reviewer: newReview.reviewer || "Admin",
             createdAt: new Date().toISOString()
-        });
+        };
+        await onSave(reviewToSave);
         setIsDialogOpen(false);
         setNewReview({ rating: 5, title: "", text: "", reviewer: "Admin" });
       } finally {

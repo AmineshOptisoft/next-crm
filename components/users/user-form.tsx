@@ -254,6 +254,13 @@ export function UserForm({ user, onSave, loading }: UserFormProps) {
         fetchZipCodes();
     }, []);
 
+    // Sync reviews from user when user data updates (e.g. after fetch or after saving a review)
+    useEffect(() => {
+        if (user.reviews !== undefined) {
+            setFormData((prev) => ({ ...prev, reviews: user.reviews }));
+        }
+    }, [user.reviews]);
+
 
     // Cascading Location Logic
     const countries = Country.getAllCountries();
@@ -985,7 +992,11 @@ export function UserForm({ user, onSave, loading }: UserFormProps) {
                         <CardContent>
                             <UserReviews
                                 reviews={formData.reviews || []}
-                                onSave={(newReview) => handleChange("reviews", [...(formData.reviews || []), newReview])}
+                                onSave={async (newReview) => {
+                                    const newReviews = [...(formData.reviews || []), newReview];
+                                    handleChange("reviews", newReviews);
+                                    await onSave({ reviews: newReviews });
+                                }}
                             />
                         </CardContent>
                     </Card>
