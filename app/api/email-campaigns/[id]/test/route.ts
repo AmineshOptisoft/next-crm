@@ -24,9 +24,13 @@ export async function POST(
             return NextResponse.json({ error: "Test email is required" }, { status: 400 });
         }
 
+        // Allow testing either a company-owned campaign or a shared default campaign
         const campaign = await EmailCampaign.findOne({
             _id: id,
-            companyId: user.companyId
+            $or: [
+                { isDefault: true },
+                { companyId: user.companyId },
+            ],
         });
 
         if (!campaign) {

@@ -22,6 +22,58 @@ import { Promocode } from "@/components/company-settings/types";
 
 const fetcher = (url: string) => fetch(url, { credentials: "include" }).then(r => r.json());
 
+// Helper: service (main, sub, or addon) is available for the selected user type (new vs existing)
+function isServiceAvailableForUserType(
+    availability: string | undefined,
+    userType: "new" | "existing"
+): boolean {
+    if (!availability) return true;
+    if (availability === "both" || availability === "admin_service") return true;
+    if (userType === "new" && availability === "new_client") return true;
+    if (userType === "existing" && availability === "existing_client") return true;
+    return false;
+}
+
+// Helper: compute default start Date for a technician on a given day,
+// based on availability blocks encoded as unavailability events.
+function getAvailabilityStartForDay(
+    events: any[],
+    technicianId: string | undefined,
+    baseDate: Date | undefined
+): Date | undefined {
+    if (!technicianId || !baseDate) return baseDate;
+
+    const startOfDay = new Date(baseDate);
+    startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay = new Date(baseDate);
+    endOfDay.setHours(23, 59, 59, 999);
+
+    const beforeBlocks = events.filter((ev: any) => {
+        if (ev.resourceId !== technicianId) return false;
+        if (ev.type !== "unavailability_timed") return false;
+        const evStart = new Date(ev.start);
+        return evStart.getTime() === startOfDay.getTime();
+    });
+
+    // If no specific "before" block, assume availability starts at midnight.
+    if (!beforeBlocks.length) {
+        return startOfDay;
+    }
+
+    // Use the earliest end time of any "before" block as the availability start.
+    let earliestEnd = new Date(beforeBlocks[0].end);
+    for (const ev of beforeBlocks.slice(1)) {
+        const evEnd = new Date(ev.end);
+        if (evEnd.getTime() < earliestEnd.getTime()) {
+            earliestEnd = evEnd;
+        }
+    }
+
+    const result = new Date(baseDate);
+    result.setHours(earliestEnd.getHours(), earliestEnd.getMinutes(), 0, 0);
+    return result;
+}
+
 // ─── Lazy-load country-state-city once — never blocks the JS bundle ───────────
 let geoCache: any = null;
 async function loadGeo() {
@@ -32,14 +84,8 @@ async function loadGeo() {
 
 // ─── VirtualGeoSelect ─────────────────────────────────────────────────────────
 //
-//  Why this exists:
-//  • Plain <Select> + 250 countries / 500 cities = thousands of real DOM nodes
-//    mounted at once → 300-800 ms render freeze every time the dropdown opens.
-//  • This component renders only the ~8 rows visible in the viewport using a
-//    fixed-height virtual scroll window — O(1) DOM nodes regardless of list size.
-//  • A plain <input> filter narrows the list instantly without any heavy
-//    Command/Combobox overhead.
-//  • The trigger looks and feels identical to a shadcn <SelectTrigger>.
+//  Optimized, virtualized dropdown that visually matches a standard shadcn
+//  <Select> list (no search bar) while only rendering the visible rows.
 //
 const ITEM_H = 36; // px — height of each option row
 const LIST_H = 288; // px — max visible height (~8 rows)
@@ -59,24 +105,18 @@ const VirtualGeoSelect = memo(function VirtualGeoSelect({
     placeholder?: string;
     disabled?: boolean;
 }) {
-    const [open, setOpen]   = useState(false);
-    const [query, setQuery] = useState("");
-    const scrollRef         = useRef<HTMLDivElement>(null);
-    const inputRef          = useRef<HTMLInputElement>(null);
+    const [open, setOpen] = useState(false);
+    const scrollRef       = useRef<HTMLDivElement>(null);
     const [scrollTop, setScrollTop] = useState(0);
+    const [typeAhead, setTypeAhead] = useState("");
+    const [lastTypeTime, setLastTypeTime] = useState(0);
 
-    // Filter — only recomputes when query or options change
-    const filtered = useMemo(() => {
-        if (!query) return options;
-        const q = query.toLowerCase();
-        return options.filter(o => o.label.toLowerCase().includes(q));
-    }, [query, options]);
-
-    const totalH       = filtered.length * ITEM_H;
+    // Virtual window calculations based on full options list
+    const totalH       = options.length * ITEM_H;
     const startIdx     = Math.floor(scrollTop / ITEM_H);
     const visibleCount = Math.ceil(LIST_H / ITEM_H) + 2;               // +2 overscan
-    const endIdx       = Math.min(startIdx + visibleCount, filtered.length);
-    const visibleItems = filtered.slice(startIdx, endIdx);
+    const endIdx       = Math.min(startIdx + visibleCount, options.length);
+    const visibleItems = options.slice(startIdx, endIdx);
     const offsetY      = startIdx * ITEM_H;
 
     const displayLabel = useMemo(
@@ -84,14 +124,37 @@ const VirtualGeoSelect = memo(function VirtualGeoSelect({
         [options, value]
     );
 
-    // Reset scroll & query each time the dropdown opens
+    // Simple type-to-jump behaviour: when user types letters while the
+    // dropdown is open, scroll to the next option whose label starts
+    // with the typed prefix.
+    const handleKeyDown = (e: React.KeyboardEvent<HTMLButtonElement | HTMLDivElement>) => {
+        if (!open) return;
+        const key = e.key;
+        if (key.length === 1 && /^[a-z0-9]$/i.test(key)) {
+            const now = Date.now();
+            const withinWindow = now - lastTypeTime < 700;
+            const nextPrefix = (withinWindow ? typeAhead + key : key).toLowerCase();
+            setTypeAhead(nextPrefix);
+            setLastTypeTime(now);
+
+            const idx = options.findIndex(o =>
+                o.label.toLowerCase().startsWith(nextPrefix)
+            );
+            if (idx >= 0 && scrollRef.current) {
+                const visibleHeight = Math.min(totalH, LIST_H);
+                let newTop = idx * ITEM_H - visibleHeight / 2;
+                newTop = Math.max(0, Math.min(newTop, Math.max(0, totalH - visibleHeight)));
+                scrollRef.current.scrollTop = newTop;
+                setScrollTop(newTop);
+            }
+        }
+    };
+
+    // Reset scroll each time the dropdown opens
     useEffect(() => {
         if (open) {
-            setQuery("");
             setScrollTop(0);
             scrollRef.current?.scrollTo(0, 0);
-            // Tiny delay so the popover is painted before we focus
-            setTimeout(() => inputRef.current?.focus(), 30);
         }
     }, [open]);
 
@@ -112,6 +175,7 @@ const VirtualGeoSelect = memo(function VirtualGeoSelect({
             <button
                 id={id}
                 type="button"
+                onKeyDown={handleKeyDown}
                 disabled={disabled}
                 onClick={() => setOpen(o => !o)}
                 className={cn(
@@ -129,24 +193,15 @@ const VirtualGeoSelect = memo(function VirtualGeoSelect({
             {/* Dropdown panel */}
             {open && (
                 <div className="absolute z-[200] mt-1 w-full rounded-md border bg-popover shadow-md">
-                    {/* Search input */}
-                    <div className="p-2 border-b">
-                        <input
-                            ref={inputRef}
-                            value={query}
-                            onChange={e => { setQuery(e.target.value); setScrollTop(0); scrollRef.current?.scrollTo(0, 0); }}
-                            placeholder="Search…"
-                            className="w-full rounded-sm border border-input bg-background px-2 py-1.5 text-sm outline-none placeholder:text-muted-foreground"
-                        />
-                    </div>
-
                     {/* Virtual scroll container */}
                     <div
                         ref={scrollRef}
-                        style={{ height: Math.min(totalH, LIST_H), overflowY: "auto" }}
+                        style={{ height: Math.min(totalH, LIST_H), overflowY: "auto", scrollbarWidth: "none" }}
+                        className="scrollbar-none"
+                        onKeyDown={handleKeyDown}
                         onScroll={e => setScrollTop((e.target as HTMLDivElement).scrollTop)}
                     >
-                        {filtered.length === 0 ? (
+                        {options.length === 0 ? (
                             <div className="px-3 py-6 text-center text-sm text-muted-foreground">No results found.</div>
                         ) : (
                             /* Outer div holds full scroll height; inner div is offset to show only visible rows */
@@ -280,40 +335,23 @@ export function AddBookingForm({ open, onOpenChange, initialData, technicians, c
 
     useEffect(() => {
         if (open) {
-            if (initialData?.start) setBookingStart(initialData.start);
+            const computedStart = getAvailabilityStartForDay(
+                calendarEvents,
+                initialData?.technicianId,
+                initialData?.start
+            );
+            if (computedStart) setBookingStart(computedStart);
             if (initialData?.end)   setBookingEnd(initialData.end);
             if (initialData?.technicianId) {
                 setSelectedTechnicianServiceId(initialData.technicianId);
                 setSelectedTechnicianIds([initialData.technicianId]);
             }
         }
-    }, [open, initialData?.start, initialData?.end, initialData?.technicianId]);
+    }, [open, initialData?.start, initialData?.end, initialData?.technicianId, calendarEvents]);
 
     const toggleSection = useCallback((key: keyof typeof sections) => {
         setSections(prev => ({ ...prev, [key]: !prev[key] }));
     }, []);
-
-    // Auto-calculate end time
-    useEffect(() => {
-        if (!selectedService || !bookingStart) return;
-        let totalMinutes = 0;
-        selectedService.subServices?.forEach((sub: any) => {
-            const qty = subServiceQuantities[sub._id] || 0;
-            if (qty > 0 && sub.estimatedTime) totalMinutes += sub.estimatedTime * qty;
-        });
-        selectedService.addons?.forEach((addon: any) => {
-            const qty = addonQuantities[addon._id] || 0;
-            if (qty > 0 && addon.estimatedTime) totalMinutes += addon.estimatedTime * qty;
-        });
-        const techCount = Math.max(1, selectedTechnicianIds.length);
-        if (totalMinutes > 0) {
-            setBookingEnd(new Date(bookingStart.getTime() + (totalMinutes / techCount) * 60_000));
-        } else if (selectedService.estimatedTime) {
-            setBookingEnd(new Date(bookingStart.getTime() + (selectedService.estimatedTime / techCount) * 60_000));
-        } else {
-            setBookingEnd(new Date(bookingStart.getTime() + 3_600_000));
-        }
-    }, [selectedService, subServiceQuantities, addonQuantities, bookingStart, selectedTechnicianIds.length]);
 
     // Email debounce check
     useEffect(() => {
@@ -387,6 +425,62 @@ export function AddBookingForm({ open, onOpenChange, initialData, technicians, c
         });
     }, [selectedService, bookingStart, bookingEnd, allTechnicians, initialData?.technicianId, calendarEvents]);
 
+    // Main services: only show those available for the current user type (new vs existing)
+    const filteredServices = useMemo(() => {
+        return services.filter((s: any) =>
+            isServiceAvailableForUserType(s.availability, userType)
+        );
+    }, [services, userType]);
+
+    // Sub-services and addons: only show those available for the current user type
+    const filteredSubServices = useMemo(() => {
+        if (!selectedService?.subServices) return [];
+        return selectedService.subServices.filter((sub: any) =>
+            isServiceAvailableForUserType(sub.availability, userType)
+        );
+    }, [selectedService, userType]);
+
+    const filteredAddons = useMemo(() => {
+        if (!selectedService?.addons) return [];
+        return selectedService.addons.filter((addon: any) =>
+            isServiceAvailableForUserType(addon.availability, userType)
+        );
+    }, [selectedService, userType]);
+
+    // When user type changes, clear selected service if it's no longer available for that type
+    useEffect(() => {
+        if (selectedService && filteredServices.length > 0) {
+            const stillAvailable = filteredServices.some((s: any) => s._id === selectedService._id);
+            if (!stillAvailable) {
+                setSelectedService(null);
+                setSubServiceQuantities({});
+                setAddonQuantities({});
+            }
+        }
+    }, [userType, filteredServices, selectedService]);
+
+    // Auto-calculate end time (use only sub-services and addons available for current user type)
+    useEffect(() => {
+        if (!selectedService || !bookingStart) return;
+        let totalMinutes = 0;
+        filteredSubServices.forEach((sub: any) => {
+            const qty = subServiceQuantities[sub._id] || 0;
+            if (qty > 0 && sub.estimatedTime) totalMinutes += sub.estimatedTime * qty;
+        });
+        filteredAddons.forEach((addon: any) => {
+            const qty = addonQuantities[addon._id] || 0;
+            if (qty > 0 && addon.estimatedTime) totalMinutes += addon.estimatedTime * qty;
+        });
+        const techCount = Math.max(1, selectedTechnicianIds.length);
+        if (totalMinutes > 0) {
+            setBookingEnd(new Date(bookingStart.getTime() + (totalMinutes / techCount) * 60_000));
+        } else if (selectedService.estimatedTime) {
+            setBookingEnd(new Date(bookingStart.getTime() + (selectedService.estimatedTime / techCount) * 60_000));
+        } else {
+            setBookingEnd(new Date(bookingStart.getTime() + 3_600_000));
+        }
+    }, [selectedService, filteredSubServices, filteredAddons, subServiceQuantities, addonQuantities, bookingStart, selectedTechnicianIds.length]);
+
     // Handlers
     const handleTechnicianChange = useCallback((ids: string[]) => {
         setSelectedTechnicianIds(ids);
@@ -458,10 +552,10 @@ export function AddBookingForm({ open, onOpenChange, initialData, technicians, c
             return (B + H * hours * qty) * (1 + R / 100);
         };
         let subTotal = 0, addonsTotal = 0;
-        selectedService.subServices?.forEach((sub: any) => { const qty = subServiceQuantities[sub._id] || 0; if (qty > 0) subTotal += calcPrice(sub, qty); });
-        selectedService.addons?.forEach((addon: any) => { const qty = addonQuantities[addon._id] || 0; if (qty > 0) addonsTotal += calcPrice(addon, qty); });
+        filteredSubServices.forEach((sub: any) => { const qty = subServiceQuantities[sub._id] || 0; if (qty > 0) subTotal += calcPrice(sub, qty); });
+        filteredAddons.forEach((addon: any) => { const qty = addonQuantities[addon._id] || 0; if (qty > 0) addonsTotal += calcPrice(addon, qty); });
         return { total: subTotal + addonsTotal, subTotal, addonsTotal };
-    }, [selectedService, subServiceQuantities, addonQuantities, bookingStart, bookingEnd]);
+    }, [selectedService, filteredSubServices, filteredAddons, subServiceQuantities, addonQuantities, bookingStart, bookingEnd]);
 
     useEffect(() => {
         if (!selectedPromocode || selectedPromocode === "none") { setDiscount(0); return; }
@@ -497,6 +591,17 @@ export function AddBookingForm({ open, onOpenChange, initialData, technicians, c
                 };
             }
             if ((!contactId && !newContactData) || !selectedService) { toast.error("Please select a contact and service"); return; }
+
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            if (!bookingStart) {
+                toast.error("Please select a start date and time");
+                return;
+            }
+            if (bookingStart < today) {
+                toast.error("Booking start date cannot be before today");
+                return;
+            }
             if (bookingType === "recurring") {
                 if (!recurringEndDate?.trim()) { toast.error("Please set a recurring end date"); return; }
                 if (frequency === "monthly" && !monthlyWeeks.length) { toast.error("Please select at least one week/day combination"); return; }
@@ -517,8 +622,14 @@ export function AddBookingForm({ open, onOpenChange, initialData, technicians, c
                     }
                 }
             }
-            const subServices = Object.entries(subServiceQuantities).filter(([, qty]) => qty > 0).map(([serviceId, quantity]) => ({ serviceId, quantity }));
-            const addons      = Object.entries(addonQuantities).filter(([, qty]) => qty > 0).map(([serviceId, quantity]) => ({ serviceId, quantity }));
+            const allowedSubIds = new Set(filteredSubServices.map((s: any) => s._id.toString()));
+            const allowedAddonIds = new Set(filteredAddons.map((a: any) => a._id.toString()));
+            const subServices = Object.entries(subServiceQuantities)
+                .filter(([id, qty]) => qty > 0 && allowedSubIds.has(id))
+                .map(([serviceId, quantity]) => ({ serviceId, quantity }));
+            const addons = Object.entries(addonQuantities)
+                .filter(([id, qty]) => qty > 0 && allowedAddonIds.has(id))
+                .map(([serviceId, quantity]) => ({ serviceId, quantity }));
             const bookingRes  = await fetch("/api/bookings", {
                 method: "POST", headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
@@ -698,7 +809,7 @@ export function AddBookingForm({ open, onOpenChange, initialData, technicians, c
                                 <Label className="text-primary">Choose Service</Label>
                                 <RadioGroup onValueChange={handleServiceSelect}>
                                     <div className="flex flex-wrap gap-6">
-                                        {services.map(service => (
+                                        {filteredServices.map(service => (
                                             <div key={service._id} className="flex items-center space-x-2">
                                                 <RadioGroupItem value={service._id} id={`service-${service._id}`} />
                                                 <Label htmlFor={`service-${service._id}`} className="cursor-pointer">{service.name}</Label>
@@ -769,10 +880,10 @@ export function AddBookingForm({ open, onOpenChange, initialData, technicians, c
                                 </div>
                             )}
 
-                            {selectedService?.subServices?.length > 0 && (
+                            {selectedService && filteredSubServices.length > 0 && (
                                 <div className="space-y-2">
                                     <Label className="text-primary text-md">Sub Services</Label>
-                                    {selectedService.subServices.map((sub: any) => (
+                                    {filteredSubServices.map((sub: any) => (
                                         <div key={sub._id} className="flex items-center justify-between p-2 border rounded">
                                             <span className="text-green-600 font-medium">{sub.name}</span>
                                             <div className="flex items-center gap-2">
@@ -785,10 +896,10 @@ export function AddBookingForm({ open, onOpenChange, initialData, technicians, c
                                 </div>
                             )}
 
-                            {selectedService?.addons?.length > 0 && (
+                            {selectedService && filteredAddons.length > 0 && (
                                 <div className="space-y-2">
                                     <Label className="text-primary">Addons</Label>
-                                    {selectedService.addons.map((addon: any) => (
+                                    {filteredAddons.map((addon: any) => (
                                         <div key={addon._id} className="flex items-center justify-between p-2 border rounded">
                                             <span className="text-green-600 font-medium">{addon.name}</span>
                                             <div className="flex items-center gap-2">

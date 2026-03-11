@@ -21,7 +21,31 @@ export async function GET(req: NextRequest) {
             .lean(),
     ]);
 
-    const data = [...getdefaultcampaigns, ...campaigns];
+    // If a company has its own campaign that corresponds to a given shared default,
+    // prefer the company version over the shared default.
+    //
+    // IMPORTANT: do NOT key only by templateId because multiple default campaigns can share the same templateId.
+    // Use a composite key that differentiates defaults (templateId + name).
+    const companyOverrideKeys = new Set(
+        campaigns
+            .map((c: any) => {
+                const tid = typeof c?.templateId === "string" ? c.templateId : "";
+                const name = typeof c?.name === "string" ? c.name : "";
+                return tid && name ? `${tid}::${name}` : "";
+            })
+            .filter(Boolean)
+    );
+
+    const filteredDefaults = getdefaultcampaigns.filter((c: any) => {
+        const tid = typeof c?.templateId === "string" ? c.templateId : "";
+        const name = typeof c?.name === "string" ? c.name : "";
+        if (tid && name) {
+            return !companyOverrideKeys.has(`${tid}::${name}`);
+        }
+        return true;
+    });
+
+    const data = [...filteredDefaults, ...campaigns];
     return NextResponse.json({ success: true, data });
 }
 

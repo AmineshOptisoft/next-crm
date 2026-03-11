@@ -312,27 +312,31 @@ export default function EmailBuilderListPage() {
                             </div>
                         ))}
 
+                        {/* <div className="grid">
+
                         <div className="pt-4 pb-2">
-                            <Button
+                            
+                        </div>
+                        </div> */}
+                    <SheetFooter className="flex flex-col sm:flex-row justify-between border-t border-border bg-background dark:bg-zinc-900 p-0 pt-4">
+                        <Button
                                 variant="outline"
                                 onClick={handleResetReminders}
-                                className="w-full border border-border text-muted-foreground hover:bg-muted hover:text-foreground h-10 rounded-md"
-                            >
+                                className="w-full border border-border h-10 shrink-1 text-muted-foreground hover:bg-muted hover:text-foreground h-10 rounded-md"
+                                >
                                 Reset All Reminders
                             </Button>
-                        </div>
-                    </div>
-
-                    <SheetFooter className="px-4 sm:px-8 py-6 border-t border-border bg-background dark:bg-zinc-900">
                         <Button
                             onClick={handleSaveReminders}
                             disabled={isSavingReminders}
-                            className="w-full bg-zinc-900 hover:bg-black text-white h-12 font-bold rounded-md"
+                            className="w-full bg-primary text-secondary hover:bg-primary/80 h-10 font-bold rounded-md shrink-1"
                         >
                             {isSavingReminders && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                            Save Reminder Configuration
+                            Save Reminder
                         </Button>
                     </SheetFooter>
+                    </div>
+
                 </SheetContent>
             </Sheet>
 

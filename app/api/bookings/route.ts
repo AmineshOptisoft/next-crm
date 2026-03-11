@@ -7,8 +7,6 @@ import { User } from "@/app/models/User";
 import mongoose from "mongoose";
 import bcrypt from "bcryptjs";
 import { v4 as uuidv4 } from "uuid";
-import { EMAIL_TEMPLATES } from "@/lib/emailTemplateHelper";
-import { Promocode } from "@/app/models/Promocode";
 
 // Helper to generate unique Order ID
 function generateOrderId() {
@@ -49,9 +47,20 @@ export async function POST(req: NextRequest) {
                 endDateTime,
                 shippingAddress,
                 notes,
-                pricing,
-                promoCode
+                pricing
             } = body;
+
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const start = new Date(startDateTime);
+            if (isNaN(start.getTime()) || start < today) {
+                await session.abortTransaction();
+                session.endSession();
+                return NextResponse.json(
+                    { error: "Booking start date cannot be before today." },
+                    { status: 400 }
+                );
+            }
 
             // --- 1. Handle Contact Creation (if needed) ---
             let finalContactId = existingContactId;
@@ -110,8 +119,6 @@ export async function POST(req: NextRequest) {
             let allCreatedBookings: any[] = [];
 
             // Loop through each technician and create bookings
-            // NOTE: the frontend already sends endDateTime pre-divided by techCount,
-            // so we store it as-is — do NOT divide again here.
             for (const techId of techIdsToProcess) {
                 if (bookingType === "once") {
                     const booking = await Booking.create([{
@@ -122,7 +129,7 @@ export async function POST(req: NextRequest) {
                         addons,
                         bookingType,
                         startDateTime: new Date(startDateTime),
-                        endDateTime:   new Date(endDateTime),
+                        endDateTime: new Date(endDateTime),
                         shippingAddress,
                         notes,
                         pricing,
@@ -134,7 +141,6 @@ export async function POST(req: NextRequest) {
                     allCreatedBookings.push(booking[0]);
                 }
                 else if (bookingType === "recurring") {
-                    const totalDurationMs = new Date(endDateTime).getTime() - new Date(startDateTime).getTime();
                     const bookingsData = generateRecurringBookings({
                         contactId: finalContactId,
                         technicianId: techId,
@@ -145,7 +151,6 @@ export async function POST(req: NextRequest) {
                         customRecurrence,
                         startDateTime,
                         endDateTime,
-                        bookingDurationMs: totalDurationMs,  // already pre-divided by frontend
                         shippingAddress,
                         notes,
                         pricing,
@@ -158,84 +163,8 @@ export async function POST(req: NextRequest) {
                 }
             }
 
-            // --- 4. Handle Promo Code Usage ---
-            if (promoCode) {
-                const promo = await Promocode.findOne({
-                    code: promoCode,
-                    companyId: user.companyId
-                }).session(session);
-
-                if (promo) {
-                    // Number of unique booking occurrences (date slots).
-                    // For multi-tech bookings we create N docs per slot, so divide
-                    // total docs by the number of technicians to get unique slots.
-                    //   e.g. 8 recurring Mondays × 2 techs = 16 docs → 8 deductions
-                    //   e.g. 8 recurring Mondays × 1 tech  =  8 docs → 8 deductions
-                    //   e.g. once booking     × 2 techs =  2 docs → 1 deduction
-                    const occurrenceCount = Math.round(
-                        allCreatedBookings.length / techIdsToProcess.length
-                    );
-
-                    // Guard: if limit > 0, make sure there are enough uses left.
-                    // limit === 0 means unlimited - always allow.
-                    if (promo.limit > 0 && promo.limit < occurrenceCount) {
-                        await session.abortTransaction();
-                        session.endSession();
-                        return NextResponse.json(
-                            {
-                                error: `Promo code "${promoCode}" only has ${promo.limit} use(s) remaining, but this booking needs ${occurrenceCount}.`,
-                            },
-                            { status: 400 }
-                        );
-                    }
-
-                    if (promo.limit > 0) {
-                        promo.limit -= occurrenceCount;
-                    }
-                    promo.usageCount += occurrenceCount;
-                    await promo.save({ session });
-                }
-            }
-
-
             await session.commitTransaction();
             session.endSession();
-
-            // Send confirmation emails
-            try {
-                const { sendTransactionalEmail } = await import("@/lib/sendmailhelper");
-                
-                if (allCreatedBookings.length > 0) {
-                    const primaryBooking = allCreatedBookings[0];
-                    let contactEmail = newContact?.email;
-                    
-                    if (!contactEmail && primaryBooking.contactId) {
-                         const contact = await User.findById(primaryBooking.contactId);
-                         contactEmail = contact?.email;
-                    }
-
-                    if (contactEmail) {
-                        const service = await Service.findById(serviceId);
-                        
-                        await sendTransactionalEmail(
-                            EMAIL_TEMPLATES.BOOKING_CONFIRMATION,
-                            contactEmail,
-                            {
-                                bookingId: primaryBooking.orderId,
-                                service_name: service?.name || "Service",
-                                booking_date: new Date(startDateTime).toLocaleDateString(),
-                                booking_time: new Date(startDateTime).toLocaleTimeString(),
-                                price: pricing?.totalAmount || 0,
-                                units: 1, 
-                                company_name: user?.companyName,
-                            },
-                            user?.companyId?.toString() || ""
-                        );
-                    }
-                }
-            } catch (emailError) {
-                console.error("Failed to send booking confirmation email:", emailError);
-            }
 
             return NextResponse.json({
                 message: `Created ${allCreatedBookings.length} bookings for ${techIdsToProcess.length} technicians`,
@@ -285,7 +214,6 @@ function generateRecurringBookings(data: any) {
         customRecurrence,
         startDateTime,
         endDateTime,
-        bookingDurationMs,   // pre-computed per-tech duration in ms (if provided, use directly)
         shippingAddress,
         notes,
         pricing,
@@ -295,13 +223,10 @@ function generateRecurringBookings(data: any) {
 
     const bookings: any[] = [];
     const start = new Date(startDateTime);
+    const end = new Date(endDateTime);
 
-    // Use the explicitly-passed duration when available (multi-tech divided duration).
-    // Fall back to computing from end - start for single-tech / legacy callers.
-    const bookingDuration: number =
-        typeof bookingDurationMs === "number" && bookingDurationMs > 0
-            ? bookingDurationMs
-            : new Date(endDateTime).getTime() - start.getTime();
+    // Calculate duration of a single booking
+    const bookingDuration = end.getTime() - start.getTime();
 
     // Recurrence end date: use user's end date as hard stop (parse as local date to avoid timezone issues)
     const getRecurrenceEndDate = (userEndDate: string | undefined): Date => {
@@ -344,8 +269,7 @@ function generateRecurringBookings(data: any) {
                     pricing,
                     orderId: generateOrderId(),
                     recurringGroupId,
-                    companyId,
-                    status: "unconfirmed"
+                    companyId
                 });
             }
 
@@ -408,8 +332,7 @@ function generateRecurringBookings(data: any) {
                         pricing,
                         orderId: generateOrderId(),
                         recurringGroupId,
-                        companyId,
-                        status: "unconfirmed"
+                        companyId
                     });
                 }
             } else if (selectedDays.length) {
@@ -436,8 +359,7 @@ function generateRecurringBookings(data: any) {
                             pricing,
                             orderId: generateOrderId(),
                             recurringGroupId,
-                            companyId,
-                            status: "unconfirmed"
+                            companyId
                         });
                     }
                 }
@@ -473,8 +395,7 @@ function generateRecurringBookings(data: any) {
                 pricing,
                 orderId: generateOrderId(),
                 recurringGroupId,
-                companyId,
-                status: "unconfirmed"
+                companyId
             });
 
             // Increment based on unit
@@ -501,55 +422,11 @@ export async function GET(req: NextRequest) {
 
         await connectDB();
 
-        const { searchParams } = new URL(req.url);
-        const technicianId = searchParams.get('technicianId');
-        const page = parseInt(searchParams.get('page') || '0');
-        const limit = parseInt(searchParams.get('limit') || '0');
-        const sortBy = searchParams.get('sortBy') || 'startDateTime';
-        const sortOrder = searchParams.get('sortOrder') || 'asc';
-
-        let query: any = { companyId: user.companyId };
-        
-        if (technicianId) {
-            query.technicianId = technicianId;
-        }
-
-        // Build sort object
-        const sortDirection = sortOrder === 'desc' ? -1 : 1;
-        const sortObj: any = { [sortBy]: sortDirection };
-
-        // Paginated response
-        if (page > 0 && limit > 0) {
-            const skip = (page - 1) * limit;
-            
-            // Use Promise.all for parallel execution + lean() for performance
-            const [bookings, total] = await Promise.all([
-                Booking.find(query)
-                    .populate('contactId', 'firstName lastName email')
-                    .populate('technicianId', 'firstName lastName')
-                    .populate('serviceId', 'name')
-                    .sort(sortObj)
-                    .skip(skip)
-                    .limit(limit)
-                    .lean(), // ← Optimization: returns plain JS objects, ~5x faster
-                Booking.countDocuments(query)
-            ]);
-
-            return NextResponse.json({
-                bookings,
-                total,
-                page,
-                totalPages: Math.ceil(total / limit)
-            });
-        }
-
-        // Non-paginated response (for calendar views, etc.)
-        const bookings = await Booking.find(query)
+        const bookings = await Booking.find({ companyId: user.companyId })
             .populate('contactId', 'firstName lastName email')
             .populate('technicianId', 'firstName lastName')
             .populate('serviceId', 'name')
-            .sort(sortObj)
-            .lean(); // ← Optimization
+            .sort({ startDateTime: 1 });
 
         return NextResponse.json(bookings);
     } catch (error: any) {
@@ -560,3 +437,4 @@ export async function GET(req: NextRequest) {
         );
     }
 }
+

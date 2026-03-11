@@ -66,12 +66,65 @@ export async function PATCH(
 
         const isDefaultCampaign = !!existing.isDefault;
 
-        // Default system campaigns are read-only and cannot be modified.
+        // Default system campaigns: allow per-company reminders by creating/updating a company-owned copy.
+        // The shared default document itself remains read-only.
         if (isDefaultCampaign) {
-            return NextResponse.json(
-                { error: 'Default email campaigns cannot be modified.' },
-                { status: 403 }
+            const disallowedFields =
+                name !== undefined ||
+                subject !== undefined ||
+                content !== undefined ||
+                design !== undefined ||
+                body.templateId !== undefined;
+
+            if (disallowedFields) {
+                return NextResponse.json(
+                    { error: 'Default email campaigns cannot be modified (except reminders).' },
+                    { status: 403 }
+                );
+            }
+
+            const templateId = (existing as any).templateId;
+            if (typeof templateId !== "string" || templateId.length === 0) {
+                return NextResponse.json(
+                    { error: 'Default campaign is missing templateId and cannot be customized.' },
+                    { status: 400 }
+                );
+            }
+
+            const defaultName = (existing as any).name;
+            if (typeof defaultName !== "string" || defaultName.length === 0) {
+                return NextResponse.json(
+                    { error: 'Default campaign is missing name and cannot be customized.' },
+                    { status: 400 }
+                );
+            }
+
+            // Upsert a company-specific campaign for this default template.
+            const updateForCompany: any = {
+                $set: {
+                    ...(reminders !== undefined && { reminders }),
+                    ...(status !== undefined && { status }),
+                    companyId: user.companyId,
+                    createdBy: user.userId,
+                    templateId,
+                    // Keep name aligned so we can uniquely map multiple defaults sharing a templateId
+                    name: defaultName,
+                },
+                $setOnInsert: {
+                    subject: (existing as any).subject,
+                    design: (existing as any).design ?? {},
+                    html: (existing as any).html ?? "<p></p>",
+                    isDefault: false,
+                },
+            };
+
+            const campaign = await EmailCampaign.findOneAndUpdate(
+                { companyId: user.companyId, templateId, name: defaultName, isDefault: { $ne: true } },
+                updateForCompany,
+                { new: true, upsert: true, runValidators: false }
             );
+
+            return NextResponse.json({ success: true, data: campaign });
         }
 
         const update: any = {
@@ -80,8 +133,8 @@ export async function PATCH(
                 ...(subject && { subject }),
                 ...(design && { design }),
                 ...(content && { html: content }),
-                ...(reminders && { reminders }),
-                ...(status && { status }),
+                ...(reminders !== undefined && { reminders }),
+                ...(status !== undefined && { status }),
                 ...(body.templateId !== undefined && { templateId: body.templateId }),
                 createdBy: user.userId,
             },
