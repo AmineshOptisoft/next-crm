@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 import {
   Table,
   TableBody,
@@ -36,6 +37,10 @@ export default function IndustriesPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Industry | null>(null);
   const [name, setName] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [industryToDelete, setIndustryToDelete] = useState<Industry | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     fetchMe();
@@ -77,6 +82,7 @@ export default function IndustriesPage() {
     const trimmed = name.trim();
     if (!trimmed) return;
 
+    setIsSaving(true);
     try {
       const url = editing ? `/api/industries/${editing._id}` : "/api/industries";
       const method = editing ? "PUT" : "POST";
@@ -91,13 +97,16 @@ export default function IndustriesPage() {
         await fetchIndustries();
         setIsDialogOpen(false);
         resetForm();
+        toast.success(editing ? "Industry updated" : "Industry created");
       } else {
         const err = await res.json().catch(() => ({}));
-        alert(err.error || "Failed to save industry");
+        toast.error(err.error || "Failed to save industry");
       }
     } catch (e) {
       console.error("Error saving industry:", e);
-      alert("Failed to save industry");
+      toast.error("Failed to save industry");
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -107,19 +116,32 @@ export default function IndustriesPage() {
     setIsDialogOpen(true);
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this industry?")) return;
+  const handleDelete = (industry: Industry) => {
+    setIndustryToDelete(industry);
+    setIsDeleteDialogOpen(true);
+  };
+
+  const confirmDelete = async () => {
+    const id = industryToDelete?._id;
+    if (!id) return;
+
+    setIsDeleting(true);
     try {
       const res = await fetch(`/api/industries/${id}`, { method: "DELETE" });
       if (res.ok) {
         await fetchIndustries();
+        toast.success("Industry deleted");
+        setIsDeleteDialogOpen(false);
+        setIndustryToDelete(null);
       } else {
         const err = await res.json().catch(() => ({}));
-        alert(err.error || "Failed to delete industry");
+        toast.error(err.error || "Failed to delete industry");
       }
     } catch (e) {
       console.error("Error deleting industry:", e);
-      alert("Failed to delete industry");
+      toast.error("Failed to delete industry");
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -171,10 +193,13 @@ export default function IndustriesPage() {
                     type="button"
                     variant="outline"
                     onClick={() => setIsDialogOpen(false)}
+                    disabled={isSaving}
                   >
                     Cancel
                   </Button>
-                  <Button type="submit">{editing ? "Update" : "Create"}</Button>
+                  <Button type="submit" disabled={isSaving}>
+                    {isSaving ? "Saving..." : editing ? "Update" : "Create"}
+                  </Button>
                 </DialogFooter>
               </form>
             </DialogContent>
@@ -238,7 +263,7 @@ export default function IndustriesPage() {
                           <Button
                             variant="ghost"
                             size="icon"
-                            onClick={() => handleDelete(industry._id)}
+                            onClick={() => handleDelete(industry)}
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>
@@ -254,6 +279,33 @@ export default function IndustriesPage() {
           </Table>
         </div>
       )}
+
+      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Industry</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete{" "}
+              <span className="font-medium">{industryToDelete?.name}</span>? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setIsDeleteDialogOpen(false);
+                setIndustryToDelete(null);
+              }}
+              disabled={isDeleting}
+            >
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={confirmDelete} disabled={isDeleting}>
+              {isDeleting ? "Deleting..." : "Delete"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

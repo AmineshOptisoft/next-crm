@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useRef, useState, useMemo, memo } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
@@ -58,6 +58,8 @@ import {
   Building2,
   X,
   Loader2,
+  Check,
+  ChevronsUpDown,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
@@ -67,7 +69,147 @@ import { ServiceDefaults } from "./[id]/ServiceDefaults";
 import { Separator } from "@/components/ui/separator";
 import { DataTable } from "@/components/data-table";
 import { ColumnDef } from "@tanstack/react-table";
-import { Country, State, City } from "country-state-city";
+import { cn } from "@/lib/utils";
+
+// ─── Lazy-load country-state-city + VirtualGeoSelect (same as bookings) ──────
+let geoCache: any = null;
+async function loadGeo() {
+  if (geoCache) return geoCache;
+  geoCache = await import("country-state-city");
+  return geoCache;
+}
+
+const ITEM_H = 36;
+const LIST_H = 288;
+
+const VirtualGeoSelect = memo(function VirtualGeoSelect({
+  id,
+  value,
+  onChange,
+  options,
+  placeholder,
+  disabled,
+}: {
+  id?: string;
+  value: string;
+  onChange: (v: string) => void;
+  options: { label: string; value: string }[];
+  placeholder?: string;
+  disabled?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [scrollTop, setScrollTop] = useState(0);
+  const [typeAhead, setTypeAhead] = useState("");
+  const [lastTypeTime, setLastTypeTime] = useState(0);
+
+  const totalH = options.length * ITEM_H;
+  const startIdx = Math.floor(scrollTop / ITEM_H);
+  const visibleCount = Math.ceil(LIST_H / ITEM_H) + 2;
+  const endIdx = Math.min(startIdx + visibleCount, options.length);
+  const visibleItems = options.slice(startIdx, endIdx);
+  const offsetY = startIdx * ITEM_H;
+
+  const displayLabel = useMemo(
+    () => options.find(o => o.value === value)?.label ?? "",
+    [options, value]
+  );
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLButtonElement | HTMLDivElement>) => {
+    if (!open) return;
+    const key = e.key;
+    if (key.length === 1 && /^[a-z0-9]$/i.test(key)) {
+      const now = Date.now();
+      const within = now - lastTypeTime < 700;
+      const nextPrefix = (within ? typeAhead + key : key).toLowerCase();
+      setTypeAhead(nextPrefix);
+      setLastTypeTime(now);
+
+      const idx = options.findIndex(o => o.label.toLowerCase().startsWith(nextPrefix));
+      if (idx >= 0 && scrollRef.current) {
+        const visibleHeight = Math.min(totalH, LIST_H);
+        let newTop = idx * ITEM_H - visibleHeight / 2;
+        newTop = Math.max(0, Math.min(newTop, Math.max(0, totalH - visibleHeight)));
+        scrollRef.current.scrollTop = newTop;
+        setScrollTop(newTop);
+      }
+    }
+  };
+
+  useEffect(() => {
+    if (open) {
+      setScrollTop(0);
+      scrollRef.current?.scrollTo(0, 0);
+    }
+  }, [open]);
+
+  const containerRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      if (!containerRef.current?.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [open]);
+
+  return (
+    <div ref={containerRef} className="relative w-full">
+      <button
+        id={id}
+        type="button"
+        onKeyDown={handleKeyDown}
+        disabled={disabled}
+        onClick={() => setOpen(o => !o)}
+        className={cn(
+          "flex h-10 w-full items-center justify-between rounded-md border border-input bg-secondary/50 px-3 py-2 text-sm",
+          "ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
+          "disabled:cursor-not-allowed disabled:opacity-50",
+        )}
+      >
+        <span className={cn("truncate text-left", !displayLabel && "text-muted-foreground")}>
+          {displayLabel || placeholder}
+        </span>
+        <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50" />
+      </button>
+
+      {open && (
+        <div className="absolute z-[200] mt-1 w-full rounded-md border bg-popover shadow-md">
+          <div
+            ref={scrollRef}
+            style={{ height: Math.min(totalH, LIST_H), overflowY: "auto", scrollbarWidth: "none" }}
+            className="scrollbar-none"
+            onKeyDown={handleKeyDown}
+            onScroll={e => setScrollTop((e.target as HTMLDivElement).scrollTop)}
+          >
+            {options.length === 0 ? (
+              <div className="px-3 py-6 text-center text-sm text-muted-foreground">No results found.</div>
+            ) : (
+              <div style={{ height: totalH, position: "relative" }}>
+                <div style={{ position: "absolute", top: offsetY, width: "100%" }}>
+                  {visibleItems.map(opt => (
+                    <div
+                      key={opt.value}
+                      style={{ height: ITEM_H }}
+                      onClick={() => { onChange(opt.value); setOpen(false); }}
+                      className={cn(
+                        "flex items-center gap-2 px-3 text-sm cursor-pointer select-none hover:bg-accent hover:text-accent-foreground",
+                        value === opt.value && "bg-accent font-medium"
+                      )}
+                    >
+                      <Check className={cn("h-4 w-4 shrink-0", value === opt.value ? "opacity-100" : "opacity-0")} />
+                      {opt.label}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+});
 
 interface ContactType {
   _id: string;
@@ -101,6 +243,7 @@ export default function ContactsPage() {
   const [contacts, setContacts] = useState<ContactType[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState<any>(null);
+  const [stats, setStats] = useState({ withStax: 0, withoutStax: 0 });
 
   // Sheet state
   const [isSheetOpen, setIsSheetOpen] = useState(false);
@@ -178,15 +321,14 @@ export default function ContactsPage() {
   const [usersList, setUsersList] = useState<any[]>([]);
 
   useEffect(() => {
-    fetchContacts();
-    fetchCurrentUser();
-    fetchZones();
-    fetchUsers();
+    // Fetch in parallel to reduce waterfall.
+    Promise.all([fetchContacts(), fetchCurrentUser(), fetchZones(), fetchUsers()]).finally(() => setLoading(false));
   }, []);
 
   async function fetchUsers() {
     try {
-      const res = await fetch("/api/users");
+      // Contacts page only needs minimal user info for FSR dropdowns.
+      const res = await fetch("/api/users?minimal=1");
       if (res.ok) {
         const data = await res.json();
         setUsersList(data);
@@ -227,16 +369,33 @@ export default function ContactsPage() {
 
   async function fetchContacts() {
     try {
-      const res = await fetch("/api/contacts");
-      if (res.ok) {
-        const data = await res.json();
-        setContacts(data);
-      }
+      const res = await fetch("/api/contacts?limit=200");
+      if (!res.ok) return;
+      const json = await res.json();
+      // Backward-compatible API: when query params are present, response is { items, total, stats }.
+      setContacts(Array.isArray(json) ? json : (json.items || []));
+      if (!Array.isArray(json) && json.stats) setStats(json.stats);
     } catch (e) {
       toast.error("Failed to fetch contacts");
-    } finally {
-      setLoading(false);
     }
+  }
+
+  // Debounced server-side search (keeps payload small and avoids filtering thousands of rows in the browser)
+  const searchTimer = useRef<any>(null);
+  function fetchContactsDebounced(q: string) {
+    if (searchTimer.current) clearTimeout(searchTimer.current);
+    searchTimer.current = setTimeout(async () => {
+      try {
+        const url = `/api/contacts?limit=200&q=${encodeURIComponent(q || "")}&status=${encodeURIComponent(filterData.status)}&zone=${encodeURIComponent(filterData.zone)}&stax=${encodeURIComponent(filterData.staxData)}`;
+        const res = await fetch(url);
+        if (!res.ok) return;
+        const json = await res.json();
+        setContacts(Array.isArray(json) ? json : (json.items || []));
+        if (!Array.isArray(json) && json.stats) setStats(json.stats);
+      } catch {
+        // ignore
+      }
+    }, 250);
   }
 
   // --- Image Handling ---
@@ -417,41 +576,68 @@ export default function ContactsPage() {
   };
   // --- Export CSV ---
 
-  const filteredContacts = contacts.filter(contact => {
-    // Search by Name or Email (Keywords input)
-    if (filterData.name) {
-      const search = filterData.name.toLowerCase();
-      const nameMatch = `${contact.firstName} ${contact.lastName}`.toLowerCase().includes(search);
-      const emailMatch = contact.email?.toLowerCase()?.includes(search);
-      if (!nameMatch && !emailMatch) return false;
+  // Contacts are already filtered server-side (limit + q/status/zone/stax). Keep client list as-is.
+  const filteredContacts = contacts;
+
+  // Location helpers using lazy geo lib + VirtualGeoSelect
+  const [geoLib, setGeoLib] = useState<any>(null);
+  useEffect(() => {
+    loadGeo().then(setGeoLib);
+  }, []);
+
+  const savedCountry = (formData.country || "").trim();
+  const savedState = (formData.state || "").trim();
+  const savedCity = (formData.city || "").trim();
+
+  const countryOptions = useMemo(() => {
+    if (!geoLib) return [];
+    const list = geoLib.Country.getAllCountries().map((c: any) => ({
+      label: c.name,
+      value: c.name,
+      isoCode: c.isoCode,
+    }));
+    if (savedCountry && !list.some((c: any) => c.value === savedCountry)) {
+      list.unshift({ label: savedCountry, value: savedCountry, isoCode: "" });
     }
+    return list;
+  }, [geoLib, savedCountry]);
 
-    // Email Filter (if specifically entered in filter modal)
-    if (filterData.email && !contact.email?.toLowerCase()?.includes(filterData.email.toLowerCase())) return false;
+  const countryCode = useMemo(
+    () => countryOptions.find((c: any) => c.value === savedCountry)?.isoCode ?? "",
+    [countryOptions, savedCountry]
+  );
 
-    // Status Filter
-    if (filterData.status !== "all" && contact.contactStatus !== filterData.status) return false;
+  const stateOptions = useMemo(() => {
+    if (!geoLib || !countryCode) return [];
+    const base = geoLib.State.getStatesOfCountry(countryCode).map((s: any) => ({
+      label: s.name,
+      value: s.name,
+      isoCode: s.isoCode,
+    }));
+    if (savedState && !base.some((s: any) => s.value === savedState)) {
+      base.unshift({ label: savedState, value: savedState, isoCode: "" });
+    }
+    return base;
+  }, [geoLib, countryCode, savedState]);
 
-    // Zone Filter
-    if (filterData.zone !== "all" && contact.zoneName !== filterData.zone) return false;
+  const stateCode = useMemo(
+    () => stateOptions.find((s: any) => s.value === savedState)?.isoCode ?? "",
+    [stateOptions, savedState]
+  );
 
-    // Stax Filter
-    if (filterData.staxData === "stax" && !contact.staxId) return false;
-    if (filterData.staxData === "non-stax" && contact.staxId) return false;
-
-    return true;
-  });
-
-  // Location helpers (country, state, city) similar to UserForm
-  const countries = Country.getAllCountries();
-  const selectedCountry = countries.find((c) => c.name === formData.country);
-  const countryCode = selectedCountry?.isoCode;
-
-  const states = countryCode ? State.getStatesOfCountry(countryCode) : [];
-  const selectedState = states.find((s) => s.name === formData.state);
-  const stateCode = selectedState?.isoCode;
-
-  const cities = countryCode && stateCode ? City.getCitiesOfState(countryCode, stateCode) : [];
+  const cityOptions = useMemo(() => {
+    let list: { label: string; value: string }[] = [];
+    if (geoLib && countryCode && stateCode) {
+      list = geoLib.City.getCitiesOfState(countryCode, stateCode).map((c: any) => ({
+        label: c.name,
+        value: c.name,
+      }));
+    }
+    if (savedCity && !list.some((c) => c.value === savedCity)) {
+      list = [{ label: savedCity, value: savedCity }, ...list];
+    }
+    return list;
+  }, [geoLib, countryCode, stateCode, savedCity]);
 
   // Filter users for FSR Assigned: match role name and optionally zone
   const eligibleFsrUsers = usersList.filter((u: any) => {
@@ -493,10 +679,7 @@ export default function ContactsPage() {
     document.body.removeChild(link);
   }
 
-  const stats = {
-    withStax: contacts.filter(c => c.staxId).length,
-    withoutStax: contacts.filter(c => !c.staxId).length,
-  };
+  // stats now comes from the server for the active filter set.
 
   const currentItems = filteredContacts.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
   const totalPages = Math.ceil(filteredContacts.length / itemsPerPage);
@@ -683,7 +866,10 @@ export default function ContactsPage() {
         }) as ColumnDef<ContactType>[]}
         data={filteredContacts}
         searchPlaceholder="Keywords..."
-        onFilterChange={(val) => setFilterData({ ...filterData, name: val })}
+        onFilterChange={(val) => {
+          setFilterData({ ...filterData, name: val });
+          fetchContactsDebounced(val);
+        }}
       />
       </div>
 
@@ -1018,63 +1204,40 @@ export default function ContactsPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Country</Label>
-                  <Select
-                    value={formData.country}
-                    onValueChange={(v) => {
+                  <VirtualGeoSelect
+                    id="country"
+                    value={savedCountry}
+                    options={countryOptions}
+                    placeholder="Select Country"
+                    disabled={!geoLib}
+                    onChange={(v) => {
                       setFormData({ ...formData, country: v, state: "", city: "" });
                     }}
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Select Country" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {countries.map((c) => (
-                        <SelectItem key={c.isoCode} value={c.name}>
-                          {c.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label>State</Label>
-                  <Select
-                    value={formData.state}
-                    onValueChange={(v) => {
+                  <VirtualGeoSelect
+                    id="state"
+                    value={savedState}
+                    options={stateOptions}
+                    placeholder="Select State"
+                    disabled={!geoLib || !savedCountry}
+                    onChange={(v) => {
                       setFormData({ ...formData, state: v, city: "" });
                     }}
-                    disabled={!countryCode}
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Select State" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {states.map((s) => (
-                        <SelectItem key={s.isoCode} value={s.name}>
-                          {s.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label>City</Label>
-                  <Select
-                    value={formData.city}
-                    onValueChange={(v) => setFormData({ ...formData, city: v })}
-                    disabled={!stateCode}
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Select City" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {cities.map((city) => (
-                        <SelectItem key={city.name} value={city.name}>
-                          {city.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <VirtualGeoSelect
+                    id="city"
+                    value={savedCity}
+                    options={cityOptions}
+                    placeholder="Select City"
+                    disabled={!geoLib || !savedState}
+                    onChange={(v) => setFormData({ ...formData, city: v })}
+                  />
                 </div>
                 <div className="space-y-2"><Label>Zip Code</Label><Input value={formData.zipCode} onChange={e => setFormData({ ...formData, zipCode: e.target.value })} /></div>
               </div>

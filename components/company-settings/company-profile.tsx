@@ -260,21 +260,23 @@ export function CompanyProfile({ formData, setFormData, saving, handleSubmit, in
 
     // Cascading Location Logic
     const countries = Country.getAllCountries();
-    const selectedCountry = countries.find((c) => c.name === formData.address.country);
+    const selectedCountry = countries.find((c) => c.name === (formData.address.country || "").trim());
     const countryCode = selectedCountry?.isoCode;
 
     const states = countryCode ? State.getStatesOfCountry(countryCode) : [];
-    const selectedState = states.find((s) => s.name === formData.address.state);
+    const selectedState = states.find((s) => s.name === (formData.address.state || "").trim());
     const stateCode = selectedState?.isoCode;
 
     const citiesFromLibrary = (countryCode && stateCode) ? City.getCitiesOfState(countryCode, stateCode) : [];
-    // Include saved city in options so it displays after refresh even if not in country-state-city list
-    const savedCity = (formData?.address?.city ?? "").trim();
-    const cityExists = citiesFromLibrary.some((c) => c.name === savedCity);
-    const cities = savedCity && !cityExists
-        ? [{ name: savedCity, stateCode: stateCode || "" }, ...citiesFromLibrary]
+    // Use values from formData, but normalize them; this is the single source of truth
+    const savedCountry = (formData?.address?.country ?? "").trim();
+    const savedState = (formData?.address?.state ?? "").trim();
+    const savedCityRaw = (formData?.address?.city ?? "").trim();
+    const cityExists = citiesFromLibrary.some((c) => c.name === savedCityRaw);
+    const cities = savedCityRaw && !cityExists
+        ? [{ name: savedCityRaw, stateCode: stateCode || "" }, ...citiesFromLibrary]
         : citiesFromLibrary;
-
+    const savedCity = savedCityRaw;
     return (
         <form onSubmit={onSubmit} noValidate>
             <Script
@@ -502,7 +504,7 @@ export function CompanyProfile({ formData, setFormData, saving, handleSubmit, in
                             <div className="space-y-2">
                                 <Label htmlFor="country">Country *</Label>
                                 <Select
-                                    value={formData.address.country || ""}
+                                    value={savedCountry}
                                     onValueChange={(val) => {
                                         setFormData({
                                             ...formData,
@@ -520,7 +522,7 @@ export function CompanyProfile({ formData, setFormData, saving, handleSubmit, in
                                 >
                                     <SelectTrigger
                                         id="country"
-                                        className="w-full"
+                                        className="w-full !bg-slate-800"
                                         aria-invalid={Boolean(errors["address.country"])}
                                         aria-describedby={errors["address.country"] ? "country-error" : undefined}
                                     >
@@ -543,7 +545,7 @@ export function CompanyProfile({ formData, setFormData, saving, handleSubmit, in
                             <div className="space-y-2">
                                 <Label htmlFor="state">State *</Label>
                                 <Select
-                                    value={formData.address.state || ""}
+                                    value={savedState}
                                     onValueChange={(val) => {
                                         setFormData({
                                             ...formData,
@@ -583,17 +585,18 @@ export function CompanyProfile({ formData, setFormData, saving, handleSubmit, in
                             <div className="space-y-2">
                                 <Label htmlFor="city">City *</Label>
                                 <Select
-                                    value={formData.address.city || ""}
+                                    // Normalize value so it matches SelectItem values (DB may contain trailing spaces)
+                                    value={savedCity}
                                     onValueChange={(val) =>
                                         (setFormData({
                                             ...formData,
                                             address: {
                                                 ...formData.address,
-                                                city: val,
+                                                city: val.trim(),
                                             },
                                         }), clearError("address.city"))
                                     }
-                                    disabled={!stateCode}
+                                    // disabled={!stateCode}
                                 >
                                     <SelectTrigger
                                         id="city"
@@ -701,6 +704,13 @@ export function CompanyProfile({ formData, setFormData, saving, handleSubmit, in
                     </div>
                 </CardContent>
             </Card >
+            <style>
+                {`
+                .bg-background {
+                    background-color:rgb(5, 81, 204) !important;
+                }
+                `}
+            </style>
         </form >
     );
 }

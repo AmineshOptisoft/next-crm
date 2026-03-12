@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, use } from "react";
+import { memo, useEffect, useMemo, useRef, useState, use } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,13 +10,154 @@ import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Pencil, Trash2, X, User, Camera, Loader2, Copy as CopyIcon, Mail, Phone, Building2 } from "lucide-react";
+import { Pencil, Trash2, X, User, Camera, Loader2, Copy as CopyIcon, Mail, Phone, Building2, Check, ChevronsUpDown } from "lucide-react";
 import { toast } from "sonner";
 import { Separator } from "@/components/ui/separator";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger, SheetFooter, SheetClose } from "@/components/ui/sheet";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { ServiceDefaults } from "./ServiceDefaults";
-import { Country, State, City } from "country-state-city";
+import { cn } from "@/lib/utils";
+
+// ─── Lazy-load country-state-city once — never blocks the JS bundle ───────────
+let geoCache: any = null;
+async function loadGeo() {
+    if (geoCache) return geoCache;
+    geoCache = await import("country-state-city");
+    return geoCache;
+}
+
+// ─── VirtualGeoSelect (same UX as bookings/user form) ─────────────────────────
+const ITEM_H = 36;
+const LIST_H = 288;
+
+const VirtualGeoSelect = memo(function VirtualGeoSelect({
+    id,
+    value,
+    onChange,
+    options,
+    placeholder,
+    disabled,
+}: {
+    id?: string;
+    value: string;
+    onChange: (v: string) => void;
+    options: { label: string; value: string }[];
+    placeholder?: string;
+    disabled?: boolean;
+}) {
+    const [open, setOpen] = useState(false);
+    const scrollRef = useRef<HTMLDivElement>(null);
+    const [scrollTop, setScrollTop] = useState(0);
+    const [typeAhead, setTypeAhead] = useState("");
+    const [lastTypeTime, setLastTypeTime] = useState(0);
+
+    const totalH = options.length * ITEM_H;
+    const startIdx = Math.floor(scrollTop / ITEM_H);
+    const visibleCount = Math.ceil(LIST_H / ITEM_H) + 2;
+    const endIdx = Math.min(startIdx + visibleCount, options.length);
+    const visibleItems = options.slice(startIdx, endIdx);
+    const offsetY = startIdx * ITEM_H;
+
+    const displayLabel = useMemo(
+        () => options.find(o => o.value === value)?.label ?? "",
+        [options, value]
+    );
+
+    const handleKeyDown = (e: React.KeyboardEvent<HTMLButtonElement | HTMLDivElement>) => {
+        if (!open) return;
+        const key = e.key;
+        if (key.length === 1 && /^[a-z0-9]$/i.test(key)) {
+            const now = Date.now();
+            const withinWindow = now - lastTypeTime < 700;
+            const nextPrefix = (withinWindow ? typeAhead + key : key).toLowerCase();
+            setTypeAhead(nextPrefix);
+            setLastTypeTime(now);
+
+            const idx = options.findIndex(o => o.label.toLowerCase().startsWith(nextPrefix));
+            if (idx >= 0 && scrollRef.current) {
+                const visibleHeight = Math.min(totalH, LIST_H);
+                let newTop = idx * ITEM_H - visibleHeight / 2;
+                newTop = Math.max(0, Math.min(newTop, Math.max(0, totalH - visibleHeight)));
+                scrollRef.current.scrollTop = newTop;
+                setScrollTop(newTop);
+            }
+        }
+    };
+
+    useEffect(() => {
+        if (open) {
+            setScrollTop(0);
+            scrollRef.current?.scrollTo(0, 0);
+        }
+    }, [open]);
+
+    const containerRef = useRef<HTMLDivElement>(null);
+    useEffect(() => {
+        if (!open) return;
+        const handler = (e: MouseEvent) => {
+            if (!containerRef.current?.contains(e.target as Node)) setOpen(false);
+        };
+        document.addEventListener("mousedown", handler);
+        return () => document.removeEventListener("mousedown", handler);
+    }, [open]);
+
+    return (
+        <div ref={containerRef} className="relative w-full">
+            <button
+                id={id}
+                type="button"
+                onKeyDown={handleKeyDown}
+                disabled={disabled}
+                onClick={() => setOpen(o => !o)}
+                className={cn(
+                    "flex h-10 w-full items-center justify-between rounded-md border border-input bg-secondary/50 px-3 py-2 text-sm",
+                    "ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
+                    "disabled:cursor-not-allowed disabled:opacity-50",
+                )}
+            >
+                <span className={cn("truncate text-left", !displayLabel && "text-muted-foreground")}>
+                    {displayLabel || placeholder}
+                </span>
+                <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50" />
+            </button>
+
+            {open && (
+                <div className="absolute z-[200] mt-1 w-full rounded-md border bg-popover shadow-md">
+                    <div
+                        ref={scrollRef}
+                        style={{ height: Math.min(totalH, LIST_H), overflowY: "auto", scrollbarWidth: "none" }}
+                        className="scrollbar-none"
+                        onKeyDown={handleKeyDown}
+                        onScroll={e => setScrollTop((e.target as HTMLDivElement).scrollTop)}
+                    >
+                        {options.length === 0 ? (
+                            <div className="px-3 py-6 text-center text-sm text-muted-foreground">No results found.</div>
+                        ) : (
+                            <div style={{ height: totalH, position: "relative" }}>
+                                <div style={{ position: "absolute", top: offsetY, width: "100%" }}>
+                                    {visibleItems.map(opt => (
+                                        <div
+                                            key={opt.value}
+                                            style={{ height: ITEM_H }}
+                                            onClick={() => { onChange(opt.value); setOpen(false); }}
+                                            className={cn(
+                                                "flex items-center gap-2 px-3 text-sm cursor-pointer select-none hover:bg-accent hover:text-accent-foreground",
+                                                value === opt.value && "bg-accent font-medium"
+                                            )}
+                                        >
+                                            <Check className={cn("h-4 w-4 shrink-0", value === opt.value ? "opacity-100" : "opacity-0")} />
+                                            {opt.label}
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+});
 
 export default function ContactDetailPage({ params }: { params: Promise<{ id: string }> }) {
     const router = useRouter();
@@ -28,6 +169,7 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
     const [uploading, setUploading] = useState(false);
     const [sameAsBilling, setSameAsBilling] = useState(false);
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+    const [geoLib, setGeoLib] = useState<any>(null);
 
     // Email campaigns for this contact (Email tab)
     const [emailCampaigns, setEmailCampaigns] = useState<any[]>([]);
@@ -37,22 +179,52 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
     const [sendingEmail, setSendingEmail] = useState(false);
     const [updating, setUpdating] = useState(false);
 
-    // Cascading Location Logic - Billing Address
-    const countries = Country.getAllCountries();
-    const billingSelectedCountry = countries.find((c) => c.name === data?.billingAddress?.country);
-    const billingCountryCode = billingSelectedCountry?.isoCode;
-    const billingStates = billingCountryCode ? State.getStatesOfCountry(billingCountryCode) : [];
-    const billingSelectedState = billingStates.find((s) => s.name === data?.billingAddress?.state);
-    const billingStateCode = billingSelectedState?.isoCode;
-    const billingCities = (billingCountryCode && billingStateCode) ? City.getCitiesOfState(billingCountryCode, billingStateCode) : [];
+    // Load geo lib once in background
+    useEffect(() => { loadGeo().then(setGeoLib); }, []);
 
-    // Cascading Location Logic - Shipping Address
-    const shippingSelectedCountry = countries.find((c) => c.name === data?.shippingAddress?.country);
-    const shippingCountryCode = shippingSelectedCountry?.isoCode;
-    const shippingStates = shippingCountryCode ? State.getStatesOfCountry(shippingCountryCode) : [];
-    const shippingSelectedState = shippingStates.find((s) => s.name === data?.shippingAddress?.state);
-    const shippingStateCode = shippingSelectedState?.isoCode;
-    const shippingCities = (shippingCountryCode && shippingStateCode) ? City.getCitiesOfState(shippingCountryCode, shippingStateCode) : [];
+    // ── Geo options (same as bookings/user form) ──────────────────────────────
+    const countryOptions = useMemo(() => {
+        if (!geoLib) return [];
+        return geoLib.Country.getAllCountries().map((c: any) => ({ label: c.name, value: c.name, isoCode: c.isoCode }));
+    }, [geoLib]);
+
+    // Billing
+    const billingCountryCode = useMemo(() => {
+        return countryOptions.find((c: any) => c.value === (data?.billingAddress?.country || ""))?.isoCode ?? "";
+    }, [countryOptions, data?.billingAddress?.country]);
+
+    const billingStateOptions = useMemo(() => {
+        if (!geoLib || !billingCountryCode) return [];
+        return geoLib.State.getStatesOfCountry(billingCountryCode).map((s: any) => ({ label: s.name, value: s.name, isoCode: s.isoCode }));
+    }, [geoLib, billingCountryCode]);
+
+    const billingStateCode = useMemo(() => {
+        return billingStateOptions.find((s: any) => s.value === (data?.billingAddress?.state || ""))?.isoCode ?? "";
+    }, [billingStateOptions, data?.billingAddress?.state]);
+
+    const billingCityOptions = useMemo(() => {
+        if (!geoLib || !billingCountryCode || !billingStateCode) return [];
+        return geoLib.City.getCitiesOfState(billingCountryCode, billingStateCode).map((c: any) => ({ label: c.name, value: c.name }));
+    }, [geoLib, billingCountryCode, billingStateCode]);
+
+    // Shipping
+    const shippingCountryCode = useMemo(() => {
+        return countryOptions.find((c: any) => c.value === (data?.shippingAddress?.country || ""))?.isoCode ?? "";
+    }, [countryOptions, data?.shippingAddress?.country]);
+
+    const shippingStateOptions = useMemo(() => {
+        if (!geoLib || !shippingCountryCode) return [];
+        return geoLib.State.getStatesOfCountry(shippingCountryCode).map((s: any) => ({ label: s.name, value: s.name, isoCode: s.isoCode }));
+    }, [geoLib, shippingCountryCode]);
+
+    const shippingStateCode = useMemo(() => {
+        return shippingStateOptions.find((s: any) => s.value === (data?.shippingAddress?.state || ""))?.isoCode ?? "";
+    }, [shippingStateOptions, data?.shippingAddress?.state]);
+
+    const shippingCityOptions = useMemo(() => {
+        if (!geoLib || !shippingCountryCode || !shippingStateCode) return [];
+        return geoLib.City.getCitiesOfState(shippingCountryCode, shippingStateCode).map((c: any) => ({ label: c.name, value: c.name }));
+    }, [geoLib, shippingCountryCode, shippingStateCode]);
 
     const handleSameAsBillingToggle = (checked: boolean) => {
         setSameAsBilling(checked);
@@ -443,38 +615,35 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
                                 <div className="grid grid-cols-2 gap-4">
                                     <div className="space-y-1">
                                         <Label>Country</Label>
-                                        <Select value={data.billingAddress?.country} onValueChange={(v) => setData({ ...data, billingAddress: { ...data.billingAddress, country: v, state: "", city: "" } })}>
-                                            <SelectTrigger className="w-full"><SelectValue placeholder="Select Country" /></SelectTrigger>
-                                            <SelectContent>
-                                                {countries.map((country) => (
-                                                    <SelectItem key={country.isoCode} value={country.name}>{country.name}</SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
+                                        <VirtualGeoSelect
+                                            value={data.billingAddress?.country || ""}
+                                            options={countryOptions}
+                                            placeholder="Select Country"
+                                            disabled={!geoLib}
+                                            onChange={(v) => setData({ ...data, billingAddress: { ...data.billingAddress, country: v, state: "", city: "" } })}
+                                        />
                                     </div>
                                     <div className="space-y-1">
                                         <Label>State</Label>
-                                        <Select value={data.billingAddress?.state} onValueChange={(v) => setData({ ...data, billingAddress: { ...data.billingAddress, state: v, city: "" } })} disabled={!billingCountryCode}>
-                                            <SelectTrigger className="w-full"><SelectValue placeholder="Select State" /></SelectTrigger>
-                                            <SelectContent>
-                                                {billingStates.map((state) => (
-                                                    <SelectItem key={state.isoCode} value={state.name}>{state.name}</SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
+                                        <VirtualGeoSelect
+                                            value={data.billingAddress?.state || ""}
+                                            options={billingStateOptions}
+                                            placeholder="Select State"
+                                            disabled={!geoLib || !billingCountryCode}
+                                            onChange={(v) => setData({ ...data, billingAddress: { ...data.billingAddress, state: v, city: "" } })}
+                                        />
                                     </div>
                                 </div>
                                 <div className="grid grid-cols-2 gap-4">
                                     <div className="space-y-1">
                                         <Label>City</Label>
-                                        <Select value={data.billingAddress?.city} onValueChange={(v) => updateBillingField("city", v)} disabled={!billingStateCode}>
-                                            <SelectTrigger className="w-full"><SelectValue placeholder="Select City" /></SelectTrigger>
-                                            <SelectContent>
-                                                {billingCities.map((city) => (
-                                                    <SelectItem key={city.name} value={city.name}>{city.name}</SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
+                                        <VirtualGeoSelect
+                                            value={data.billingAddress?.city || ""}
+                                            options={billingCityOptions}
+                                            placeholder="Select City"
+                                            disabled={!geoLib || !billingStateCode}
+                                            onChange={(v) => updateBillingField("city", v)}
+                                        />
                                     </div>
                                 </div>
 
@@ -506,38 +675,35 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
                                 <div className="grid grid-cols-2 gap-4">
                                     <div className="space-y-1">
                                         <Label>Country</Label>
-                                        <Select value={data.shippingAddress?.country} onValueChange={(v) => setData({ ...data, shippingAddress: { ...data.shippingAddress, country: v, state: "", city: "" } })} disabled={sameAsBilling}>
-                                            <SelectTrigger className="w-full"><SelectValue placeholder="Select Country" /></SelectTrigger>
-                                            <SelectContent>
-                                                {countries.map((country) => (
-                                                    <SelectItem key={country.isoCode} value={country.name}>{country.name}</SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
+                                        <VirtualGeoSelect
+                                            value={data.shippingAddress?.country || ""}
+                                            options={countryOptions}
+                                            placeholder="Select Country"
+                                            disabled={sameAsBilling || !geoLib}
+                                            onChange={(v) => setData({ ...data, shippingAddress: { ...data.shippingAddress, country: v, state: "", city: "" } })}
+                                        />
                                     </div>
                                     <div className="space-y-1">
                                         <Label>State</Label>
-                                        <Select value={data.shippingAddress?.state} onValueChange={(v) => setData({ ...data, shippingAddress: { ...data.shippingAddress, state: v, city: "" } })} disabled={sameAsBilling || !shippingCountryCode}>
-                                            <SelectTrigger className="w-full"><SelectValue placeholder="Select State" /></SelectTrigger>
-                                            <SelectContent>
-                                                {shippingStates.map((state) => (
-                                                    <SelectItem key={state.isoCode} value={state.name}>{state.name}</SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
+                                        <VirtualGeoSelect
+                                            value={data.shippingAddress?.state || ""}
+                                            options={shippingStateOptions}
+                                            placeholder="Select State"
+                                            disabled={sameAsBilling || !geoLib || !shippingCountryCode}
+                                            onChange={(v) => setData({ ...data, shippingAddress: { ...data.shippingAddress, state: v, city: "" } })}
+                                        />
                                     </div>
                                 </div>
                                 <div className="grid grid-cols-2 gap-4">
                                     <div className="space-y-1">
                                         <Label>City</Label>
-                                        <Select value={data.shippingAddress?.city} onValueChange={(v) => setData({ ...data, shippingAddress: { ...data.shippingAddress, city: v } })} disabled={sameAsBilling || !shippingStateCode}>
-                                            <SelectTrigger className="w-full"><SelectValue placeholder="Select City" /></SelectTrigger>
-                                            <SelectContent>
-                                                {shippingCities.map((city) => (
-                                                    <SelectItem key={city.name} value={city.name}>{city.name}</SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
+                                        <VirtualGeoSelect
+                                            value={data.shippingAddress?.city || ""}
+                                            options={shippingCityOptions}
+                                            placeholder="Select City"
+                                            disabled={sameAsBilling || !geoLib || !shippingStateCode}
+                                            onChange={(v) => setData({ ...data, shippingAddress: { ...data.shippingAddress, city: v } })}
+                                        />
                                     </div>
                                 </div>
                             </div>

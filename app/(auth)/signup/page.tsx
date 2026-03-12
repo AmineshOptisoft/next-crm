@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useRef, useState, memo } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -39,9 +39,149 @@ import {
   AlertDialogAction,
 } from "@/components/ui/alert-dialog";
 import Link from "next/link";
-import { Loader2 } from "lucide-react";
+import { Loader2, Check, ChevronsUpDown } from "lucide-react";
 import { toast } from "sonner";
-import { Country, State, City } from "country-state-city";
+import { cn } from "@/lib/utils";
+
+// ─── Lazy-load country-state-city + VirtualGeoSelect (same behaviour as bookings) ─────
+let geoCache: any = null;
+async function loadGeo() {
+  if (geoCache) return geoCache;
+  geoCache = await import("country-state-city");
+  return geoCache;
+}
+
+const ITEM_H = 36;
+const LIST_H = 288;
+
+const VirtualGeoSelect = memo(function VirtualGeoSelect({
+  id,
+  value,
+  onChange,
+  options,
+  placeholder,
+  disabled,
+}: {
+  id?: string;
+  value: string;
+  onChange: (v: string) => void;
+  options: { label: string; value: string }[];
+  placeholder?: string;
+  disabled?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [scrollTop, setScrollTop] = useState(0);
+  const [typeAhead, setTypeAhead] = useState("");
+  const [lastTypeTime, setLastTypeTime] = useState(0);
+
+  const totalH = options.length * ITEM_H;
+  const startIdx = Math.floor(scrollTop / ITEM_H);
+  const visibleCount = Math.ceil(LIST_H / ITEM_H) + 2;
+  const endIdx = Math.min(startIdx + visibleCount, options.length);
+  const visibleItems = options.slice(startIdx, endIdx);
+  const offsetY = startIdx * ITEM_H;
+
+  const displayLabel = useMemo(
+    () => options.find(o => o.value === value)?.label ?? "",
+    [options, value]
+  );
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLButtonElement | HTMLDivElement>) => {
+    if (!open) return;
+    const key = e.key;
+    if (key.length === 1 && /^[a-z0-9]$/i.test(key)) {
+      const now = Date.now();
+      const within = now - lastTypeTime < 700;
+      const nextPrefix = (within ? typeAhead + key : key).toLowerCase();
+      setTypeAhead(nextPrefix);
+      setLastTypeTime(now);
+
+      const idx = options.findIndex(o => o.label.toLowerCase().startsWith(nextPrefix));
+      if (idx >= 0 && scrollRef.current) {
+        const visibleHeight = Math.min(totalH, LIST_H);
+        let newTop = idx * ITEM_H - visibleHeight / 2;
+        newTop = Math.max(0, Math.min(newTop, Math.max(0, totalH - visibleHeight)));
+        scrollRef.current.scrollTop = newTop;
+        setScrollTop(newTop);
+      }
+    }
+  };
+
+  useEffect(() => {
+    if (open) {
+      setScrollTop(0);
+      scrollRef.current?.scrollTo(0, 0);
+    }
+  }, [open]);
+
+  const containerRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      if (!containerRef.current?.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [open]);
+
+  return (
+    <div ref={containerRef} className="relative w-full">
+      <button
+        id={id}
+        type="button"
+        onKeyDown={handleKeyDown}
+        disabled={disabled}
+        onClick={() => setOpen(o => !o)}
+        className={cn(
+          "flex h-10 w-full items-center justify-between rounded-md border border-input bg-secondary/50 px-3 py-2 text-sm",
+          "ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
+          "disabled:cursor-not-allowed disabled:opacity-50",
+        )}
+      >
+        <span className={cn("truncate text-left", !displayLabel && "text-muted-foreground")}>
+          {displayLabel || placeholder}
+        </span>
+        <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50" />
+      </button>
+
+      {open && (
+        <div className="absolute z-[200] mt-1 w-full rounded-md border bg-popover shadow-md">
+          <div
+            ref={scrollRef}
+            style={{ height: Math.min(totalH, LIST_H), overflowY: "auto", scrollbarWidth: "none" }}
+            className="scrollbar-none"
+            onKeyDown={handleKeyDown}
+            onScroll={e => setScrollTop((e.target as HTMLDivElement).scrollTop)}
+          >
+            {options.length === 0 ? (
+              <div className="px-3 py-6 text-center text-sm text-muted-foreground">No results found.</div>
+            ) : (
+              <div style={{ height: totalH, position: "relative" }}>
+                <div style={{ position: "absolute", top: offsetY, width: "100%" }}>
+                  {visibleItems.map(opt => (
+                    <div
+                      key={opt.value}
+                      style={{ height: ITEM_H }}
+                      onClick={() => { onChange(opt.value); setOpen(false); }}
+                      className={cn(
+                        "flex items-center gap-2 px-3 text-sm cursor-pointer select-none hover:bg-accent hover:text-accent-foreground",
+                        value === opt.value && "bg-accent font-medium"
+                      )}
+                    >
+                      <Check className={cn("h-4 w-4 shrink-0", value === opt.value ? "opacity-100" : "opacity-0")} />
+                      {opt.label}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+});
 
 export default function SignupPage() {
   const router = useRouter();
@@ -61,19 +201,64 @@ export default function SignupPage() {
     },
   });
 
-  const countryId = form.watch("countryId");
-  const stateId = form.watch("stateId");
+  const countryId = (form.watch("countryId") || "").trim();
+  const stateId = (form.watch("stateId") || "").trim();
 
-  const countries = Country.getAllCountries();
-  const selectedCountry = countries.find((c) => c.name === countryId);
-  const countryCode = selectedCountry?.isoCode;
+  const [geoLib, setGeoLib] = useState<any>(null);
+  useEffect(() => {
+    loadGeo().then(setGeoLib);
+  }, []);
 
-  const states = countryCode ? State.getStatesOfCountry(countryCode) : [];
-  const selectedState = states.find((s) => s.name === stateId);
-  const stateCode = selectedState?.isoCode;
+  const countryOptions = useMemo(() => {
+    if (!geoLib) return [];
+    const list = geoLib.Country.getAllCountries().map((c: any) => ({
+      label: c.name,
+      value: c.name,
+      isoCode: c.isoCode,
+    }));
+    if (countryId && !list.some((c: any) => c.value === countryId)) {
+      list.unshift({ label: countryId, value: countryId, isoCode: "" });
+    }
+    return list;
+  }, [geoLib, countryId]);
 
-  const cities =
-    countryCode && stateCode ? City.getCitiesOfState(countryCode, stateCode) : [];
+  const countryCode = useMemo(
+    () => countryOptions.find((c: any) => c.value === countryId)?.isoCode ?? "",
+    [countryOptions, countryId]
+  );
+
+  const stateOptions = useMemo(() => {
+    if (!geoLib || !countryCode) return [];
+    const base = geoLib.State.getStatesOfCountry(countryCode).map((s: any) => ({
+      label: s.name,
+      value: s.name,
+      isoCode: s.isoCode,
+    }));
+    if (stateId && !base.some((s: any) => s.value === stateId)) {
+      base.unshift({ label: stateId, value: stateId, isoCode: "" });
+    }
+    return base;
+  }, [geoLib, countryCode, stateId]);
+
+  const stateCode = useMemo(
+    () => stateOptions.find((s: any) => s.value === stateId)?.isoCode ?? "",
+    [stateOptions, stateId]
+  );
+
+  const cityOptions = useMemo(() => {
+    let list: { label: string; value: string }[] = [];
+    if (geoLib && countryCode && stateCode) {
+      list = geoLib.City.getCitiesOfState(countryCode, stateCode).map((c: any) => ({
+        label: c.name,
+        value: c.name,
+      }));
+    }
+    const cityId = (form.getValues("cityId") || "").trim();
+    if (cityId && !list.some((c) => c.value === cityId)) {
+      list = [{ label: cityId, value: cityId }, ...list];
+    }
+    return list;
+  }, [geoLib, countryCode, stateCode, form]);
 
   const [loading, setLoading] = useState(false);
   const [successDialogOpen, setSuccessDialogOpen] = useState(false);
@@ -210,27 +395,20 @@ export default function SignupPage() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Country</FormLabel>
-                      <Select
-                        value={field.value}
-                        onValueChange={(value) => {
-                          field.onChange(value);
-                          form.setValue("stateId", "");
-                          form.setValue("cityId", "");
-                        }}
-                      >
-                        <FormControl>
-                          <SelectTrigger className="w-full">
-                            <SelectValue placeholder="Select Country" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent position="popper" sideOffset={5} className="z-[200]">
-                          {countries.map((country) => (
-                            <SelectItem key={country.isoCode} value={country.name}>
-                              {country.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <FormControl>
+                        <VirtualGeoSelect
+                          id="countryId"
+                          value={countryId}
+                          options={countryOptions}
+                          placeholder="Select Country"
+                          disabled={!geoLib}
+                          onChange={(value) => {
+                            field.onChange(value);
+                            form.setValue("stateId", "");
+                            form.setValue("cityId", "");
+                          }}
+                        />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -241,27 +419,19 @@ export default function SignupPage() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>State</FormLabel>
-                      <Select
-                        value={field.value}
-                        onValueChange={(value) => {
-                          field.onChange(value);
-                          form.setValue("cityId", "");
-                        }}
-                        disabled={!countryCode}
-                      >
-                        <FormControl>
-                          <SelectTrigger className="w-full">
-                            <SelectValue placeholder="Select State" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent position="popper" sideOffset={5} className="z-[200]">
-                          {states.map((state) => (
-                            <SelectItem key={state.isoCode} value={state.name}>
-                              {state.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <FormControl>
+                        <VirtualGeoSelect
+                          id="stateId"
+                          value={stateId}
+                          options={stateOptions}
+                          placeholder="Select State"
+                          disabled={!geoLib || !countryId}
+                          onChange={(value) => {
+                            field.onChange(value);
+                            form.setValue("cityId", "");
+                          }}
+                        />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -272,24 +442,16 @@ export default function SignupPage() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>City</FormLabel>
-                      <Select
-                        value={field.value}
-                        onValueChange={(value) => field.onChange(value)}
-                        disabled={!stateCode}
-                      >
-                        <FormControl>
-                          <SelectTrigger className="w-full">
-                            <SelectValue placeholder="Select City" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent position="popper" sideOffset={5} className="z-[200]">
-                          {cities.map((city) => (
-                            <SelectItem key={city.name} value={city.name}>
-                              {city.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <FormControl>
+                        <VirtualGeoSelect
+                          id="cityId"
+                          value={field.value || ""}
+                          options={cityOptions}
+                          placeholder="Select City"
+                          disabled={!geoLib || !stateId}
+                          onChange={(value) => field.onChange(value)}
+                        />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}

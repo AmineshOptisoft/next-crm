@@ -18,8 +18,14 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -68,7 +74,7 @@ export default function UsersPage() {
   const roles: Role[] = rawRoles ? rawRoles.filter((r: any) => r.isActive) : [];
   const loading = loadingUsers;
 
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -113,7 +119,7 @@ export default function UsersPage() {
 
       if (response.ok) {
         fetchUsers();
-        setIsDialogOpen(false);
+        setIsSheetOpen(false);
         resetForm();
         toast.success(editingUser ? "User updated successfully" : "User added successfully");
       } else {
@@ -195,135 +201,122 @@ export default function UsersPage() {
             Manage your team members and their roles
           </p>
         </div>
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
-            <Button onClick={resetForm}>
-              <Plus className="mr-2 h-4 w-4" />
-              Add User
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-2xl">
-            <DialogHeader>
-              <DialogTitle>
-                {editingUser ? "Edit User" : "Add New User"}
-              </DialogTitle>
-              <DialogDescription>
-                {editingUser
-                  ? "Update user information and role"
-                  : "Add a new team member to your company"}
-              </DialogDescription>
-            </DialogHeader>
-            <form onSubmit={handleSubmit}>
-              <div className="grid gap-4 py-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="firstName">First Name *</Label>
-                    <Input
-                      id="firstName"
-                      required
-                      value={formData.firstName}
-                      onChange={(e) =>
-                        setFormData({ ...formData, firstName: e.target.value })
-                      }
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="lastName">Last Name *</Label>
-                    <Input
-                      id="lastName"
-                      required
-                      value={formData.lastName}
-                      onChange={(e) =>
-                        setFormData({ ...formData, lastName: e.target.value })
-                      }
-                    />
-                  </div>
-                </div>
+        <Button
+          onClick={() => {
+            resetForm();
+            setIsSheetOpen(true);
+          }}
+        >
+          <Plus className="mr-2 h-4 w-4" />
+          Add User
+        </Button>
+      </div>
 
+      {/* Create User Sheet (replaces modal) */}
+      <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
+        <SheetContent side="right" className="sm:max-w-2xl w-full p-0 flex flex-col">
+          <SheetHeader className="p-4 border-b gap-0">
+            <SheetTitle>{editingUser ? "Edit User" : "Add New User"}</SheetTitle>
+            <SheetDescription>
+              {editingUser ? "Update user information and role" : "Add a new team member to your company"}
+            </SheetDescription>
+          </SheetHeader>
+
+          <div className="flex-1 overflow-y-auto p-6">
+            <form id="user-form" onSubmit={handleSubmit} className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="email">Email *</Label>
+                  <Label htmlFor="firstName">First Name *</Label>
                   <Input
-                    id="email"
-                    type="email"
+                    id="firstName"
                     required
-                    value={formData.email}
-                    onChange={(e) =>
-                      setFormData({ ...formData, email: e.target.value })
-                    }
-                    disabled={!!editingUser}
+                    value={formData.firstName}
+                    onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
                   />
-                  {editingUser && (
-                    <p className="text-xs text-muted-foreground">
-                      Email cannot be changed
-                    </p>
-                  )}
                 </div>
-
                 <div className="space-y-2">
-                  <Label htmlFor="password">
-                    Password {!editingUser && "*"}
-                  </Label>
+                  <Label htmlFor="lastName">Last Name *</Label>
                   <Input
-                    id="password"
-                    type="password"
-                    required={!editingUser}
-                    value={formData.password}
-                    onChange={(e) =>
-                      setFormData({ ...formData, password: e.target.value })
-                    }
-                    placeholder={
-                      editingUser ? "Leave blank to keep current password" : ""
-                    }
+                    id="lastName"
+                    required
+                    value={formData.lastName}
+                    onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
                   />
-                  {editingUser && (
-                    <p className="text-xs text-muted-foreground">
-                      Leave blank to keep current password
-                    </p>
-                  )}
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="customRoleId">Role</Label>
-                  <Select
-                    value={formData.customRoleId || "none"}
-                    onValueChange={(value) =>
-                      setFormData({ ...formData, customRoleId: value === "none" ? "" : value })
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select a role (optional)" />
-                    </SelectTrigger>
-                    <SelectContent position="popper" sideOffset={5} className="z-[100]">
-                      <SelectItem value="none">No Role</SelectItem>
-                      {roles.map((role) => (
-                        <SelectItem key={role._id} value={role._id}>
-                          {role.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <p className="text-xs text-muted-foreground">
-                    Assign a role to grant specific permissions
-                  </p>
                 </div>
               </div>
-              <DialogFooter>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setIsDialogOpen(false)}
+
+              <div className="space-y-2">
+                <Label htmlFor="email">Email *</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  required
+                  value={formData.email}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  disabled={!!editingUser}
+                />
+                {editingUser && (
+                  <p className="text-xs text-muted-foreground">
+                    Email cannot be changed
+                  </p>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="password">Password {!editingUser && "*"}</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  required={!editingUser}
+                  value={formData.password}
+                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                  placeholder={editingUser ? "Leave blank to keep current password" : ""}
+                />
+                {editingUser && (
+                  <p className="text-xs text-muted-foreground">
+                    Leave blank to keep current password
+                  </p>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="customRoleId">Role</Label>
+                <Select
+                  value={formData.customRoleId || "none"}
+                  onValueChange={(value) =>
+                    setFormData({ ...formData, customRoleId: value === "none" ? "" : value })
+                  }
                 >
-                  Cancel
-                </Button>
-                <Button type="submit" disabled={isSaving}>
-                  {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  {editingUser ? "Update User" : "Add User"}
-                </Button>
-              </DialogFooter>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select a role (optional)" />
+                  </SelectTrigger>
+                  <SelectContent position="popper" sideOffset={5} className="z-[100]">
+                    <SelectItem value="none">No Role</SelectItem>
+                    {roles.map((role) => (
+                      <SelectItem key={role._id} value={role._id}>
+                        {role.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  Assign a role to grant specific permissions
+                </p>
+              </div>
             </form>
-          </DialogContent>
-        </Dialog>
-      </div>
+          </div>
+
+          <div className="p-4 border-t bg-muted/30 flex justify-end gap-2">
+            <Button type="button" variant="outline" onClick={() => setIsSheetOpen(false)}>
+              Cancel
+            </Button>
+            <Button type="submit" form="user-form" disabled={isSaving}>
+              {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {editingUser ? "Update User" : "Add User"}
+            </Button>
+          </div>
+        </SheetContent>
+      </Sheet>
 
       {loading ? (
         <div className="py-12 text-center">

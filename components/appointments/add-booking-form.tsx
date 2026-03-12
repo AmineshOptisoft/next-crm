@@ -14,7 +14,7 @@ import { MultiSelect } from "@/components/ui/multi-select";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { DateTimePicker } from "@/components/ui/date-time-picker";
-import { Calendar as CalendarIcon, DollarSign, ChevronDown, ChevronUp, Plus, Minus, Check, ChevronsUpDown } from "lucide-react";
+import { Calendar as CalendarIcon, DollarSign, ChevronDown, ChevronUp, Plus, Minus, Check, ChevronsUpDown, Loader2 } from "lucide-react";
 import { useState, useEffect, useCallback, useMemo, useRef, memo } from "react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -179,7 +179,7 @@ const VirtualGeoSelect = memo(function VirtualGeoSelect({
                 disabled={disabled}
                 onClick={() => setOpen(o => !o)}
                 className={cn(
-                    "flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm",
+                    "flex h-10 w-full items-center justify-between rounded-md border border-input bg-secondary/50 px-3 py-2 text-sm",
                     "ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
                     "disabled:cursor-not-allowed disabled:opacity-50",
                 )}
@@ -236,7 +236,7 @@ const AccordionItem = memo(function AccordionItem({
     title, isOpen, onToggle, children,
 }: { title: string; isOpen: boolean; onToggle: () => void; children: React.ReactNode }) {
     return (
-        <div className="border rounded-md bg-card mb-2 overflow-hidden">
+        <div className="border rounded-md bg-card mb-2 ">
             <button type="button" onClick={onToggle}
                 className="w-full flex items-center justify-between p-4 bg-card hover:bg-muted/50 transition-colors">
                 <span className="font-medium text-foreground">{title}</span>
@@ -318,6 +318,7 @@ export function AddBookingForm({ open, onOpenChange, initialData, technicians, c
     const [addonQuantities, setAddonQuantities]         = useState<Record<string, number>>({});
     const [discount, setDiscount]                       = useState(0);
     const [selectedPromocode, setSelectedPromocode]     = useState<string>("");
+    const [isSubmitting, setIsSubmitting]               = useState(false);
 
     // Reset on close
     useEffect(() => {
@@ -574,6 +575,7 @@ export function AddBookingForm({ open, onOpenChange, initialData, technicians, c
     )), [contacts]);
 
     const handleSubmit = async () => {
+        if (isSubmitting) return;
         try {
             let contactId = selectedContact?._id;
             let newContactData = null;
@@ -630,6 +632,8 @@ export function AddBookingForm({ open, onOpenChange, initialData, technicians, c
             const addons = Object.entries(addonQuantities)
                 .filter(([id, qty]) => qty > 0 && allowedAddonIds.has(id))
                 .map(([serviceId, quantity]) => ({ serviceId, quantity }));
+
+            setIsSubmitting(true);
             const bookingRes  = await fetch("/api/bookings", {
                 method: "POST", headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
@@ -653,6 +657,8 @@ export function AddBookingForm({ open, onOpenChange, initialData, technicians, c
             mutate((key) => typeof key === "string" && key.startsWith("/api/appointments/resources"), undefined, { revalidate: true });
         } catch (error: any) {
             toast.error(error.message || "Failed to create booking. Please try again.");
+        } finally {
+            setIsSubmitting(false);
         }
     };
 
@@ -994,8 +1000,13 @@ export function AddBookingForm({ open, onOpenChange, initialData, technicians, c
                         </div>
                     </div>
                     <div className="flex justify-end gap-2 w-full sm:w-auto">
-                        <Button variant="default" onClick={handleSubmit}>Create Booking</Button>
-                        <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+                        <Button variant="default" onClick={handleSubmit} disabled={isSubmitting}>
+                            {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                            {isSubmitting ? "Creating..." : "Create Booking"}
+                        </Button>
+                        <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isSubmitting}>
+                            Cancel
+                        </Button>
                     </div>
                 </SheetFooter>
             </SheetContent>

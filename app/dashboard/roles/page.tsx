@@ -17,8 +17,15 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -91,7 +98,7 @@ export default function RolesPage() {
   const roles: Role[] = rawRoles || [];
   const loading = loadingRoles;
 
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [viewRole, setViewRole] = useState<Role | null>(null);
   const [editingRole, setEditingRole] = useState<Role | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -142,7 +149,7 @@ export default function RolesPage() {
 
       if (response.ok) {
         fetchRoles();
-        setIsDialogOpen(false);
+        setIsSheetOpen(false);
         resetForm();
         toast.success(editingRole ? "Role updated successfully" : "Role created successfully");
       } else {
@@ -209,7 +216,7 @@ export default function RolesPage() {
         );
       }),
     });
-    setIsDialogOpen(true);
+    setIsSheetOpen(true);
   };
 
   const updatePermission = (
@@ -263,137 +270,15 @@ export default function RolesPage() {
             Manage user roles and their access permissions
           </p>
         </div>
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
-            <Button onClick={resetForm}>
-              <Plus className="mr-2 h-4 w-4" />
-              Create Role
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>
-                {editingRole ? "Edit Role" : "Create New Role"}
-              </DialogTitle>
-              <DialogDescription>
-                Define role name and set permissions for each module
-              </DialogDescription>
-            </DialogHeader>
-            <form onSubmit={handleSubmit}>
-              <div className="grid gap-4 py-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="name">Role Name *</Label>
-                    <Input
-                      id="name"
-                      required
-                      value={formData.name}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        setFormData(prev => ({ ...prev, name: val }));
-                      }}
-                      placeholder="e.g., Customer Support"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="description">Description</Label>
-                    <Input
-                      id="description"
-                      value={formData.description}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        setFormData(prev => ({ ...prev, description: val }));
-                      }}
-                      placeholder="Brief description of this role"
-                    />
-                  </div>
-                </div>
-
-
-
-                <div className="space-y-2">
-                  <Label>Permissions</Label>
-                  <div className="border rounded-lg overflow-hidden">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead className="w-[200px]">Module</TableHead>
-                          <TableHead className="text-center">View</TableHead>
-                          <TableHead className="text-center">Create</TableHead>
-                          <TableHead className="text-center">Edit</TableHead>
-                          <TableHead className="text-center">Delete</TableHead>
-                          <TableHead className="text-center">Export</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {formData.permissions.map((permission, index) => (
-                          <TableRow key={permission.module}>
-                            <TableCell className="font-medium capitalize">
-                              {permission.module}
-                            </TableCell>
-                            <TableCell className="text-center">
-                              <Checkbox
-                                checked={permission.canView}
-                                onCheckedChange={(checked: any) =>
-                                  updatePermission(index, "canView", !!checked)
-                                }
-                              />
-                            </TableCell>
-                            <TableCell className="text-center">
-                              <Checkbox
-                                checked={permission.canCreate}
-                                onCheckedChange={(checked: any) =>
-                                  updatePermission(index, "canCreate", !!checked)
-                                }
-                              />
-                            </TableCell>
-                            <TableCell className="text-center">
-                              <Checkbox
-                                checked={permission.canEdit}
-                                onCheckedChange={(checked: any) =>
-                                  updatePermission(index, "canEdit", !!checked)
-                                }
-                              />
-                            </TableCell>
-                            <TableCell className="text-center">
-                              <Checkbox
-                                checked={permission.canDelete}
-                                onCheckedChange={(checked: any) =>
-                                  updatePermission(index, "canDelete", !!checked)
-                                }
-                              />
-                            </TableCell>
-                            <TableCell className="text-center">
-                              <Checkbox
-                                checked={permission.canExport}
-                                onCheckedChange={(checked: any) =>
-                                  updatePermission(index, "canExport", !!checked)
-                                }
-                              />
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                </div>
-              </div>
-              <DialogFooter>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setIsDialogOpen(false)}
-                >
-                  Cancel
-                </Button>
-                <Button type="submit" disabled={isSaving}>
-                  {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  {editingRole ? "Update Role" : "Create Role"}
-                </Button>
-              </DialogFooter>
-            </form>
-          </DialogContent>
-        </Dialog>
+        <Button
+          onClick={() => {
+            resetForm();
+            setIsSheetOpen(true);
+          }}
+        >
+          <Plus className="mr-2 h-4 w-4" />
+          Create Role
+        </Button>
       </div>
 
       {loading ? (
@@ -498,6 +383,127 @@ export default function RolesPage() {
           </Table>
         </div>
       )}
+
+      {/* Create/Edit Role Sheet */}
+      <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
+        <SheetContent side="right" className="sm:max-w-4xl w-full p-0 flex flex-col">
+          <SheetHeader className="p-4 border-b gap-0">
+            <SheetTitle>{editingRole ? "Edit Role" : "Create New Role"}</SheetTitle>
+            <SheetDescription>Define role name and set permissions for each module</SheetDescription>
+          </SheetHeader>
+
+          <div className="flex-1 overflow-y-auto p-6">
+            <form onSubmit={handleSubmit} className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="name">Role Name *</Label>
+                  <Input
+                    id="name"
+                    required
+                    value={formData.name}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setFormData(prev => ({ ...prev, name: val }));
+                    }}
+                    placeholder="e.g., Customer Support"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="description">Description</Label>
+                  <Input
+                    id="description"
+                    value={formData.description}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setFormData(prev => ({ ...prev, description: val }));
+                    }}
+                    placeholder="Brief description of this role"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Permissions</Label>
+                <div className="border rounded-lg overflow-hidden">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-[200px]">Module</TableHead>
+                        <TableHead className="text-center">View</TableHead>
+                        <TableHead className="text-center">Create</TableHead>
+                        <TableHead className="text-center">Edit</TableHead>
+                        <TableHead className="text-center">Delete</TableHead>
+                        <TableHead className="text-center">Export</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {formData.permissions.map((permission, index) => (
+                        <TableRow key={permission.module}>
+                          <TableCell className="font-medium capitalize">{permission.module}</TableCell>
+                          <TableCell className="text-center">
+                            <Checkbox
+                              checked={permission.canView}
+                              onCheckedChange={(checked: any) =>
+                                updatePermission(index, "canView", !!checked)
+                              }
+                            />
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <Checkbox
+                              checked={permission.canCreate}
+                              onCheckedChange={(checked: any) =>
+                                updatePermission(index, "canCreate", !!checked)
+                              }
+                            />
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <Checkbox
+                              checked={permission.canEdit}
+                              onCheckedChange={(checked: any) =>
+                                updatePermission(index, "canEdit", !!checked)
+                              }
+                            />
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <Checkbox
+                              checked={permission.canDelete}
+                              onCheckedChange={(checked: any) =>
+                                updatePermission(index, "canDelete", !!checked)
+                              }
+                            />
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <Checkbox
+                              checked={permission.canExport}
+                              onCheckedChange={(checked: any) =>
+                                updatePermission(index, "canExport", !!checked)
+                              }
+                            />
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
+
+              <SheetFooter className="p-0">
+                {/* footer buttons rendered in fixed footer below */}
+              </SheetFooter>
+            </form>
+          </div>
+
+          <div className="p-4 border-t bg-muted/30 flex justify-end gap-2">
+            <Button type="button" variant="outline" onClick={() => setIsSheetOpen(false)}>
+              Cancel
+            </Button>
+            <Button type="button" onClick={() => (document.querySelector("form") as HTMLFormElement | null)?.requestSubmit()} disabled={isSaving}>
+              {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {editingRole ? "Update Role" : "Create Role"}
+            </Button>
+          </div>
+        </SheetContent>
+      </Sheet>
 
       {/* View Role Dialog */}
       <Dialog open={!!viewRole} onOpenChange={() => setViewRole(null)}>

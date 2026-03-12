@@ -24,8 +24,10 @@ export async function POST(_req: NextRequest) {
     endOfTomorrow.setMilliseconds(-1); // Set to 23:59:59.999 of tomorrow
 
     // Find bookings for this company where startDateTime is today or tomorrow
+    // Skip completed bookings so we don't send reminders after the fact.
     const bookings = await Booking.find({
       companyId: user.companyId,
+      status: { $ne: "completed" },
       startDateTime: {
         $gte: startOfToday,
         $lt: endOfTomorrow,

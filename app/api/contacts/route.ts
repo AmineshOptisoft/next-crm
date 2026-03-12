@@ -1,9 +1,35 @@
 import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
 import { User } from "@/app/models/User";
-import { getCurrentUser } from "@/lib/auth";
 import { checkPermission, buildCompanyFilter } from "@/lib/permissions";
 import bcrypt from "bcryptjs";
+
+function buildListProjection() {
+  // Keep this aligned with UI usage across app (contacts list + booking contact dropdown).
+  return [
+    "_id",
+    "firstName",
+    "lastName",
+    "email",
+    "phoneNumber",
+    "companyName",
+    "companyId",
+    "contactStatus",
+    "zoneName",
+    "fsrAssigned",
+    "staxId",
+    "createdAt",
+    "avatarUrl",
+    "address",
+    "country",
+    "state",
+    "city",
+    "zipCode",
+    "lastAppointment",
+    "nextAppointment",
+    "role",
+  ].join(" ");
+}
 
 export async function GET(req: NextRequest) {
   const permCheck = await checkPermission("contacts", "view");
@@ -15,16 +41,61 @@ export async function GET(req: NextRequest) {
   await connectDB();
 
   // Build filter: super admins see all contacts, regular users see only their company's contacts
-  const filter = {
+  const baseFilter: any = {
     ...buildCompanyFilter(user),
     role: "contact" // Only return users who are contacts
   };
 
-  const contacts = await User.find(filter)
-    .sort({ createdAt: -1 })
-    .lean();
+  const sp = req.nextUrl.searchParams;
+  const limitParam = sp.get("limit");
+  const q = (sp.get("q") || "").trim();
+  const status = (sp.get("status") || "").trim();
+  const zone = (sp.get("zone") || "").trim();
+  const stax = (sp.get("stax") || "").trim(); // "stax" | "non-stax" | ""
 
-  return NextResponse.json(contacts);
+  const hasQueryParams = sp.size > 0;
+
+  const filter: any = { ...baseFilter };
+  if (status && status !== "all") filter.contactStatus = status;
+  if (zone && zone !== "all") filter.zoneName = zone;
+  if (stax === "stax") filter.staxId = { $exists: true, $ne: null, $ne: "" };
+  if (stax === "non-stax") filter.$or = [{ staxId: { $exists: false } }, { staxId: null }, { staxId: "" }];
+  if (q) {
+    // Case-insensitive match on name/email; avoids heavy regex on unindexed concatenation.
+    const rx = new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
+    filter.$or = [
+      ...(filter.$or || []),
+      { firstName: rx },
+      { lastName: rx },
+      { email: rx },
+    ];
+  }
+
+  const projection = buildListProjection();
+
+  // Default (no params): preserve array response for existing callers.
+  if (!hasQueryParams) {
+    const contacts = await User.find(filter)
+      .select(projection)
+      .sort({ createdAt: -1 })
+      .lean();
+    return NextResponse.json(contacts);
+  }
+
+  const limit = Math.max(1, Math.min(1000, Number(limitParam) || 200));
+
+  const [items, total, withStax, withoutStax] = await Promise.all([
+    User.find(filter).select(projection).sort({ createdAt: -1 }).limit(limit).lean(),
+    User.countDocuments(filter),
+    User.countDocuments({ ...filter, staxId: { $exists: true, $ne: null, $ne: "" } }),
+    User.countDocuments({ ...filter, $or: [{ staxId: { $exists: false } }, { staxId: null }, { staxId: "" }] }),
+  ]);
+
+  return NextResponse.json({
+    items,
+    total,
+    stats: { withStax, withoutStax },
+  });
 }
 
 export async function POST(req: NextRequest) {

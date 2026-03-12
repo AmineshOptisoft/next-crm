@@ -17,8 +17,14 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -62,7 +68,8 @@ interface Invoice {
 
 interface Contact {
   _id: string;
-  name: string;
+  firstName: string;
+  lastName: string;
   email?: string;
   company?: string;
 }
@@ -81,7 +88,7 @@ export default function InvoicesPage() {
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [viewInvoice, setViewInvoice] = useState<Invoice | null>(null);
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [savingInvoice, setSavingInvoice] = useState(false);
@@ -154,7 +161,7 @@ export default function InvoicesPage() {
 
       if (response.ok) {
         fetchInvoices();
-        setIsDialogOpen(false);
+        setIsSheetOpen(false);
         resetForm();
       }
     } catch (error) {
@@ -280,39 +287,44 @@ export default function InvoicesPage() {
           </p>
         </div>
         {permissions.canCreate && (
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-            <DialogTrigger asChild>
-              <Button onClick={resetForm}>
-                <Plus className="mr-2 h-4 w-4" />
-                Create Invoice
-              </Button>
-            </DialogTrigger>
-          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>Create New Invoice</DialogTitle>
-              <DialogDescription>
-                Fill in the invoice details below
-              </DialogDescription>
-            </DialogHeader>
-            <form onSubmit={handleSubmit}>
-              <div className="grid gap-4 py-4">
-                <div className="grid grid-cols-3 gap-4">
-                  <div className="space-y-2 col-span-1">
+          <Button
+            onClick={() => {
+              resetForm();
+              setIsSheetOpen(true);
+            }}
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            Create Invoice
+          </Button>
+        )}
+      </div>
+
+      {/* Create Invoice Sheet (replaces modal) */}
+      <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
+        <SheetContent side="right" className="sm:max-w-4xl w-full p-0 flex flex-col">
+          <SheetHeader className="p-4 border-b gap-0">
+            <SheetTitle>Create New Invoice</SheetTitle>
+            <SheetDescription>Fill in the invoice details below</SheetDescription>
+          </SheetHeader>
+
+          <div className="flex-1 overflow-y-auto p-6">
+            <form id="invoice-form" onSubmit={handleSubmit}>
+              <div className="grid gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="space-y-2">
                     <Label htmlFor="contactId">Customer *</Label>
                     <Select
                       value={formData.contactId}
-                      onValueChange={(value) =>
-                        setFormData({ ...formData, contactId: value })
-                      }
+                      onValueChange={(value) => setFormData({ ...formData, contactId: value })}
                       required
                     >
-                      <SelectTrigger>
+                      <SelectTrigger className="w-full">
                         <SelectValue placeholder="Select customer" />
                       </SelectTrigger>
                       <SelectContent position="popper" sideOffset={5} className="z-[100]">
                         {contacts.map((contact) => (
                           <SelectItem key={contact._id} value={contact._id}>
-                            {contact.name}
+                            {contact.firstName +" "+ contact.lastName}
                             {contact.company && ` - ${contact.company}`}
                           </SelectItem>
                         ))}
@@ -326,9 +338,7 @@ export default function InvoicesPage() {
                       type="date"
                       required
                       value={formData.issueDate}
-                      onChange={(e) =>
-                        setFormData({ ...formData, issueDate: e.target.value })
-                      }
+                      onChange={(e) => setFormData({ ...formData, issueDate: e.target.value })}
                     />
                   </div>
                   <div className="space-y-2">
@@ -338,9 +348,7 @@ export default function InvoicesPage() {
                       type="date"
                       required
                       value={formData.dueDate}
-                      onChange={(e) =>
-                        setFormData({ ...formData, dueDate: e.target.value })
-                      }
+                      onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })}
                     />
                   </div>
                 </div>
@@ -355,18 +363,13 @@ export default function InvoicesPage() {
                   </div>
                   <div className="space-y-2">
                     {formData.items.map((item, index) => (
-                      <div
-                        key={index}
-                        className="grid grid-cols-12 gap-2 items-end p-3 border rounded"
-                      >
+                      <div key={index} className="grid grid-cols-12 gap-2 items-end p-3 border rounded">
                         <div className="col-span-4">
                           <Label className="text-xs">Description</Label>
                           <Input
                             placeholder="Item description"
                             value={item.description}
-                            onChange={(e) =>
-                              updateLineItem(index, "description", e.target.value)
-                            }
+                            onChange={(e) => updateLineItem(index, "description", e.target.value)}
                             required
                           />
                         </div>
@@ -377,11 +380,7 @@ export default function InvoicesPage() {
                             min="1"
                             value={item.quantity}
                             onChange={(e) =>
-                              updateLineItem(
-                                index,
-                                "quantity",
-                                parseInt(e.target.value)
-                              )
+                              updateLineItem(index, "quantity", parseInt(e.target.value))
                             }
                             required
                           />
@@ -393,11 +392,7 @@ export default function InvoicesPage() {
                             step="0.01"
                             value={item.unitPrice}
                             onChange={(e) =>
-                              updateLineItem(
-                                index,
-                                "unitPrice",
-                                parseFloat(e.target.value)
-                              )
+                              updateLineItem(index, "unitPrice", parseFloat(e.target.value))
                             }
                             required
                           />
@@ -409,11 +404,7 @@ export default function InvoicesPage() {
                             step="0.01"
                             value={item.taxRate}
                             onChange={(e) =>
-                              updateLineItem(
-                                index,
-                                "taxRate",
-                                parseFloat(e.target.value)
-                              )
+                              updateLineItem(index, "taxRate", parseFloat(e.target.value))
                             }
                           />
                         </div>
@@ -424,22 +415,13 @@ export default function InvoicesPage() {
                             step="0.01"
                             value={item.discount}
                             onChange={(e) =>
-                              updateLineItem(
-                                index,
-                                "discount",
-                                parseFloat(e.target.value)
-                              )
+                              updateLineItem(index, "discount", parseFloat(e.target.value))
                             }
                           />
                         </div>
                         <div className="col-span-1">
                           {formData.items.length > 1 && (
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => removeLineItem(index)}
-                            >
+                            <Button type="button" variant="ghost" size="icon" onClick={() => removeLineItem(index)}>
                               <Trash2 className="h-4 w-4" />
                             </Button>
                           )}
@@ -449,27 +431,20 @@ export default function InvoicesPage() {
                   </div>
                 </div>
               </div>
-              <DialogFooter>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setIsDialogOpen(false)}
-                  disabled={savingInvoice}
-                >
-                  Cancel
-                </Button>
-                <Button type="submit" disabled={savingInvoice}>
-                  {savingInvoice && (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  )}
-                  {savingInvoice ? "Creating..." : "Create Invoice"}
-                </Button>
-              </DialogFooter>
             </form>
-          </DialogContent>
-        </Dialog>
-        )}
-      </div>
+          </div>
+
+          <div className="p-4 border-t bg-muted/30 flex justify-end gap-2">
+            <Button type="button" variant="outline" onClick={() => setIsSheetOpen(false)} disabled={savingInvoice}>
+              Cancel
+            </Button>
+            <Button type="submit" form="invoice-form" disabled={savingInvoice}>
+              {savingInvoice && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {savingInvoice ? "Creating..." : "Create Invoice"}
+            </Button>
+          </div>
+        </SheetContent>
+      </Sheet>
 
       <Tabs value={filterStatus} onValueChange={setFilterStatus}>
         <TabsList>

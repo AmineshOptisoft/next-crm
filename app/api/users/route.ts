@@ -14,6 +14,7 @@ export async function GET(req: NextRequest) {
 
   await connectDB();
 
+  const minimal = req.nextUrl.searchParams.get("minimal") === "1";
   const isAdmin = await requireCompanyAdmin(user.userId);
 
   // Non-admins (e.g. technicians with contacts permission) get limited user data
@@ -27,6 +28,27 @@ export async function GET(req: NextRequest) {
     const users = await User.find(filter)
       .populate("customRoleId", "name")
       .select("firstName lastName customRoleId zone defaultRoleName")
+      .lean();
+    const mapped = (users as any[]).map((u) => {
+      if (u.defaultRoleName && !u.customRoleId) {
+        u.customRoleId = { _id: DEFAULT_ROLE_IDS[u.defaultRoleName], name: u.defaultRoleName };
+      }
+      return u;
+    });
+    return NextResponse.json(mapped);
+  }
+
+  // If UI only needs names/roles/zones (e.g. contacts page), allow a minimal payload.
+  if (minimal) {
+    const filter = {
+      ...buildCompanyFilter(user),
+      isActive: true,
+      role: { $ne: "contact" },
+    };
+    const users = await User.find(filter)
+      .populate("customRoleId", "name")
+      .select("firstName lastName customRoleId zone defaultRoleName")
+      .sort({ createdAt: -1 })
       .lean();
     const mapped = (users as any[]).map((u) => {
       if (u.defaultRoleName && !u.customRoleId) {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { User } from "@/app/models/User";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,6 +18,7 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { X, Upload, Check, ChevronsUpDown, Loader2 } from "lucide-react";
+import { toast } from "sonner";
 import {
     Command,
     CommandEmpty,
@@ -38,9 +39,149 @@ import { UserAvailability } from "./user-availability";
 import { UserOffTime, OffTime } from "./user-off-time"; // Ensure OffTime is exported from user-off-time
 import { UserSecurity } from "./user-security";
 import { UserReviews } from "./user-reviews";
-import { Country, State, City } from "country-state-city";
 import { AddBreakDialog } from "./add-break-dialog";
 import { format } from "date-fns";
+
+// ─── Lazy-load country-state-city once — never blocks the JS bundle ───────────
+let geoCache: any = null;
+async function loadGeo() {
+    if (geoCache) return geoCache;
+    geoCache = await import("country-state-city");
+    return geoCache;
+}
+
+// ─── VirtualGeoSelect (same UX as bookings form) ──────────────────────────────
+const ITEM_H = 36; // px — height of each option row
+const LIST_H = 288; // px — max visible height (~8 rows)
+
+const VirtualGeoSelect = memo(function VirtualGeoSelect({
+    id,
+    value,
+    onChange,
+    options,
+    placeholder,
+    disabled,
+}: {
+    id?: string;
+    value: string;
+    onChange: (v: string) => void;
+    options: { label: string; value: string }[];
+    placeholder?: string;
+    disabled?: boolean;
+}) {
+    const [open, setOpen] = useState(false);
+    const scrollRef = useRef<HTMLDivElement>(null);
+    const [scrollTop, setScrollTop] = useState(0);
+    const [typeAhead, setTypeAhead] = useState("");
+    const [lastTypeTime, setLastTypeTime] = useState(0);
+
+    const totalH = options.length * ITEM_H;
+    const startIdx = Math.floor(scrollTop / ITEM_H);
+    const visibleCount = Math.ceil(LIST_H / ITEM_H) + 2;
+    const endIdx = Math.min(startIdx + visibleCount, options.length);
+    const visibleItems = options.slice(startIdx, endIdx);
+    const offsetY = startIdx * ITEM_H;
+
+    const displayLabel = useMemo(
+        () => options.find(o => o.value === value)?.label ?? "",
+        [options, value]
+    );
+
+    const handleKeyDown = (e: React.KeyboardEvent<HTMLButtonElement | HTMLDivElement>) => {
+        if (!open) return;
+        const key = e.key;
+        if (key.length === 1 && /^[a-z0-9]$/i.test(key)) {
+            const now = Date.now();
+            const withinWindow = now - lastTypeTime < 700;
+            const nextPrefix = (withinWindow ? typeAhead + key : key).toLowerCase();
+            setTypeAhead(nextPrefix);
+            setLastTypeTime(now);
+
+            const idx = options.findIndex(o => o.label.toLowerCase().startsWith(nextPrefix));
+            if (idx >= 0 && scrollRef.current) {
+                const visibleHeight = Math.min(totalH, LIST_H);
+                let newTop = idx * ITEM_H - visibleHeight / 2;
+                newTop = Math.max(0, Math.min(newTop, Math.max(0, totalH - visibleHeight)));
+                scrollRef.current.scrollTop = newTop;
+                setScrollTop(newTop);
+            }
+        }
+    };
+
+    useEffect(() => {
+        if (open) {
+            setScrollTop(0);
+            scrollRef.current?.scrollTo(0, 0);
+        }
+    }, [open]);
+
+    const containerRef = useRef<HTMLDivElement>(null);
+    useEffect(() => {
+        if (!open) return;
+        const handler = (e: MouseEvent) => {
+            if (!containerRef.current?.contains(e.target as Node)) setOpen(false);
+        };
+        document.addEventListener("mousedown", handler);
+        return () => document.removeEventListener("mousedown", handler);
+    }, [open]);
+
+    return (
+        <div ref={containerRef} className="relative w-full">
+            <button
+                id={id}
+                type="button"
+                onKeyDown={handleKeyDown}
+                disabled={disabled}
+                onClick={() => setOpen(o => !o)}
+                className={cn(
+                    "flex h-10 w-full items-center justify-between rounded-md border border-input bg-secondary/50 px-3 py-2 text-sm",
+                    "ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
+                    "disabled:cursor-not-allowed disabled:opacity-50",
+                )}
+            >
+                <span className={cn("truncate text-left", !displayLabel && "text-muted-foreground")}>
+                    {displayLabel || placeholder}
+                </span>
+                <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50" />
+            </button>
+
+            {open && (
+                <div className="absolute z-[200] mt-1 w-full rounded-md border bg-popover shadow-md">
+                    <div
+                        ref={scrollRef}
+                        style={{ height: Math.min(totalH, LIST_H), overflowY: "auto", scrollbarWidth: "none" }}
+                        className="scrollbar-none"
+                        onKeyDown={handleKeyDown}
+                        onScroll={e => setScrollTop((e.target as HTMLDivElement).scrollTop)}
+                    >
+                        {options.length === 0 ? (
+                            <div className="px-3 py-6 text-center text-sm text-muted-foreground">No results found.</div>
+                        ) : (
+                            <div style={{ height: totalH, position: "relative" }}>
+                                <div style={{ position: "absolute", top: offsetY, width: "100%" }}>
+                                    {visibleItems.map(opt => (
+                                        <div
+                                            key={opt.value}
+                                            style={{ height: ITEM_H }}
+                                            onClick={() => { onChange(opt.value); setOpen(false); }}
+                                            className={cn(
+                                                "flex items-center gap-2 px-3 text-sm cursor-pointer select-none hover:bg-accent hover:text-accent-foreground",
+                                                value === opt.value && "bg-accent font-medium"
+                                            )}
+                                        >
+                                            <Check className={cn("h-4 w-4 shrink-0", value === opt.value ? "opacity-100" : "opacity-0")} />
+                                            {opt.label}
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+});
 
 // Define a frontend interface that matches the API response
 export interface UserData {
@@ -122,6 +263,7 @@ export function UserForm({ user, onSave, loading }: UserFormProps) {
     const [openZipCodeCombobox, setOpenZipCodeCombobox] = useState(false);
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const [isUploading, setIsUploading] = useState(false);
+    const [geoLib, setGeoLib] = useState<any>(null);
 
     // Off Time State
     const [offTimes, setOffTimes] = useState<OffTime[]>([]);
@@ -173,6 +315,8 @@ export function UserForm({ user, onSave, loading }: UserFormProps) {
     };
 
     useEffect(() => {
+        loadGeo().then(setGeoLib);
+
         const fetchOffTimes = async () => {
              const userId = user._id || formData._id;
              if (!userId) return;
@@ -262,16 +406,29 @@ export function UserForm({ user, onSave, loading }: UserFormProps) {
     }, [user.reviews]);
 
 
-    // Cascading Location Logic
-    const countries = Country.getAllCountries();
-    const selectedCountry = countries.find((c) => c.name === formData.country);
-    const countryCode = selectedCountry?.isoCode;
+    // ── Geo options — memoized, built from lazy lib (same as bookings form) ────
+    const countryOptions = useMemo(() => {
+        if (!geoLib) return [];
+        return geoLib.Country.getAllCountries().map((c: any) => ({ label: c.name, value: c.name, isoCode: c.isoCode }));
+    }, [geoLib]);
 
-    const states = countryCode ? State.getStatesOfCountry(countryCode) : [];
-    const selectedState = states.find((s) => s.name === formData.state);
-    const stateCode = selectedState?.isoCode;
+    const countryCode = useMemo(() => {
+        return countryOptions.find((c: any) => c.value === (formData.country || ""))?.isoCode ?? "";
+    }, [countryOptions, formData.country]);
 
-    const cities = (countryCode && stateCode) ? City.getCitiesOfState(countryCode, stateCode) : [];
+    const stateOptions = useMemo(() => {
+        if (!geoLib || !countryCode) return [];
+        return geoLib.State.getStatesOfCountry(countryCode).map((s: any) => ({ label: s.name, value: s.name, isoCode: s.isoCode }));
+    }, [geoLib, countryCode]);
+
+    const stateCode = useMemo(() => {
+        return stateOptions.find((s: any) => s.value === (formData.state || ""))?.isoCode ?? "";
+    }, [stateOptions, formData.state]);
+
+    const cityOptions = useMemo(() => {
+        if (!geoLib || !countryCode || !stateCode) return [];
+        return geoLib.City.getCitiesOfState(countryCode, stateCode).map((c: any) => ({ label: c.name, value: c.name }));
+    }, [geoLib, countryCode, stateCode]);
 
     const handleChange = (field: keyof UserData, value: any) => {
         setFormData((prev) => ({ ...prev, [field]: value }));
@@ -410,7 +567,7 @@ export function UserForm({ user, onSave, loading }: UserFormProps) {
                                                     if (e.target.files?.[0]) {
                                                         const file = e.target.files[0];
                                                         if (file.size > 5 * 1024 * 1024) {
-                                                            alert("File size must be less than 5MB");
+                                                            toast.error("File size must be less than 5MB");
                                                             return;
                                                         }
                                                         setSelectedFile(file);
@@ -490,66 +647,43 @@ export function UserForm({ user, onSave, loading }: UserFormProps) {
 
                                     <div className="space-y-2">
                                         <Label htmlFor="country">Country</Label>
-                                        <Select
+                                        <VirtualGeoSelect
+                                            id="country"
                                             value={formData.country || ""}
-                                            onValueChange={(val) => {
+                                            options={countryOptions}
+                                            placeholder="Select Country"
+                                            disabled={!geoLib}
+                                            onChange={(val) => {
                                                 handleChange("country", val);
                                                 handleChange("state", "");
                                                 handleChange("city", "");
                                             }}
-                                        >
-                                            <SelectTrigger id="country" className="w-full">
-                                                <SelectValue placeholder="Select Country" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                {countries.map((country) => (
-                                                    <SelectItem key={country.isoCode} value={country.name}>
-                                                        {country.name}
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
+                                        />
                                     </div>
                                     <div className="space-y-2">
                                         <Label htmlFor="state">State</Label>
-                                        <Select
+                                        <VirtualGeoSelect
+                                            id="state"
                                             value={formData.state || ""}
-                                            onValueChange={(val) => {
+                                            options={stateOptions}
+                                            placeholder="Select State"
+                                            disabled={!geoLib || !countryCode}
+                                            onChange={(val) => {
                                                 handleChange("state", val);
                                                 handleChange("city", "");
                                             }}
-                                            disabled={!countryCode}
-                                        >
-                                            <SelectTrigger id="state" className="w-full">
-                                                <SelectValue placeholder="Select State" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                {states.map((state) => (
-                                                    <SelectItem key={state.isoCode} value={state.name}>
-                                                        {state.name}
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
+                                        />
                                     </div>
                                     <div className="space-y-2">
                                         <Label htmlFor="city">City</Label>
-                                        <Select
+                                        <VirtualGeoSelect
+                                            id="city"
                                             value={formData.city || ""}
-                                            onValueChange={(val) => handleChange("city", val)}
-                                            disabled={!stateCode}
-                                        >
-                                            <SelectTrigger id="city" className="w-full">
-                                                <SelectValue placeholder="Select City" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                {cities.map((city) => (
-                                                    <SelectItem key={city.name} value={city.name}>
-                                                        {city.name}
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
+                                            options={cityOptions}
+                                            placeholder="Select City"
+                                            disabled={!geoLib || !stateCode}
+                                            onChange={(val) => handleChange("city", val)}
+                                        />
                                     </div>
 
                                     <div className="space-y-2">

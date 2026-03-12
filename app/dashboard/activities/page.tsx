@@ -17,8 +17,14 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -88,7 +94,7 @@ export default function ActivitiesPage() {
   const [deals, setDeals] = useState<Deal[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(true);
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [editingActivity, setEditingActivity] = useState<Activity | null>(null);
   const [filterType, setFilterType] = useState<string>("all");
   const [formData, setFormData] = useState({
@@ -189,7 +195,7 @@ export default function ActivitiesPage() {
       if (response.ok) {
         toast.success(editingActivity ? "Activity updated" : "Activity logged");
         fetchActivities();
-        setIsDialogOpen(false);
+        setIsSheetOpen(false);
         resetForm();
       } else {
         toast.error("Failed to save activity");
@@ -241,7 +247,7 @@ export default function ActivitiesPage() {
       status: activity.status,
       assignedTo: activity.assignedTo?._id || "",
     });
-    setIsDialogOpen(true);
+    setIsSheetOpen(true);
   };
 
   const handleComplete = async (id: string) => {
@@ -344,32 +350,35 @@ export default function ActivitiesPage() {
           </p>
         </div>
         {permissions.canCreate && (
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-            <DialogTrigger asChild>
-              <Button onClick={resetForm}>
-                <Plus className="mr-2 h-4 w-4" />
-                Log Activity
-              </Button>
-            </DialogTrigger>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>
-                {editingActivity ? "Edit Activity" : "Log New Activity"}
-              </DialogTitle>
-              <DialogDescription>
-                Record an interaction with a contact
-              </DialogDescription>
-            </DialogHeader>
-            <form onSubmit={handleSubmit}>
-              <div className="grid gap-4 py-4">
-                <div className="grid grid-cols-2 gap-4">
+          <Button
+            onClick={() => {
+              resetForm();
+              setIsSheetOpen(true);
+            }}
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            Log Activity
+          </Button>
+        )}
+      </div>
+
+      {/* Create/Edit Activity Sheet (replaces modal) */}
+      {(permissions.canCreate || permissions.canEdit) && (
+        <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
+          <SheetContent side="right" className="sm:max-w-2xl w-full p-0 flex flex-col">
+            <SheetHeader className="p-4 border-b gap-0">
+              <SheetTitle>{editingActivity ? "Edit Activity" : "Log New Activity"}</SheetTitle>
+              <SheetDescription>Record an interaction with a contact</SheetDescription>
+            </SheetHeader>
+
+            <div className="flex-1 overflow-y-auto p-6">
+              <form id="activity-form" onSubmit={handleSubmit} className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="type">Activity Type *</Label>
                     <Select
                       value={formData.type}
-                      onValueChange={(value) =>
-                        setFormData({ ...formData, type: value })
-                      }
+                      onValueChange={(value) => setFormData({ ...formData, type: value })}
                       required
                     >
                       <SelectTrigger className="w-full">
@@ -388,9 +397,7 @@ export default function ActivitiesPage() {
                     <Label htmlFor="contactId">Contact *</Label>
                     <Select
                       value={formData.contactId}
-                      onValueChange={(value) =>
-                        setFormData({ ...formData, contactId: value })
-                      }
+                      onValueChange={(value) => setFormData({ ...formData, contactId: value })}
                       required
                     >
                       <SelectTrigger className="w-full">
@@ -413,9 +420,7 @@ export default function ActivitiesPage() {
                     id="subject"
                     required
                     value={formData.subject}
-                    onChange={(e) =>
-                      setFormData({ ...formData, subject: e.target.value })
-                    }
+                    onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
                   />
                 </div>
 
@@ -425,20 +430,16 @@ export default function ActivitiesPage() {
                     id="description"
                     rows={3}
                     value={formData.description}
-                    onChange={(e) =>
-                      setFormData({ ...formData, description: e.target.value })
-                    }
+                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                   />
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="dealId">Related Deal</Label>
                     <Select
                       value={formData.dealId || "none"}
-                      onValueChange={(value) =>
-                        setFormData({ ...formData, dealId: value === "none" ? "" : value })
-                      }
+                      onValueChange={(value) => setFormData({ ...formData, dealId: value === "none" ? "" : value })}
                     >
                       <SelectTrigger className="w-full">
                         <SelectValue placeholder="Select deal (optional)" />
@@ -457,9 +458,7 @@ export default function ActivitiesPage() {
                     <Label htmlFor="assignedTo">Assigned To</Label>
                     <Select
                       value={formData.assignedTo || "none"}
-                      onValueChange={(value) =>
-                        setFormData({ ...formData, assignedTo: value === "none" ? "" : value })
-                      }
+                      onValueChange={(value) => setFormData({ ...formData, assignedTo: value === "none" ? "" : value })}
                     >
                       <SelectTrigger className="w-full">
                         <SelectValue placeholder="Select employee (optional)" />
@@ -483,9 +482,7 @@ export default function ActivitiesPage() {
                       id="scheduledAt"
                       type="datetime-local"
                       value={formData.scheduledAt}
-                      onChange={(e) =>
-                        setFormData({ ...formData, scheduledAt: e.target.value })
-                      }
+                      onChange={(e) => setFormData({ ...formData, scheduledAt: e.target.value })}
                     />
                   </div>
                   <div className="space-y-2">
@@ -494,23 +491,16 @@ export default function ActivitiesPage() {
                       id="duration"
                       type="number"
                       value={formData.duration}
-                      onChange={(e) =>
-                        setFormData({ ...formData, duration: e.target.value })
-                      }
+                      onChange={(e) => setFormData({ ...formData, duration: e.target.value })}
                     />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="status">Status</Label>
-                    <Select
-                      value={formData.status}
-                      onValueChange={(value) =>
-                        setFormData({ ...formData, status: value })
-                      }
-                    >
+                    <Select value={formData.status} onValueChange={(value) => setFormData({ ...formData, status: value })}>
                       <SelectTrigger className="w-full">
                         <SelectValue />
                       </SelectTrigger>
-                      <SelectContent position="popper" sideOffset={5} className="z-[100]" >
+                      <SelectContent position="popper" sideOffset={5} className="z-[100]">
                         <SelectItem value="scheduled">Scheduled</SelectItem>
                         <SelectItem value="completed">Completed</SelectItem>
                         <SelectItem value="cancelled">Cancelled</SelectItem>
@@ -522,48 +512,34 @@ export default function ActivitiesPage() {
                 {formData.status === "completed" && (
                   <div className="space-y-2">
                     <Label htmlFor="outcome">Outcome</Label>
-                    <Select
-                      value={formData.outcome}
-                      onValueChange={(value) =>
-                        setFormData({ ...formData, outcome: value })
-                      }
-                    >
+                    <Select value={formData.outcome} onValueChange={(value) => setFormData({ ...formData, outcome: value })}>
                       <SelectTrigger className="w-full">
                         <SelectValue placeholder="Select outcome" />
                       </SelectTrigger>
-                      <SelectContent >
+                      <SelectContent>
                         <SelectItem value="successful">Successful</SelectItem>
                         <SelectItem value="unsuccessful">Unsuccessful</SelectItem>
-                        <SelectItem value="follow-up-required">
-                          Follow-up Required
-                        </SelectItem>
+                        <SelectItem value="follow-up-required">Follow-up Required</SelectItem>
                         <SelectItem value="no-answer">No Answer</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
                 )}
-              </div>
-              <DialogFooter>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setIsDialogOpen(false)}
-                  disabled={savingActivity}
-                >
-                  Cancel
-                </Button>
-                <Button type="submit" disabled={savingActivity}>
-                  {savingActivity && (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  )}
-                  {editingActivity ? "Update" : "Log Activity"}
-                </Button>
-              </DialogFooter>
-            </form>
-          </DialogContent>
-        </Dialog>
-        )}
-      </div>
+              </form>
+            </div>
+
+            <div className="p-4 border-t bg-muted/30 flex justify-end gap-2">
+              <Button type="button" variant="outline" onClick={() => setIsSheetOpen(false)} disabled={savingActivity}>
+                Cancel
+              </Button>
+              <Button type="submit" form="activity-form" disabled={savingActivity}>
+                {savingActivity && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {editingActivity ? "Update" : "Log Activity"}
+              </Button>
+            </div>
+          </SheetContent>
+        </Sheet>
+      )}
 
       <Tabs value={filterType} onValueChange={setFilterType}>
         <TabsList>
