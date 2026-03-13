@@ -161,22 +161,33 @@ export function CompanySubdomainSettings({ company, mutateSettings }: Props) {
                   <div className="space-y-2">
                     <div className="font-medium">Configured subdomains</div>
                     <div className="space-y-1 text-xs">
-                      {sites.map((site) => (
-                        <div
-                          key={site.subdomain}
-                          className="flex flex-wrap items-center gap-1.5"
-                        >
-                          <code className="rounded bg-muted px-1.5 py-0.5 text-[11px]">
-                            {site.subdomain}
-                          </code>
-                          <span className="text-muted-foreground">
-                            –{" "}
-                            {site.template === "templateB"
-                              ? "Minimal booking page"
-                              : "Modern service landing"}
-                          </span>
-                        </div>
-                      ))}
+                      {sites.map((site) => {
+                        const siteUrl = baseUrl
+                          ? `${baseUrl}/${site.subdomain}`
+                          : `http://YOUR-IP:3000/${site.subdomain}`;
+
+                        return (
+                          <div
+                            key={site.subdomain}
+                            className="flex flex-wrap items-center gap-2"
+                          >
+                            <code className="rounded bg-muted px-1.5 py-0.5 text-[11px]">
+                              {site.subdomain}
+                            </code>
+                            <span className="text-muted-foreground">
+                              –{" "}
+                              {site.template === "templateB"
+                                ? "Minimal booking page"
+                                : "Modern service landing"}
+                            </span>
+                            <Button asChild variant="outline" className="ml-1">
+                              <a href={siteUrl} target="_blank" rel="noreferrer">
+                                Visit
+                              </a>
+                            </Button>
+                          </div>
+                        );
+                      })}
                     </div>
                     {subdomain && (
                       <div className="mt-1 text-xs">

@@ -136,6 +136,14 @@ const UserSchema = new Schema(
     billingNotes: { type: String },
     discount: { type: String },
     serviceDefaults: { type: Schema.Types.Mixed },
+    cardDetails: [{
+      brand: String,
+      last4: String,
+      expMonth: String,
+      expYear: String,
+      nameOnCard: String,
+      createdAt: { type: Date, default: Date.now },
+    }],
     lastContactedAt: { type: Date },
     tags: [{ type: String }],
 

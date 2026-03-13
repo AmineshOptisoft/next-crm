@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { connectDB } from "@/lib/db";
 import { ServiceArea } from "@/app/models/ServiceArea";
+import { ZipCode } from "@/app/models/ZipCode";
 import { User } from "@/app/models/User";
 import { Company } from "@/app/models/Company";
 import { Booking } from "@/app/models/Booking";
@@ -70,7 +71,7 @@ export async function GET(req: NextRequest) {
         // 2. All DB work in ONE parallel round ─────────────────────────────────
         //    Bookings now use $lookup aggregation instead of .populate()
         //    so contact + service data arrive in a single query (no hidden N+1).
-        const [serviceAreas, technicians, company, bookingsRaw, timeOffs] = await Promise.all([
+        const [serviceAreas, technicians, company, zipCodes, bookingsRaw, timeOffs] = await Promise.all([
 
             ServiceArea.find({ companyId: user.companyId })
                 .select("name")
@@ -83,12 +84,17 @@ export async function GET(req: NextRequest) {
                 role: "company_user",
                 isTechnicianActive: true,
             })
-                .select("firstName lastName zone availability services")
+                .select("firstName lastName zone availability services workingZipCodes")
                 .lean()
                 .exec(),
 
             Company.findById(user.companyId)
                 .select("masterAvailability")
+                .lean()
+                .exec(),
+
+            ZipCode.find({ companyId: user.companyId })
+                .select("_id code")
                 .lean()
                 .exec(),
 
@@ -189,7 +195,13 @@ export async function GET(req: NextRequest) {
         // masterNumericMap: day → { isOpen, start, end } in minutes
         const masterNumericMap = buildNumericMap(masterAvailability);
 
-        // 6. Group technicians by zone (single pass) ───────────────────────────
+        // 6. Build zipcode map + group technicians by zone (single pass) ───────
+        const zipMap = new Map<string, string>();
+        for (const z of zipCodes as any[]) {
+            if (!z || !z._id || !z.code) continue;
+            zipMap.set(z._id.toString(), z.code);
+        }
+
         const techsByZone = new Map<string, any[]>();
         for (const tech of technicians as any[]) {
             const zone = tech.zone || "Unassigned";
@@ -212,11 +224,19 @@ export async function GET(req: NextRequest) {
             for (const tech of zoneTechs) {
                 const techId = tech._id.toString();
 
+                const techZipCodes: string[] = (tech.workingZipCodes || [])
+                    .map((id: any) => {
+                        const key = id?.toString?.() ?? "";
+                        return key ? zipMap.get(key) : undefined;
+                    })
+                    .filter((v: any) => typeof v === "string") as string[];
+
                 resources.push({
                     id:       techId,
                     title:    `${tech.firstName} ${tech.lastName}`,
                     group:    area.name,
                     services: tech.services || [],
+                    workingZipCodes: techZipCodes,
                 });
 
                 // Per-tech numeric availability map (7 entries max)
