@@ -178,6 +178,10 @@ const UserSchema = new Schema(
     verificationToken: { type: String, default: null },
     verificationTokenExpires: { type: Date, default: null },
 
+    // Password reset via OTP
+    resetPasswordOtp: { type: String, default: null },
+    resetPasswordOtpExpires: { type: Date, default: null },
+
     // Reviews
     reviews: [{
       title: String,

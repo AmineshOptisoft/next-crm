@@ -17,6 +17,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger, SheetFooter
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { ServiceDefaults } from "./ServiceDefaults";
 import { cn } from "@/lib/utils";
+import { Textarea } from "@/components/ui/textarea";
 
 // ─── Lazy-load country-state-city once — never blocks the JS bundle ───────────
 let geoCache: any = null;
@@ -177,7 +178,7 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
     const [selectedCampaign, setSelectedCampaign] = useState<any | null>(null);
     const [selectedCampaignLoading, setSelectedCampaignLoading] = useState(false);
     const [sendingEmail, setSendingEmail] = useState(false);
-    const [updating, setUpdating] = useState(false);
+    const [updatingSection, setUpdatingSection] = useState<string | null>(null);
 
     // Load geo lib once in background
     useEffect(() => { loadGeo().then(setGeoLib); }, []);
@@ -348,9 +349,9 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
         }
     }
 
-    async function handleUpdate() {
+    async function handleUpdate(section: string) {
         try {
-            setUpdating(true);
+            setUpdatingSection(section);
             const updatePayload = {
                 ...data,
                 phone: data.phoneNumber,
@@ -372,7 +373,7 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
         } catch (e) {
             toast.error("Update failed");
         } finally {
-            setUpdating(false);
+            setUpdatingSection(null);
         }
     }
 
@@ -531,8 +532,14 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
 
                     {/* Action Buttons */}
                     <div className="p-4 border-t flex gap-2">
-                        <Button className="flex-1" onClick={handleUpdate} disabled={updating}>
-                            {updating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        <Button
+                            className="flex-1"
+                            onClick={() => handleUpdate("summary")}
+                            disabled={updatingSection === "summary"}
+                        >
+                            {updatingSection === "summary" && (
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            )}
                             Update
                         </Button>
                         <Button
@@ -582,7 +589,7 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
                             <TabsList className="h-12 bg-transparent gap-0 rounded-none p-0">
                                 {[
                                     { value: "billing", label: "Billing Details" },
-                                    { value: "booking", label: "Booking Data" },
+                                    { value: "booking", label: "Personal Details" },
                                     { value: "service", label: "Service Defaults" },
                                     { value: "shipping", label: "Shipping Addresses" },
                                     { value: "email", label: "Email" },
@@ -600,17 +607,14 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
 
                         {/* ── Billing Details Tab ── */}
                         <TabsContent value="billing" className="flex-1 overflow-y-auto p-6 mt-0">
-                            <div className="space-y-5">
-                                <h3 className="font-semibold text-foreground">Billing Address</h3>
-                                <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-4">
+                                <h3 className=" text-foreground ">Billing Address</h3>
+                                <div className="grid grid-cols-1 gap-4">
                                     <div className="space-y-1">
-                                        <Label>Street Address</Label>
-                                        <Input value={data.billingAddress?.street || ""} onChange={(e) => updateBillingField("street", e.target.value)} />
+                                        
+                                        <Textarea className="h-20 w-full" value={data.billingAddress?.street || ""} onChange={(e) => updateBillingField("street", e.target.value)} />
                                     </div>
-                                    <div className="space-y-1">
-                                        <Label>Zip Code</Label>
-                                        <Input value={data.billingAddress?.zipCode || ""} onChange={(e) => updateBillingField("zipCode", e.target.value)} />
-                                    </div>
+                                    
                                 </div>
                                 <div className="grid grid-cols-2 gap-4">
                                     <div className="space-y-1">
@@ -645,74 +649,40 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
                                             onChange={(v) => updateBillingField("city", v)}
                                         />
                                     </div>
+                                    <div className="space-y-1">
+                                        <Label>Zip Code</Label>
+                                        <Input value={data.billingAddress?.zipCode || ""} onChange={(e) => updateBillingField("zipCode", e.target.value)} />
+                                    </div>
                                 </div>
 
                                 <div className="flex items-center space-x-2 pt-2 w-full">
                                     <Checkbox id="same-as-billing" checked={sameAsBilling} onCheckedChange={handleSameAsBillingToggle} />
                                     <Label htmlFor="same-as-billing" className="text-sm cursor-pointer">Shipping address same as billing</Label>
+
+                                </div>
+                                <div className="flex item-center justify-end">
+                                    <Button
+                                        className="flex-1"
+                                        onClick={() => handleUpdate("billing")}
+                                        disabled={updatingSection === "billing"}
+                                    >
+                                        {updatingSection === "billing" && (
+                                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                        )}
+                                        Update
+                                    </Button>
                                 </div>
 
                                 <Separator />
 
-                                <h3 className="font-semibold text-foreground">Shipping Address</h3>
-                                <div className="space-y-1 w-full">
-                                    <Label>Select Default Shipping Address</Label>
-                                    <Select>
-                                        <SelectTrigger className="w-full"><SelectValue placeholder="Select Default Shipping Address" /></SelectTrigger>
-                                        <SelectContent className="z-[150] w-full" position="popper"><SelectItem value="default">Default</SelectItem></SelectContent>
-                                    </Select>
-                                </div>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div className="space-y-1">
-                                        <Label>Street Address</Label>
-                                        <Input value={data.shippingAddress?.street || ""} onChange={(e) => setData({ ...data, shippingAddress: { ...data.shippingAddress, street: e.target.value } })} disabled={sameAsBilling} />
-                                    </div>
-                                    <div className="space-y-1">
-                                        <Label>Zip Code</Label>
-                                        <Input value={data.shippingAddress?.zipCode || ""} onChange={(e) => setData({ ...data, shippingAddress: { ...data.shippingAddress, zipCode: e.target.value } })} disabled={sameAsBilling} />
-                                    </div>
-                                </div>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div className="space-y-1">
-                                        <Label>Country</Label>
-                                        <VirtualGeoSelect
-                                            value={data.shippingAddress?.country || ""}
-                                            options={countryOptions}
-                                            placeholder="Select Country"
-                                            disabled={sameAsBilling || !geoLib}
-                                            onChange={(v) => setData({ ...data, shippingAddress: { ...data.shippingAddress, country: v, state: "", city: "" } })}
-                                        />
-                                    </div>
-                                    <div className="space-y-1">
-                                        <Label>State</Label>
-                                        <VirtualGeoSelect
-                                            value={data.shippingAddress?.state || ""}
-                                            options={shippingStateOptions}
-                                            placeholder="Select State"
-                                            disabled={sameAsBilling || !geoLib || !shippingCountryCode}
-                                            onChange={(v) => setData({ ...data, shippingAddress: { ...data.shippingAddress, state: v, city: "" } })}
-                                        />
-                                    </div>
-                                </div>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div className="space-y-1">
-                                        <Label>City</Label>
-                                        <VirtualGeoSelect
-                                            value={data.shippingAddress?.city || ""}
-                                            options={shippingCityOptions}
-                                            placeholder="Select City"
-                                            disabled={sameAsBilling || !geoLib || !shippingStateCode}
-                                            onChange={(v) => setData({ ...data, shippingAddress: { ...data.shippingAddress, city: v } })}
-                                        />
-                                    </div>
-                                </div>
+                                
                             </div>
                         </TabsContent>
 
                         {/* ── Booking Data Tab ── */}
                         <TabsContent value="booking" className="flex-1 overflow-y-auto p-6 mt-0">
-                            <div className="space-y-4">
-                                <h3 className="font-semibold text-foreground">Booking Information</h3>
+                            <div className="space-y-4 ">
+                                
                                 <div className="grid grid-cols-2 gap-4">
                                     <div className="space-y-1">
                                         <Label>Default Payment Method</Label>
@@ -833,13 +803,25 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
                                      <Label>FSR Assigned</Label>
                                      <Input value={data.fsrAssigned || ""} readOnly className="bg-muted" />
                                  </div>
+                            <div className="flex item-center justify-end">
+                                <Button
+                                    className="flex-1"
+                                    onClick={() => handleUpdate("booking")}
+                                    disabled={updatingSection === "booking"}
+                                >
+                                    {updatingSection === "booking" && (
+                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                    )}
+                                    Update
+                                </Button>
+                            </div>
                             </div>
                         </TabsContent>
 
                         {/* ── Service Defaults Tab ── */}
                         <TabsContent value="service" className="flex-1 overflow-y-auto p-6 mt-0">
                             <div className="w-full">
-                                <h3 className="font-semibold text-foreground mb-4">Service Defaults</h3>
+                                
                                 <ServiceDefaults
                                     editorData={data.serviceDefaults || {}}
                                     onChange={(newData: any) => setData({ ...data, serviceDefaults: newData })}
@@ -885,7 +867,7 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
                                                     </div>
                                                     <div className="space-y-2">
                                                         <Label htmlFor="zipCode">Zip Code</Label>
-                                                        <Input id="zipCode" name="zipCode" />
+                                                        <Input type="number" id="zipCode" name="zipCode" />
                                                     </div>
                                                     <div className="space-y-2">
                                                         <Label htmlFor="city">City</Label>
@@ -930,6 +912,18 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
                                     {(!data.shippingAddresses || data.shippingAddresses.length === 0) && (
                                         <div className="text-center text-muted-foreground text-sm py-8">No shipping addresses added yet</div>
                                     )}
+                                </div>
+                                <div className="flex item-center justify-end">
+                                    <Button
+                                        className="flex-1"
+                                        onClick={() => handleUpdate("shipping")}
+                                        disabled={updatingSection === "shipping"}
+                                    >
+                                        {updatingSection === "shipping" && (
+                                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                        )}
+                                        Update
+                                    </Button>
                                 </div>
                             </div>
                         </TabsContent>

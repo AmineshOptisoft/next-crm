@@ -552,7 +552,7 @@ export default function ServicesPage() {
                                             value={formData.percentage}
                                             onChange={(e) => setFormData({ ...formData, percentage: parseFloat(e.target.value) || 0 })}
                                             placeholder="0"
-                                            className="h-11"
+                                            className="h-11 appearance-none"
                                         />
                                     </div>
                                 )}

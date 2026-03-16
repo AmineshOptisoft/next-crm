@@ -23,13 +23,6 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import {
-  Select,
-  SelectTrigger,
-  SelectValue,
-  SelectContent,
-  SelectItem,
-} from "@/components/ui/select";
-import {
   AlertDialog,
   AlertDialogContent,
   AlertDialogHeader,
@@ -74,10 +67,12 @@ const VirtualGeoSelect = memo(function VirtualGeoSelect({
   const [scrollTop, setScrollTop] = useState(0);
   const [typeAhead, setTypeAhead] = useState("");
   const [lastTypeTime, setLastTypeTime] = useState(0);
+  const [placement, setPlacement] = useState<"top" | "bottom">("bottom");
+  const [listHeight, setListHeight] = useState(LIST_H);
 
   const totalH = options.length * ITEM_H;
   const startIdx = Math.floor(scrollTop / ITEM_H);
-  const visibleCount = Math.ceil(LIST_H / ITEM_H) + 2;
+  const visibleCount = Math.ceil((listHeight || LIST_H) / ITEM_H) + 2;
   const endIdx = Math.min(startIdx + visibleCount, options.length);
   const visibleItems = options.slice(startIdx, endIdx);
   const offsetY = startIdx * ITEM_H;
@@ -109,10 +104,32 @@ const VirtualGeoSelect = memo(function VirtualGeoSelect({
   };
 
   useEffect(() => {
-    if (open) {
-      setScrollTop(0);
-      scrollRef.current?.scrollTo(0, 0);
-    }
+    if (!open) return;
+
+    setScrollTop(0);
+    scrollRef.current?.scrollTo(0, 0);
+
+    const triggerEl = containerRef.current;
+    if (!triggerEl || typeof window === "undefined") return;
+
+    const rect = triggerEl.getBoundingClientRect();
+    const viewportH = window.innerHeight || document.documentElement.clientHeight || 0;
+
+    const spaceBelow = viewportH - rect.bottom;
+    const spaceAbove = rect.top;
+
+    // Decide whether to open upwards or downwards based on available space
+    const preferredPlacement: "top" | "bottom" =
+      spaceBelow < LIST_H && spaceAbove > spaceBelow ? "top" : "bottom";
+    setPlacement(preferredPlacement);
+
+    const availableSpace =
+      preferredPlacement === "bottom" ? spaceBelow - 8 : spaceAbove - 8;
+    const nextHeight = Math.max(
+      Math.min(LIST_H, Math.max(ITEM_H * 3, availableSpace)),
+      ITEM_H * 3
+    );
+    setListHeight(isFinite(nextHeight) ? nextHeight : LIST_H);
   }, [open]);
 
   const containerRef = useRef<HTMLDivElement>(null);
@@ -126,7 +143,7 @@ const VirtualGeoSelect = memo(function VirtualGeoSelect({
   }, [open]);
 
   return (
-    <div ref={containerRef} className="relative w-full">
+    <div ref={containerRef} className="relative w-full min-w-0">
       <button
         id={id}
         type="button"
@@ -134,22 +151,37 @@ const VirtualGeoSelect = memo(function VirtualGeoSelect({
         disabled={disabled}
         onClick={() => setOpen(o => !o)}
         className={cn(
-          "flex h-10 w-full items-center justify-between rounded-md border border-input bg-secondary/50 px-3 py-2 text-sm",
+          "flex h-11 w-full min-w-0 items-center justify-between rounded-lg border border-[#b6b6bd] bg-white px-3 py-2 text-sm text-primary",
           "ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
           "disabled:cursor-not-allowed disabled:opacity-50",
         )}
       >
-        <span className={cn("truncate text-left", !displayLabel && "text-muted-foreground")}>
+        <span
+          className={cn(
+            "block max-w-full truncate text-left",
+            !displayLabel && "text-muted-foreground"
+          )}
+        >
           {displayLabel || placeholder}
         </span>
         <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50" />
       </button>
 
       {open && (
-        <div className="absolute z-[200] mt-1 w-full rounded-md border bg-popover shadow-md">
+        <div
+          className={cn(
+            "absolute z-200 w-full rounded-md border bg-popover shadow-md",
+            placement === "bottom" ? "top-full mt-1" : "bottom-full mb-1"
+          )}
+        >
           <div
             ref={scrollRef}
-            style={{ height: Math.min(totalH, LIST_H), overflowY: "auto", scrollbarWidth: "none" }}
+            style={{
+              height: Math.min(totalH, listHeight || LIST_H),
+              maxHeight: listHeight || LIST_H,
+              overflowY: "auto",
+              scrollbarWidth: "none",
+            }}
             className="scrollbar-none"
             onKeyDown={handleKeyDown}
             onScroll={e => setScrollTop((e.target as HTMLDivElement).scrollTop)}
@@ -291,188 +323,273 @@ export default function SignupPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-muted/30">
-      <Card className="w-full max-w-xl shadow-sm">
-        <CardHeader>
-          <CardTitle className="text-2xl">Create account</CardTitle>
-          <CardDescription>
-            Sign up to access your CRM dashboard.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <FormField
-                  control={form.control}
-                  name="firstName"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>First name</FormLabel>
-                      <FormControl>
-                        <Input placeholder="John" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="lastName"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Last name</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Doe" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+    <div className="flex min-h-screen bg-secondary">
+      {/* Left panel – form */}
+      <div className="flex flex-1 items-center justify-center px-8 lg:px-20">
+        <div className="w-full max-w-xl">
+          {/* Logo */}
+          <div className="mb-16 flex items-center gap-2">
+            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-black text-white text-xl font-semibold">
+              m
+            </div>
+            <span className="text-xl font-semibold tracking-tight text-primary">Greenfrog.</span>
+          </div>
+
+          <Card className="border-none shadow-none bg-transparent p-0">
+            <CardHeader className="px-0 pb-6 pt-0">
+              <CardTitle className="text-3xl font-semibold text-primary">
+                Create account
+              </CardTitle>
+              <CardDescription className="mt-1 text-base text-muted-foreground">
+                Sign up to access your CRM dashboard.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="px-0 pt-0">
+              <Form {...form}>
+                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                    <FormField
+                      control={form.control}
+                      name="firstName"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-sm font-medium text-primary">
+                            First name
+                          </FormLabel>
+                          <FormControl>
+                            <Input
+                              placeholder="John"
+                              className="h-11 rounded-lg border border-[#b6b6bd] bg-white text-sm text-primary"
+                              {...field}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="lastName"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-sm font-medium text-primary">
+                            Last name
+                          </FormLabel>
+                          <FormControl>
+                            <Input
+                              placeholder="Doe"
+                              className="h-11 rounded-lg border border-[#b6b6bd] bg-white text-sm text-primary"
+                              {...field}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
+                  <FormField
+                    control={form.control}
+                    name="email"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-sm font-medium text-primary">
+                          Email
+                        </FormLabel>
+                        <FormControl>
+                          <Input
+                            type="email"
+                            placeholder="Enter your email"
+                            className="h-11 rounded-lg border border-[#b6b6bd] bg-white text-sm text-primary"
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                    <FormField
+                      control={form.control}
+                      name="password"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-sm font-medium text-primary">
+                            Password
+                          </FormLabel>
+                          <FormControl>
+                            <Input
+                              type="password"
+                              placeholder="Enter your password"
+                              className="h-11 rounded-lg border border-[#b6b6bd] bg-white text-sm text-primary"
+                              {...field}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="confirmPassword"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-sm font-medium text-primary">
+                            Confirm password
+                          </FormLabel>
+                          <FormControl>
+                            <Input
+                              type="password"
+                              placeholder="Confirm your password"
+                              className="h-11 rounded-lg border border-[#b6b6bd] bg-white text-sm text-primary"
+                              {...field}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
+                  <FormField
+                    control={form.control}
+                    name="companyName"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-sm font-medium text-primary">
+                          Company
+                        </FormLabel>
+                        <FormControl>
+                          <Input
+                            placeholder="Acme Inc."
+                            className="h-11 rounded-lg border border-[#b6b6bd] bg-white text-sm text-primary"
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                    <FormField
+                      control={form.control}
+                      name="countryId"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-sm font-medium text-primary">
+                            Country
+                          </FormLabel>
+                          <FormControl>
+                            <VirtualGeoSelect
+                              id="countryId"
+                              value={countryId}
+                              options={countryOptions}
+                              placeholder="Select Country"
+                              disabled={!geoLib}
+                              onChange={(value) => {
+                                field.onChange(value);
+                                form.setValue("stateId", "");
+                                form.setValue("cityId", "");
+                              }}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="stateId"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-sm font-medium text-primary">
+                            State
+                          </FormLabel>
+                          <FormControl>
+                            <VirtualGeoSelect
+                              id="stateId"
+                              value={stateId}
+                              options={stateOptions}
+                              placeholder="Select State"
+                              disabled={!geoLib || !countryId}
+                              onChange={(value) => {
+                                field.onChange(value);
+                                form.setValue("cityId", "");
+                              }}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="cityId"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-sm font-medium text-primary">
+                            City
+                          </FormLabel>
+                          <FormControl>
+                            <VirtualGeoSelect
+                              id="cityId"
+                              value={field.value || ""}
+                              options={cityOptions}
+                              placeholder="Select City"
+                              disabled={!geoLib || !stateId}
+                              onChange={(value) => field.onChange(value)}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
+                  <Button
+                    type="submit"
+                    className="mt-1 h-11 w-full rounded-lg bg-primary text-sm font-semibold text-black hover:bg-[#b8f232]"
+                    disabled={loading}
+                  >
+                    {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    {loading ? "Creating account..." : "Sign up"}
+                  </Button>
+                </form>
+              </Form>
+
+              <p className="mt-8 text-center text-xs text-primary">
+                Already have an account?
+                <Link
+                  href="/login"
+                  className="ml-1 text-xs font-medium text-primary underline hover:text-primary/30"
+                >
+                  Login
+                </Link>
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+
+      {/* Right panel – illustration */}
+      <div className="hidden w-1/2 items-center justify-center bg-[#e6e7f0] lg:flex">
+        <div className="relative flex h-[70%] w-[70%] items-center justify-center rounded-t-full bg-[#f6dcd5]">
+          <div className="absolute bottom-10 h-1.5 w-40 rounded-full bg-[#c9cbd6]" />
+          <div className="relative -mt-24 flex flex-col items-center">
+            <div className="mb-[-32px] h-44 w-20 rounded-full bg-[#d0d1da]" />
+            <div className="flex h-40 w-40 items-center justify-center rounded-full bg-[#C7FF3D] shadow-lg">
+              <div className="relative h-28 w-28 rounded-full border border-black/20">
+                <div className="absolute left-1/2 top-1/2 h-10 w-[2px] -translate-x-1/2 -translate-y-full origin-bottom bg-black" />
+                <div className="absolute left-1/2 top-1/2 h-12 w-[2px] -translate-x-1/2 -translate-y-full origin-bottom rotate-45 bg-black" />
+                <div className="absolute left-1/2 top-1/2 h-2 w-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-black" />
               </div>
-
-              <FormField
-                control={form.control}
-                name="email"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Email</FormLabel>
-                    <FormControl>
-                      <Input type="email" placeholder="you@company.com" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <FormField
-                  control={form.control}
-                  name="password"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Password</FormLabel>
-                      <FormControl>
-                        <Input type="password" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="confirmPassword"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Confirm password</FormLabel>
-                      <FormControl>
-                        <Input type="password" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-
-              <FormField
-                control={form.control}
-                name="companyName"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Company</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Acme Inc." {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <FormField
-                  control={form.control}
-                  name="countryId"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Country</FormLabel>
-                      <FormControl>
-                        <VirtualGeoSelect
-                          id="countryId"
-                          value={countryId}
-                          options={countryOptions}
-                          placeholder="Select Country"
-                          disabled={!geoLib}
-                          onChange={(value) => {
-                            field.onChange(value);
-                            form.setValue("stateId", "");
-                            form.setValue("cityId", "");
-                          }}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="stateId"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>State</FormLabel>
-                      <FormControl>
-                        <VirtualGeoSelect
-                          id="stateId"
-                          value={stateId}
-                          options={stateOptions}
-                          placeholder="Select State"
-                          disabled={!geoLib || !countryId}
-                          onChange={(value) => {
-                            field.onChange(value);
-                            form.setValue("cityId", "");
-                          }}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="cityId"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>City</FormLabel>
-                      <FormControl>
-                        <VirtualGeoSelect
-                          id="cityId"
-                          value={field.value || ""}
-                          options={cityOptions}
-                          placeholder="Select City"
-                          disabled={!geoLib || !stateId}
-                          onChange={(value) => field.onChange(value)}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-
-              <Button type="submit" className="w-full" disabled={loading}>
-                {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {loading ? "Creating account..." : "Sign up"}
-              </Button>
-            </form>
-          </Form>
-
-          <p className="mt-4 text-center text-sm text-muted-foreground">
-            Already have an account?{" "}
-            <Link href="/login" className="text-primary">
-              Login
-            </Link>
-          </p>
-        </CardContent>
-      </Card>
+            </div>
+          </div>
+        </div>
+      </div>
 
       {/* ✅ Sibling to Card, outside Form context */}
       <AlertDialog open={successDialogOpen} onOpenChange={setSuccessDialogOpen}>

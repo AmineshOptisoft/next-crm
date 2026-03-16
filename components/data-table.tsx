@@ -11,7 +11,7 @@ import {
   getFilteredRowModel,
   getPaginationRowModel,
 } from "@tanstack/react-table";
-import { useState } from "react";
+import { useState, ReactNode } from "react";
 import {
   Table,
   TableBody,
@@ -30,6 +30,8 @@ interface DataTableProps<TData, TValue> {
   onFilterChange?: (value: string) => void;
   filterValue?: string;
   searchPlaceholder?: string;
+  leftSlot?: ReactNode;
+  rightSlot?: ReactNode;
 }
 
 export function DataTable<TData, TValue>({
@@ -38,6 +40,8 @@ export function DataTable<TData, TValue>({
   onFilterChange,
   filterValue = "",
   searchPlaceholder = "Keywords...",
+  leftSlot,
+  rightSlot,
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
@@ -62,17 +66,33 @@ export function DataTable<TData, TValue>({
 
   return (
     <div className="space-y-4">
-      <div className="flex gap-2">
-        <Input
-          placeholder={searchPlaceholder}
-          value={globalFilter}
-          onChange={(event) => {
-            const value = event.target.value;
-            setGlobalFilter(value);
-            onFilterChange?.(value);
-          }}
-          className="w-full md:w-64"
-        />
+      <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+        <div className="flex items-center gap-2">
+          {leftSlot && (
+            <div className="w-full md:w-auto">
+              {leftSlot}
+            </div>
+          )}
+        </div>
+        <div className="flex items-center gap-2 w-full md:w-auto">
+          <div className="w-full md:w-64">
+            <Input
+              placeholder={searchPlaceholder}
+              value={globalFilter}
+              onChange={(event) => {
+                const value = event.target.value;
+                setGlobalFilter(value);
+                onFilterChange?.(value);
+              }}
+              className="w-full"
+            />
+          </div>
+          {rightSlot && (
+            <div className="flex items-center gap-2">
+              {rightSlot}
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="rounded-md border">

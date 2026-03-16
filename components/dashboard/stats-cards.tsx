@@ -7,16 +7,18 @@ interface StatsCardsProps {
   employeeStats: {
     total: number;
     growth: number;
+    addedLastMonth: number;
   };
   leavesStats: {
     total: number;
     lastMonth: number;
+    thisMonth: number;
   };
 }
 
 export function StatsCards({ employeeStats, leavesStats }: StatsCardsProps) {
+  // Use growth value computed on the server (based on current vs last month totals)
   const employeeGrowthPositive = employeeStats.growth >= 0;
-  const leavesChange = leavesStats.total - leavesStats.lastMonth;
 
   return (
     <div className="grid gap-4 md:grid-cols-2">
@@ -52,6 +54,9 @@ export function StatsCards({ employeeStats, leavesStats }: StatsCardsProps) {
             </span>
             <span>from last month</span>
           </p>
+          <p className="text-xs text-muted-foreground mt-1">
+            {employeeStats.addedLastMonth} employees were added last month
+          </p>
         </CardContent>
       </Card>
 
@@ -74,9 +79,9 @@ export function StatsCards({ employeeStats, leavesStats }: StatsCardsProps) {
           </svg>
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold">{leavesStats.total}</div>
+          <div className="text-2xl font-bold">{leavesStats.thisMonth}</div>
           <p className="text-xs text-muted-foreground mt-1">
-            {leavesStats.total} leaves taken this month
+            {leavesStats.thisMonth} leaves/time offs taken this month
           </p>
         </CardContent>
       </Card>

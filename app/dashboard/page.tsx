@@ -4,6 +4,8 @@ import { connectDB } from "@/lib/db";
 import { Task } from "../models/Task";
 import { Deal } from "../models/Deal";
 import { User } from "../models/User";
+import { Booking } from "../models/Booking";
+import { TechnicianTimeOff } from "../models/TechnicianTimeOff";
 import { Types } from "mongoose";
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -12,6 +14,7 @@ import { Download } from "lucide-react";
 import { StatsCards } from "@/components/dashboard/stats-cards";
 import { ProductivityChart } from "@/components/dashboard/productivity-chart";
 import { EmployeeList } from "@/components/dashboard/employee-list";
+import { UpcomingBookings } from "@/components/dashboard/upcoming-bookings";
 
 async function getStats(companyId: string) {
   await connectDB();
@@ -23,40 +26,55 @@ async function getStats(companyId: string) {
 
   const companyObjectId = new Types.ObjectId(companyId);
 
+
   // Group queries to run in parallel
   const [
     totalEmployees,
     employeesLastMonth,
     leavesCount,
     leavesLastMonth,
+    employeesAddedLastMonth,
+    leavesThisMonth,
     productivityData,
-    recentEmployees
+    recentEmployees,
+    upcomingBookings,
   ] = await Promise.all([
-    // Total employees
+    // Total employees (company users)
     User.countDocuments({
       companyId: companyObjectId,
-      role: "employee",
-      employeeStatus: "active",
+      role: "company_user",
+      isActive: true,
     }),
-    // Employees last month
+    // Employees at start of current month (company users created before this month)
     User.countDocuments({
       companyId: companyObjectId,
-      role: "employee",
-      employeeStatus: "active",
+      role: "company_user",
+      isActive: true,
       createdAt: { $lt: currentMonthStart },
     }),
-    // Leaves count
-    User.countDocuments({
-      companyId: companyObjectId,
-      role: "employee",
-      employeeStatus: "on-leave",
+    // Total time off records (approved) overall
+    TechnicianTimeOff.countDocuments({
+      technicianId: { $exists: true },
+      status: "APPROVED",
     }),
-    // Leaves last month
+    // Time off records approved last month
+    TechnicianTimeOff.countDocuments({
+      technicianId: { $exists: true },
+      status: "APPROVED",
+      startDate: { $gte: lastMonthStart, $lte: lastMonthEnd },
+    }),
+    // Employees added last month (company users created in last month window)
     User.countDocuments({
       companyId: companyObjectId,
-      role: "employee",
-      employeeStatus: "on-leave",
-      updatedAt: { $gte: lastMonthStart, $lte: lastMonthEnd },
+      role: "company_user",
+      isActive: true,
+      createdAt: { $gte: lastMonthStart, $lte: lastMonthEnd },
+    }),
+    // Time off records (approved) in current month
+    TechnicianTimeOff.countDocuments({
+      technicianId: { $exists: true },
+      status: "APPROVED",
+      startDate: { $gte: currentMonthStart },
     }),
     // Productivity aggregation
     Task.aggregate([
@@ -77,15 +95,23 @@ async function getStats(companyId: string) {
       },
       { $sort: { _id: 1 } },
     ]),
-    // Recent employees
+    // Recent employees / team members (include all active staff roles)
     User.find({
       companyId: companyObjectId,
-      role: "employee",
-      employeeStatus: "active",
+      role: { $in: ["company_admin", "company_user", "employee"] },
+      isActive: true,
     })
       .sort({ createdAt: -1 })
-      .limit(5)
-      .lean()
+      .limit(10)
+      .lean(),
+    // Upcoming bookings (today and future)
+    Booking.find({
+      companyId: companyObjectId,
+      startDateTime: { $gte: now },
+    })
+      .sort({ startDateTime: 1 })
+      .limit(10)
+      .lean(),
   ]);
 
   const employeeGrowth =
@@ -120,6 +146,7 @@ async function getStats(companyId: string) {
     employees: {
       total: totalEmployees,
       growth: employeeGrowth,
+      addedLastMonth: employeesAddedLastMonth,
       recent: recentEmployees.map((e: any) => ({
         _id: e._id.toString(),
         firstName: e.firstName,
@@ -131,10 +158,20 @@ async function getStats(companyId: string) {
     leaves: {
       total: leavesCount,
       lastMonth: leavesLastMonth,
+      thisMonth: leavesThisMonth,
     },
     productivity,
+    bookings: upcomingBookings.map((b: any) => ({
+      _id: b._id.toString(),
+      orderId: b.orderId,
+      startDateTime: b.startDateTime,
+      endDateTime: b.endDateTime,
+      status: b.status,
+    })),
   };
 }
+
+
 
 export default async function DashboardPage() {
   const user = await getCurrentUser();
@@ -187,12 +224,12 @@ export default async function DashboardPage() {
               leavesStats={stats.leaves}
             />
 
-            <div className="grid gap-4 grid-cols-1 md:grid-cols-7">
-              <div className="col-span-1 md:col-span-4">
-                <ProductivityChart data={stats.productivity} />
-              </div>
-              <div className="col-span-1 md:col-span-3">
+            <div className="grid gap-4 grid-cols-1 md:grid-cols-4">
+              <div className="col-span-1 md:col-span-2">
                 <EmployeeList employees={stats.employees.recent} />
+              </div>
+              <div className="col-span-1 md:col-span-2">
+                <UpcomingBookings bookings={stats.bookings} />
               </div>
             </div>
           </TabsContent>

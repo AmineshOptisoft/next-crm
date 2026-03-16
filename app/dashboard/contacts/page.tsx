@@ -243,7 +243,7 @@ export default function ContactsPage() {
   const [contacts, setContacts] = useState<ContactType[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState<any>(null);
-  const [stats, setStats] = useState({ withStax: 0, withoutStax: 0 });
+  const [stats, setStats] = useState({ totalContacts: 0, last7Days: 0 });
 
   // Sheet state
   const [isSheetOpen, setIsSheetOpen] = useState(false);
@@ -367,14 +367,29 @@ export default function ContactsPage() {
     } catch (e) { console.error(e); }
   }
 
+  function updateStatsFromContacts(list: ContactType[]) {
+    const total = list.length;
+    const now = new Date();
+    const sevenDaysAgo = new Date(now);
+    sevenDaysAgo.setDate(now.getDate() - 7);
+
+    const last7Days = list.reduce((count, contact) => {
+      if (!contact.createdAt) return count;
+      const created = new Date(contact.createdAt);
+      return created >= sevenDaysAgo && created <= now ? count + 1 : count;
+    }, 0);
+
+    setStats({ totalContacts: total, last7Days });
+  }
+
   async function fetchContacts() {
     try {
       const res = await fetch("/api/contacts?limit=200");
       if (!res.ok) return;
       const json = await res.json();
-      // Backward-compatible API: when query params are present, response is { items, total, stats }.
-      setContacts(Array.isArray(json) ? json : (json.items || []));
-      if (!Array.isArray(json) && json.stats) setStats(json.stats);
+      const list: ContactType[] = Array.isArray(json) ? json : (json.items || []);
+      setContacts(list);
+      updateStatsFromContacts(list);
     } catch (e) {
       toast.error("Failed to fetch contacts");
     }
@@ -390,8 +405,9 @@ export default function ContactsPage() {
         const res = await fetch(url);
         if (!res.ok) return;
         const json = await res.json();
-        setContacts(Array.isArray(json) ? json : (json.items || []));
-        if (!Array.isArray(json) && json.stats) setStats(json.stats);
+        const list: ContactType[] = Array.isArray(json) ? json : (json.items || []);
+        setContacts(list);
+        updateStatsFromContacts(list);
       } catch {
         // ignore
       }
@@ -708,48 +724,68 @@ export default function ContactsPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full">
         <Card>
           <CardContent className="flex items-center justify-between p-6">
-            <div><p className="text-sm font-medium text-muted-foreground">users_with_stax</p><h2 className="text-2xl font-bold">{stats.withStax}</h2></div>
+            <div>
+              <p className="text-sm font-medium text-muted-foreground">Total Contacts</p>
+              <h2 className="text-2xl font-bold">{stats.totalContacts}</h2>
+            </div>
             <Users className="h-8 w-8 text-primary opacity-75" />
           </CardContent>
         </Card>
         <Card>
           <CardContent className="flex items-center justify-between p-6">
-            <div><p className="text-sm font-medium text-muted-foreground">users_without_stax</p><h2 className="text-2xl font-bold">{stats.withoutStax}</h2></div>
+            <div>
+              <p className="text-sm font-medium text-muted-foreground">Contacts added in last 7 days</p>
+              <h2 className="text-2xl font-bold">{stats.last7Days}</h2>
+            </div>
             <UserX className="h-8 w-8 text-primary opacity-75" />
           </CardContent>
         </Card>
       </div>
 
-      {/* Toolbar */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline">Select Columns <ChevronDown className="ml-2 h-4 w-4" /></Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="w-56">
-            {Object.keys(visibleColumns).map((key) => (
-              <DropdownMenuCheckboxItem key={key} checked={(visibleColumns as any)[key]} onCheckedChange={(checked) => setVisibleColumns({ ...visibleColumns, [key]: checked })}>
-                {key.replace(/([A-Z])/g, ' $1').toUpperCase()}
-              </DropdownMenuCheckboxItem>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
-
-        <div className="flex flex-col md:flex-row items-stretch md:items-center gap-2 w-full md:w-auto">
-          <Button variant="outline" onClick={exportCSV} className="w-full md:w-auto">
-            <Download className="mr-2 h-4 w-4" /> Export CSV
-          </Button>
-          <Button onClick={() => { resetForm(); setIsSheetOpen(true); }} className="w-full md:w-auto">
-            <Plus className="mr-2 h-4 w-4" /> Add New Client
-          </Button>
-          {/* <Button variant="outline" onClick={() => setIsFilterModalOpen(true)} className="w-full md:w-auto">
-            <Filter className="mr-2 h-4 w-4" /> Filter
-          </Button> */}
-        </div>
-      </div>
-
       <div className="overflow-x-auto">
         <DataTable
+        leftSlot={
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline">
+                Select Columns <ChevronDown className="ml-2 h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-56">
+              {Object.keys(visibleColumns).map((key) => (
+                <DropdownMenuCheckboxItem
+                  key={key}
+                  checked={(visibleColumns as any)[key]}
+                  onCheckedChange={(checked) =>
+                    setVisibleColumns({ ...visibleColumns, [key]: checked })
+                  }
+                >
+                  {key.replace(/([A-Z])/g, " $1").toUpperCase()}
+                </DropdownMenuCheckboxItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        }
+        rightSlot={
+          <>
+            <Button
+              variant="outline"
+              onClick={exportCSV}
+              className="hidden md:inline-flex"
+            >
+              <Download className="mr-2 h-4 w-4" /> Export CSV
+            </Button>
+            <Button
+              onClick={() => {
+                resetForm();
+                setIsSheetOpen(true);
+              }}
+              className="hidden md:inline-flex"
+            >
+              <Plus className="mr-2 h-4 w-4" /> Add New Client
+            </Button>
+          </>
+        }
         columns={[
           {
             accessorKey: "idx",
@@ -824,19 +860,19 @@ export default function ContactsPage() {
               return val ? format(new Date(val as string), "yyyy-MM-dd HH:mm:ss") : "-";
             },
           },
-          {
-            accessorKey: "staxId",
-            header: "STAX ID",
-            cell: ({ row }: { row: any }) => {
-              if (!visibleColumns.staxId) return null;
-              const val = row.getValue("staxId");
-              return val ? (
-                <a href="#" className="text-primary flex items-center hover:underline">
-                  Go to stax <ExternalLink className="w-3 h-3 ml-1" />
-                </a>
-              ) : "-";
-            },
-          },
+          // {
+          //   accessorKey: "staxId",
+          //   header: "STAX ID",
+          //   cell: ({ row }: { row: any }) => {
+          //     if (!visibleColumns.staxId) return null;
+          //     const val = row.getValue("staxId");
+          //     return val ? (
+          //       <a href="#" className="text-primary flex items-center hover:underline">
+          //         Go to stax <ExternalLink className="w-3 h-3 ml-1" />
+          //       </a>
+          //     ) : "-";
+          //   },
+          // },
           {
             id: "actions",
             header: "ACTION",

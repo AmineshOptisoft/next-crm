@@ -3,6 +3,7 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
+import Link from "next/link";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { loginSchema, type LoginInput } from "./schema";
 import {
@@ -11,10 +12,10 @@ import {
   CardTitle,
   CardDescription,
   CardContent,
-  CardFooter,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Form,
   FormField,
@@ -23,7 +24,6 @@ import {
   FormControl,
   FormMessage,
 } from "@/components/ui/form";
-import Link from "next/link";
 import { Loader2 } from "lucide-react";
 
 export default function LoginPage() {
@@ -85,67 +85,143 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-muted/30">
-      <Card className="w-full max-w-md shadow-sm">
-        <CardHeader>
-          <CardTitle className="text-2xl">Login</CardTitle>
-          <CardDescription>Access your CRM dashboard.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {error && (
-            <div className="mb-4 p-3 bg-destructive/10 border border-destructive/30 rounded-md text-destructive text-sm">
-              {error}
+    <div className="flex min-h-screen bg-primary">
+      {/* Left panel – form */}
+      <div className="flex flex-1 items-center justify-center px-8 lg:px-20">
+        <div className="w-full max-w-md">
+          {/* Logo */}
+          <div className="mb-16 flex items-center gap-2">
+            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-black text-white text-xl font-semibold">
+              m
             </div>
-          )}
+            <span className="text-xl font-semibold tracking-tight text-secondary">GreenFrog.</span>
+          </div>
 
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-              <FormField
-                control={form.control}
-                name="email"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Email</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="email"
-                        placeholder="you@company.com"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="password"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Password</FormLabel>
-                    <FormControl>
-                      <Input type="password" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <Button type="submit" className="w-full" disabled={loading}>
-                {loading && (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                )}
-                {loading ? "Logging in..." : "Login"}
-              </Button>
-            </form>
-          </Form>
-          <p className="text-center text-sm text-muted-foreground">
-            Don't have account?
-            <Link href="/signup" className="text-primary">
-              Signup
-            </Link>
-          </p>
-        </CardContent>
-      </Card>
+          <Card className="border-none shadow-none bg-transparent p-0">
+            <CardHeader className="px-0 pb-6 pt-0">
+              <CardTitle className="text-3xl font-semibold text-secondary">
+                Welcome back
+              </CardTitle>
+              <CardDescription className="mt-1 text-base text-muted-foreground">
+                Welcome back! Please enter your details
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="px-0 pt-0">
+              {error && (
+                <div className="mb-4 rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
+                  {error}
+                </div>
+              )}
+
+              <Form {...form}>
+                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                  <FormField
+                    control={form.control}
+                    name="email"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-sm font-medium text-secondary">
+                          Email
+                        </FormLabel>
+                        <FormControl>
+                          <Input
+                            type="email"
+                            placeholder="Enter your email"
+                            className="h-11 rounded-lg border border-[#b6b6bd] bg-white text-sm placeholder:text-muted-foreground/70 text-secondary"
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="password"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-sm font-medium text-secondary">
+                          Password
+                        </FormLabel>
+                        <FormControl>
+                          <Input
+                            type="password"
+                            placeholder="Enter your password"
+                            className="h-11 rounded-lg border border-[#b6b6bd] bg-white text-sm text-secondary"
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  {/* Remember / Forgot row */}
+                  <div className="flex items-center justify-between text-xs text-muted-foreground">
+                    <label className="flex items-center gap-2">
+                      <Checkbox className="h-3.5 w-3.5" />
+                      <span>Remember for 30 Days</span>
+                    </label>
+                    <Link
+                      href="/forgot-password"
+                      className="text-xs font-medium text-[#7f7f90] hover:text-black"
+                    >
+                      Forgot password
+                    </Link>
+                  </div>
+
+                  {/* Primary sign in */}
+                  <Button
+                    type="submit"
+                    className="mt-1 h-11 w-full rounded-lg bg-[#C7FF3D] text-sm font-semibold text-black hover:bg-[#b8f232]"
+                    disabled={loading}
+                  >
+                    {loading && (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    )}
+                    {loading ? "Signing in..." : "Sign in"}
+                  </Button>
+
+                  
+                </form>
+              </Form>
+
+              {/* Bottom sign up text */}
+              <p className="mt-8 text-center text-xs text-secondary">
+                Don&apos;t have an account?
+                <Link
+                  href="/signup"
+                  className="ml-1 text-xs font-medium text-secondary underline decoration-[#C7FF3D] decoration-2 underline-offset-[6px]"
+                >
+                  Sign up for free
+                </Link>
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+
+      {/* Right panel – illustration */}
+      <div className="hidden w-1/2 items-center justify-center bg-[#e6e7f0] lg:flex">
+        <div className="relative flex h-[70%] w-[70%] items-center justify-center rounded-t-full bg-[#f6dcd5]">
+          <div className="absolute bottom-10 h-1.5 w-40 rounded-full bg-[#c9cbd6]" />
+          <div className="relative -mt-24 flex flex-col items-center">
+            {/* Simple hand silhouette using a tall rounded div */}
+            <div className="mb-[-32px] h-44 w-20 rounded-full bg-[#d0d1da]" />
+            {/* Clock */}
+            <div className="flex h-40 w-40 items-center justify-center rounded-full bg-[#C7FF3D] shadow-lg">
+              <div className="relative h-28 w-28 rounded-full border border-black/20">
+                {/* Hour hand */}
+                <div className="absolute left-1/2 top-1/2 h-10 w-[2px] -translate-x-1/2 -translate-y-full origin-bottom bg-black" />
+                {/* Minute hand */}
+                <div className="absolute left-1/2 top-1/2 h-12 w-[2px] -translate-x-1/2 -translate-y-full origin-bottom rotate-45 bg-black" />
+                {/* Center dot */}
+                <div className="absolute left-1/2 top-1/2 h-2 w-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-black" />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
