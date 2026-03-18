@@ -47,8 +47,15 @@ export async function POST(req: NextRequest) {
                 endDateTime,
                 shippingAddress,
                 notes,
-                pricing
+                pricing,
+                promoCode,
             } = body;
+
+            const promoCodeString = typeof promoCode === "string" ? promoCode.trim() : "";
+            const promoDiscountAmount = Math.max(0, Number(pricing?.discount) || 0);
+            const promoPayload = promoCodeString
+                ? { code: promoCodeString, discountAmount: promoDiscountAmount }
+                : undefined;
 
             const today = new Date();
             today.setHours(0, 0, 0, 0);
@@ -132,6 +139,8 @@ export async function POST(req: NextRequest) {
                         endDateTime: new Date(endDateTime),
                         shippingAddress,
                         notes,
+                        promoCode,
+                        promocode: promoPayload,
                         pricing,
                         orderId: generateOrderId(),
                         recurringGroupId: bookingGroupId,
@@ -154,6 +163,8 @@ export async function POST(req: NextRequest) {
                         shippingAddress,
                         notes,
                         pricing,
+                        promoCode,
+                        promocode: promoPayload,
                         recurringGroupId: bookingGroupId,
                         companyId: user.companyId
                     });
@@ -217,6 +228,8 @@ function generateRecurringBookings(data: any) {
         shippingAddress,
         notes,
         pricing,
+        promoCode,
+        promocode,
         recurringGroupId,
         companyId
     } = data;
@@ -266,6 +279,8 @@ function generateRecurringBookings(data: any) {
                     endDateTime: bookingEnd,
                     shippingAddress,
                     notes,
+                    promoCode,
+                    promocode,
                     pricing,
                     orderId: generateOrderId(),
                     recurringGroupId,
@@ -329,6 +344,8 @@ function generateRecurringBookings(data: any) {
                         endDateTime: bookingEnd,
                         shippingAddress,
                         notes,
+                        promoCode,
+                        promocode,
                         pricing,
                         orderId: generateOrderId(),
                         recurringGroupId,
@@ -356,6 +373,8 @@ function generateRecurringBookings(data: any) {
                             endDateTime: bookingEnd,
                             shippingAddress,
                             notes,
+                            promoCode,
+                            promocode,
                             pricing,
                             orderId: generateOrderId(),
                             recurringGroupId,
@@ -392,6 +411,8 @@ function generateRecurringBookings(data: any) {
                 endDateTime: bookingEnd,
                 shippingAddress,
                 notes,
+                promoCode,
+                promocode,
                 pricing,
                 orderId: generateOrderId(),
                 recurringGroupId,

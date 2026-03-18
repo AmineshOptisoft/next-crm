@@ -139,6 +139,7 @@ export async function GET(req: NextRequest) {
                 },
                 {
                     $project: {
+                        orderId: 1,
                         technicianId: 1,
                         startDateTime: 1,
                         endDateTime: 1,
@@ -147,6 +148,7 @@ export async function GET(req: NextRequest) {
                         addons: 1,
                         notes: 1,
                         pricing: 1,
+                        timesheet: 1,
                         shippingAddress: 1,
                         recurringGroupId: 1,
                         contact: { $arrayElemAt: ["$_contact", 0] },
@@ -336,12 +338,26 @@ export async function GET(req: NextRequest) {
                 extendedProps: {
                     bookingId:      booking._id,
                     bookingStatus:  booking.status,
+                    appointmentNumber: booking.orderId,
                     service:        service.name,
                     units,
                     addons,
                     notes:          booking.notes,
                     bookingPrice:   booking.pricing?.finalAmount  ? `$${booking.pricing.finalAmount.toFixed(2)}`  : "-",
                     bookingDiscount: booking.pricing?.discount    ? `$${booking.pricing.discount}`                : "-",
+                    billedHours:    booking.pricing?.billedHours ?? "-",
+                    scheduledDuration:
+                        booking.startDateTime && booking.endDateTime
+                            ? Math.max(0, Math.round((new Date(booking.endDateTime).getTime() - new Date(booking.startDateTime).getTime()) / 60000))
+                            : "-",
+                    teamCleaningTime: booking.timesheet?.cleaningTime ?? "-",
+                    totalTeamTime: booking.timesheet?.totalTeamTime ?? "-",
+                    generalTime: booking.timesheet?.generalTime ?? "-",
+                    drivingTime: booking.timesheet?.drivingTime ?? "-",
+                    trainingTime: booking.timesheet?.trainingTime ?? "-",
+                    technicianTime: booking.timesheet?.technicianTime ?? "-",
+                    timesheetNotes: booking.timesheet?.notes ?? "-",
+                    teamMembers: Array.isArray(booking.timesheet?.teamMembers) ? booking.timesheet.teamMembers.join(", ") : "-",
                     // Customer details
                     customerName:   `${contact.firstName || ""} ${contact.lastName || ""}`.trim(),
                     customerEmail:  contact.email,

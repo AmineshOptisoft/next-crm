@@ -114,6 +114,8 @@ export function EditBookingDetailsDialog({
   const [billedAmount, setBilledAmount] = useState("");
   const [discount, setDiscount] = useState("0");
   const [billedHours, setBilledHours] = useState("");
+  const [selectedPromocode, setSelectedPromocode] = useState<string>("none");
+  const [customDiscount, setCustomDiscount] = useState<string>("0");
 
   // Client & Address State
   const [clientName, setClientName] = useState("");
@@ -130,6 +132,16 @@ export function EditBookingDetailsDialog({
   const [bookingStart, setBookingStart] = useState<Date | undefined>(undefined);
   const [assignedStaff, setAssignedStaff] = useState("");
 
+  // Timesheet State
+  const [cleaningTime, setCleaningTime] = useState<string>("0");
+  const [totalTeamTime, setTotalTeamTime] = useState<string>("0");
+  const [generalTime, setGeneralTime] = useState<string>("0");
+  const [drivingTime, setDrivingTime] = useState<string>("0");
+  const [trainingTime, setTrainingTime] = useState<string>("0");
+  const [technicianTime, setTechnicianTime] = useState<string>("0");
+  const [timesheetNotes, setTimesheetNotes] = useState<string>("");
+  const [teamMembers, setTeamMembers] = useState<string>("");
+
   // Derive total technician count from co-technicians already in the prop
   // coTechnicians = OTHER techs on the same booking, so total = them + the primary tech
   const technicianCount = Math.max(1, (appointment?.coTechnicians?.length ?? 0) + 1);
@@ -141,6 +153,12 @@ export function EditBookingDetailsDialog({
   });
   const calendarEvents: any[] = calendarData?.events || [];
   const allResources: any[]   = calendarData?.resources || [];
+
+  const { data: promocodesData } = useSWR(open ? "/api/promocodes" : null, fetcher, {
+    revalidateOnFocus: false,
+    dedupingInterval: 60_000,
+  });
+  const promocodes: any[] = Array.isArray(promocodesData) ? promocodesData : (promocodesData?.data || []);
 
   // Fetch Services & Booking Data
   useEffect(() => {
@@ -173,8 +191,28 @@ export function EditBookingDetailsDialog({
         setAddonQuantities(adds);
 
         // Other fields
-        setBilledAmount(String(bookingData.pricing?.finalAmount ?? ""));
-        setDiscount(String(bookingData.pricing?.discount ?? "0"));
+        // billedAmount here is treated as the "base/total" amount before discount
+        // and discount is the amount to subtract.
+        const subAmt = Number(bookingData.pricing?.subServicesAmount);
+        const addAmt = Number(bookingData.pricing?.addonsAmount);
+        const computedTotal = (Number.isFinite(subAmt) ? subAmt : 0) + (Number.isFinite(addAmt) ? addAmt : 0);
+        const totalAmount =
+          bookingData.pricing?.totalAmount ??
+          (computedTotal > 0 ? computedTotal : (bookingData.pricing?.finalAmount ?? ""));
+        setBilledAmount(String(totalAmount || ""));
+
+        const existingDiscount = String(bookingData.pricing?.discount ?? "0");
+        setDiscount(existingDiscount);
+        setCustomDiscount(existingDiscount);
+
+        const existingPromo = bookingData.promoCode || bookingData.promocode || bookingData.promo || null;
+        if (existingPromo) {
+          setSelectedPromocode(String(existingPromo));
+        } else if (Number(existingDiscount) > 0) {
+          setSelectedPromocode("custom");
+        } else {
+          setSelectedPromocode("none");
+        }
         setBilledHours(String(bookingData.pricing?.billedHours ?? ""));
 
         setClientName(bookingData.contactId?.firstName ? `${bookingData.contactId.firstName} ${bookingData.contactId.lastName}` : "");
@@ -188,6 +226,16 @@ export function EditBookingDetailsDialog({
         });
 
         setAppointmentNotes(bookingData.notes || "");
+
+        // Timesheet fields (stored on Booking.timesheet)
+        setCleaningTime(String(bookingData?.timesheet?.cleaningTime ?? 0));
+        setTotalTeamTime(String(bookingData?.timesheet?.totalTeamTime ?? 0));
+        setGeneralTime(String(bookingData?.timesheet?.generalTime ?? 0));
+        setDrivingTime(String(bookingData?.timesheet?.drivingTime ?? 0));
+        setTrainingTime(String(bookingData?.timesheet?.trainingTime ?? 0));
+        setTechnicianTime(String(bookingData?.timesheet?.technicianTime ?? 0));
+        setTimesheetNotes(String(bookingData?.timesheet?.notes ?? ""));
+        setTeamMembers(Array.isArray(bookingData?.timesheet?.teamMembers) ? bookingData.timesheet.teamMembers.join(", ") : "");
 
         if (bookingData.startDateTime) {
           setBookingStart(new Date(bookingData.startDateTime));
@@ -204,6 +252,36 @@ export function EditBookingDetailsDialog({
       });
     }
   }, [open, appointment?.bookingId]);
+
+  // Keep discount synced with promo code selection.
+  // - For regular promocodes: discount is derived and not editable
+  // - For "custom": discount is editable via customDiscount
+  useEffect(() => {
+    const base = Math.max(0, Number(billedAmount) || 0);
+    if (!open) return;
+
+    if (selectedPromocode === "custom") {
+      setDiscount(String(Math.max(0, Number(customDiscount) || 0)));
+      return;
+    }
+    if (selectedPromocode === "none") {
+      setDiscount("0");
+      return;
+    }
+
+    const promo = promocodes.find((p: any) => p?.code === selectedPromocode);
+    if (!promo) {
+      setDiscount("0");
+      return;
+    }
+
+    const raw =
+      promo.type === "percentage"
+        ? base * (Number(promo.value) / 100)
+        : Number(promo.value);
+
+    setDiscount(String(Math.max(0, Math.min(raw, base)).toFixed(2)));
+  }, [selectedPromocode, customDiscount, billedAmount, promocodes, open]);
 
   // Derived properties for UI
   const availableSubServices = useMemo(() => {
@@ -310,7 +388,11 @@ export function EditBookingDetailsDialog({
         }
       }
 
-      const payload = {
+      const baseAmountNum = Math.max(0, Number(billedAmount) || 0);
+      const discountNum = Math.max(0, Number(discount) || 0);
+      const finalAmountNum = Math.max(0, baseAmountNum - discountNum);
+
+      const payload: any = {
         serviceId,
         subServices: Object.entries(subServiceQuantities)
           .filter(([_, qty]) => qty > 0)
@@ -323,11 +405,29 @@ export function EditBookingDetailsDialog({
         endDateTime: bookingEnd,
         shippingAddress: addressData,
         pricing: {
-          finalAmount: Number(billedAmount),
-          discount: Number(discount),
+          finalAmount: finalAmountNum,
+          discount: discountNum,
           billedHours: Number(billedHours)
-        }
+        },
+        timesheet: {
+          cleaningTime: Math.max(0, Number(cleaningTime) || 0),
+          totalTeamTime: Math.max(0, Number(totalTeamTime) || 0),
+          generalTime: Math.max(0, Number(generalTime) || 0),
+          drivingTime: Math.max(0, Number(drivingTime) || 0),
+          trainingTime: Math.max(0, Number(trainingTime) || 0),
+          technicianTime: Math.max(0, Number(technicianTime) || 0),
+          teamMembers: teamMembers
+            .split(",")
+            .map((s) => s.trim())
+            .filter(Boolean),
+          notes: timesheetNotes,
+        },
       };
+      if (selectedPromocode && selectedPromocode !== "none" && selectedPromocode !== "custom") {
+        payload.promoCode = selectedPromocode;
+      } else {
+        payload.promoCode = undefined;
+      }
 
       const res = await fetch(`/api/bookings/${appointment?.bookingId}`, {
         method: 'PATCH',
@@ -352,7 +452,7 @@ export function EditBookingDetailsDialog({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="p-0 sm:max-w-2xl">
+      <SheetContent className="p-0 sm:max-w-5xl">
         <div className="border-b text-black">
           <SheetHeader className="gap-0">
             <SheetTitle className="text-lg text-black">Edit Booking Details</SheetTitle>
@@ -404,12 +504,53 @@ export function EditBookingDetailsDialog({
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
+                  <Label>Promo Code</Label>
+                  <Select value={selectedPromocode} onValueChange={(v) => setSelectedPromocode(v)}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Select promo code" />
+                    </SelectTrigger>
+                    <SelectContent className="z-[150]" position="popper">
+                      <SelectItem value="none">None</SelectItem>
+                      <SelectItem value="custom">Custom discount</SelectItem>
+                      {promocodes.map((p: any) => (
+                        <SelectItem key={p._id || p.code} value={p.code}>
+                          {p.code} – {p.type === "percentage" ? `${p.value}%` : `$${p.value}`}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>
+                    {selectedPromocode === "custom" ? "Custom Discount Amount" : "Discount Amount"}
+                  </Label>
+                  <Input
+                    value={selectedPromocode === "custom" ? customDiscount : discount}
+                    onChange={(e) => {
+                      if (selectedPromocode === "custom") setCustomDiscount(e.target.value);
+                    }}
+                    readOnly={selectedPromocode !== "custom"}
+                    className={selectedPromocode === "custom" ? "" : "bg-muted"}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
                   <Label>Change Billed Amount</Label>
                   <Input value={billedAmount} onChange={(e) => setBilledAmount(e.target.value)} />
                 </div>
                 <div className="space-y-2">
                   <Label>Change Discount</Label>
-                  <Input value={discount} onChange={(e) => setDiscount(e.target.value)} />
+                  <Input
+                    value={discount}
+                    onChange={(e) => {
+                      // If user starts typing here, treat it as a custom discount
+                      setSelectedPromocode("custom");
+                      setCustomDiscount(e.target.value);
+                    }}
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label>Discount Amount</Label>
@@ -473,6 +614,50 @@ export function EditBookingDetailsDialog({
               <div className="space-y-2 md:col-span-2">
                 <Label>Appointment Notes</Label>
                 <Textarea value={appointmentNotes} onChange={(e) => setAppointmentNotes(e.target.value)} className="min-h-[80px]" />
+              </div>
+
+              <Separator className="md:col-span-2" />
+
+              <div className="space-y-2 md:col-span-2">
+                <div className="text-sm font-semibold text-foreground">Timesheet</div>
+                <div className="text-xs text-muted-foreground">
+                  Enter values in hours (numbers). These values will be saved on the booking.
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Cleaning Time (hrs)</Label>
+                <Input value={cleaningTime} onChange={(e) => setCleaningTime(e.target.value)} placeholder="0" />
+              </div>
+              <div className="space-y-2">
+                <Label>Total Team Time (hrs)</Label>
+                <Input value={totalTeamTime} onChange={(e) => setTotalTeamTime(e.target.value)} placeholder="0" />
+              </div>
+              <div className="space-y-2">
+                <Label>General Time (hrs)</Label>
+                <Input value={generalTime} onChange={(e) => setGeneralTime(e.target.value)} placeholder="0" />
+              </div>
+              <div className="space-y-2">
+                <Label>Driving Time (hrs)</Label>
+                <Input value={drivingTime} onChange={(e) => setDrivingTime(e.target.value)} placeholder="0" />
+              </div>
+              <div className="space-y-2">
+                <Label>Training Time (hrs)</Label>
+                <Input value={trainingTime} onChange={(e) => setTrainingTime(e.target.value)} placeholder="0" />
+              </div>
+              <div className="space-y-2">
+                <Label>Technician Time (hrs)</Label>
+                <Input value={technicianTime} onChange={(e) => setTechnicianTime(e.target.value)} placeholder="0" />
+              </div>
+
+              <div className="space-y-2 md:col-span-2">
+                <Label>Team Members (comma separated)</Label>
+                <Input value={teamMembers} onChange={(e) => setTeamMembers(e.target.value)} placeholder="John, Sarah, ..." />
+              </div>
+
+              <div className="space-y-2 md:col-span-2">
+                <Label>Timesheet Notes</Label>
+                <Textarea value={timesheetNotes} onChange={(e) => setTimesheetNotes(e.target.value)} className="min-h-[80px]" />
               </div>
 
               <div className="space-y-2">

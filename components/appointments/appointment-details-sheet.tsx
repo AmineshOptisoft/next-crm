@@ -100,6 +100,8 @@ interface AppointmentDetailsSheetProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onUpdate?: () => void;
+  /** When true, shows booking data only with no action buttons or editing */
+  readOnly?: boolean;
 }
 
 export function AppointmentDetailsSheet({
@@ -107,6 +109,7 @@ export function AppointmentDetailsSheet({
   open,
   onOpenChange,
   onUpdate,
+  readOnly = false,
 }: AppointmentDetailsSheetProps) {
   if (!appointment) return null;
 
@@ -180,25 +183,25 @@ export function AppointmentDetailsSheet({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="sm:max-w-2xl w-full p-0 flex flex-col">
+      <SheetContent side="right" className="sm:max-w-5xl w-full p-0 flex flex-col">
         <SheetHeader className="p-4 border-b gap-0 ">
           <SheetTitle className="">Booking Details</SheetTitle>
-          <SheetDescription>
-            {appointment.title}
-          </SheetDescription>
+          <SheetDescription>{appointment.title}</SheetDescription>
         </SheetHeader>
 
         <div className="flex-1 overflow-y-auto p-4 space-y-6 custom-scrollbar">
-          <div className="flex justify-end">
-            <Button
-              variant="default"
-              className="w-fit"
-              onClick={() => setEditBookingOpen(true)}
-            >
-              <Pencil className="h-4 w-4 mr-2" />
-              Edit Booking Detail
-            </Button>
-          </div>
+          {!readOnly && (
+            <div className="flex justify-end">
+              <Button
+                variant="default"
+                className="w-fit"
+                onClick={() => setEditBookingOpen(true)}
+              >
+                <Pencil className="h-4 w-4 mr-2" />
+                Edit Booking Detail
+              </Button>
+            </div>
+          )}
 
           <div className="space-y-2">
             <div className="grid grid-cols-[190px_10px_1fr] gap-x-2 text-sm">
@@ -243,14 +246,16 @@ export function AppointmentDetailsSheet({
             <KeyValueRow label="GPS departure time" value={appointment.gpsDepartureTime} />
           </div>
 
-          <div className="flex justify-end gap-2">
-            <Button variant="default" className="w-fit">
-              Edit Timesheet Detail
-            </Button>
-            <Button variant="default" className="w-fit">
-              Edit Customer Detail
-            </Button>
-          </div>
+          {!readOnly && (
+            <div className="flex justify-end gap-2">
+              <Button variant="default" className="w-fit">
+                Edit Timesheet Detail
+              </Button>
+              <Button variant="default" className="w-fit">
+                Edit Customer Detail
+              </Button>
+            </div>
+          )}
 
           <Separator />
 
@@ -274,8 +279,9 @@ export function AppointmentDetailsSheet({
           </div>
         </div>
 
-        <div className="mt-auto p-4 border-t bg-muted/30">
-          <div className="flex flex-wrap gap-2 justify-end">
+        {!readOnly && (
+          <div className="mt-auto p-4 border-t bg-muted/30">
+            <div className="flex flex-wrap gap-2 justify-end">
             {/* Always Visible: Bill Client (unless already invoiced/paid/closed maybe? User said ALWAYS) */}
             {appointment.bookingStatus !== "paid" &&
               appointment.bookingStatus !== "closed" &&
@@ -418,11 +424,12 @@ export function AppointmentDetailsSheet({
               </Button>
             )}
 
+            </div>
           </div>
-        </div>
+        )}
       </SheetContent>
 
-      {editBookingOpen && (
+      {!readOnly && editBookingOpen && (
         <EditBookingDetailsDialog
           open={editBookingOpen}
           onOpenChange={setEditBookingOpen}
@@ -430,7 +437,7 @@ export function AppointmentDetailsSheet({
         />
       )}
 
-      {isBillingModalOpen && (
+      {!readOnly && isBillingModalOpen && (
         <BillClientModal
           open={isBillingModalOpen}
           onOpenChange={setIsBillingModalOpen}
@@ -438,38 +445,43 @@ export function AppointmentDetailsSheet({
         />
       )}
 
-      <Dialog open={isDeleteDialogOpen} onOpenChange={(open) => !isLoading && setIsDeleteDialogOpen(open)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Delete booking</DialogTitle>
-            <DialogDescription>
-              Are you sure you want to delete this booking? This action cannot be undone.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setIsDeleteDialogOpen(false)}
-              disabled={isLoading}
-            >
-              Cancel
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={() => {
-                setIsDeleteDialogOpen(false);
-                handleDelete();
-              }}
-              disabled={isLoading}
-            >
-              {loadingAction === "delete" && (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              )}
-              Delete
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {!readOnly && (
+        <Dialog
+          open={isDeleteDialogOpen}
+          onOpenChange={(open) => !isLoading && setIsDeleteDialogOpen(open)}
+        >
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Delete booking</DialogTitle>
+              <DialogDescription>
+                Are you sure you want to delete this booking? This action cannot be undone.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => setIsDeleteDialogOpen(false)}
+                disabled={isLoading}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={() => {
+                  setIsDeleteDialogOpen(false);
+                  handleDelete();
+                }}
+                disabled={isLoading}
+              >
+                {loadingAction === "delete" && (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                )}
+                Delete
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
     </Sheet>
   );
 }

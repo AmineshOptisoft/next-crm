@@ -18,6 +18,15 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { ServiceDefaults } from "./ServiceDefaults";
 import { cn } from "@/lib/utils";
 import { Textarea } from "@/components/ui/textarea";
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from "@/components/ui/table";
+import { AppointmentDetailsSheet, type AppointmentDetails } from "@/components/appointments/appointment-details-sheet";
 
 // ─── Lazy-load country-state-city once — never blocks the JS bundle ───────────
 let geoCache: any = null;
@@ -180,6 +189,12 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
     const [sendingEmail, setSendingEmail] = useState(false);
     const [updatingSection, setUpdatingSection] = useState<string | null>(null);
 
+    // Bookings for this contact (Booking Data tab)
+    const [contactBookings, setContactBookings] = useState<any[]>([]);
+    const [bookingsLoading, setBookingsLoading] = useState(false);
+    const [selectedAppointment, setSelectedAppointment] = useState<AppointmentDetails | null>(null);
+    const [bookingSheetOpen, setBookingSheetOpen] = useState(false);
+
     // Load geo lib once in background
     useEffect(() => { loadGeo().then(setGeoLib); }, []);
 
@@ -244,7 +259,10 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
     };
 
     useEffect(() => {
-        if (id) fetchContact();
+        if (id) {
+            fetchContact();
+            fetchContactBookings();
+        }
     }, [id]);
 
     async function fetchContact() {
@@ -274,6 +292,65 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
         } finally {
             setLoading(false);
         }
+    }
+
+    async function fetchContactBookings() {
+        try {
+            setBookingsLoading(true);
+            const res = await fetch(`/api/bookings?contactId=${id}&limit=50&sortBy=startDateTime&sortOrder=desc`);
+            if (!res.ok) {
+                setContactBookings([]);
+                return;
+            }
+            const json = await res.json();
+            if (Array.isArray(json)) {
+                setContactBookings(json);
+            } else {
+                setContactBookings(json.bookings || []);
+            }
+        } catch (error) {
+            console.error("Failed to fetch contact bookings:", error);
+            setContactBookings([]);
+        } finally {
+            setBookingsLoading(false);
+        }
+    }
+
+    function openBookingDetails(booking: any) {
+        const start = booking.startDateTime ? new Date(booking.startDateTime) : new Date();
+        const end = booking.endDateTime ? new Date(booking.endDateTime) : start;
+
+        const appointment: AppointmentDetails = {
+            id: booking._id || booking.id,
+            bookingId: booking._id || booking.id,
+            title: booking.orderId ? `Booking #${booking.orderId}` : "Booking Details",
+            start,
+            end,
+            status: booking.status,
+            bookingStatus: booking.status,
+            service: booking.serviceId?.name,
+            notes: booking.notes,
+            billedAmount: booking.pricing?.finalAmount,
+            billedHours: booking.pricing?.billedHours,
+            bookingPrice: booking.pricing?.baseAmount,
+            bookingDiscount: booking.pricing?.discount,
+            customerName: booking.contactId ? `${booking.contactId.firstName || ""} ${booking.contactId.lastName || ""}`.trim() : undefined,
+            customerEmail: booking.contactId?.email,
+            customerPhone: booking.contactId?.phoneNumber,
+            customerAddress: booking.shippingAddress
+                ? [
+                    booking.shippingAddress.street,
+                    booking.shippingAddress.city,
+                    booking.shippingAddress.state,
+                    booking.shippingAddress.zipCode,
+                ]
+                    .filter(Boolean)
+                    .join(", ")
+                : undefined,
+        };
+
+        setSelectedAppointment(appointment);
+        setBookingSheetOpen(true);
     }
 
     useEffect(() => {
@@ -593,6 +670,7 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
                                     { value: "service", label: "Service Defaults" },
                                     { value: "shipping", label: "Shipping Addresses" },
                                     { value: "email", label: "Email" },
+                                    { value: "booking-data", label: "Booking Data" },
                                 ].map((tab) => (
                                     <TabsTrigger
                                         key={tab.value}
@@ -655,11 +733,7 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
                                     </div>
                                 </div>
 
-                                <div className="flex items-center space-x-2 pt-2 w-full">
-                                    <Checkbox id="same-as-billing" checked={sameAsBilling} onCheckedChange={handleSameAsBillingToggle} />
-                                    <Label htmlFor="same-as-billing" className="text-sm cursor-pointer">Shipping address same as billing</Label>
-
-                                </div>
+                                
                                 <div className="flex item-center justify-end">
                                     <Button
                                         className="flex-1"
@@ -1027,7 +1101,75 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
                                 </div>
                             </div>
                         </TabsContent>
+
+                        {/* ── Booking Data Tab ── */}
+                        <TabsContent value="booking-data" className="flex-1 overflow-y-auto p-6 mt-0">
+                            <div className="space-y-4">
+                                <h3 className="font-semibold text-foreground">Bookings for this client</h3>
+                                <div className="rounded-md border overflow-x-auto">
+                                    <Table>
+                                        <TableHeader>
+                                            <TableRow>
+                                                <TableHead className="font-bold">ORDER</TableHead>
+                                                <TableHead className="font-bold">SERVICE</TableHead>
+                                                <TableHead className="font-bold">DATE</TableHead>
+                                                <TableHead className="font-bold">TIME</TableHead>
+                                                <TableHead className="font-bold">STATUS</TableHead>
+                                            </TableRow>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {bookingsLoading ? (
+                                                <TableRow>
+                                                    <TableCell colSpan={5} className="h-24 text-center">
+                                                        <Loader2 className="h-6 w-6 animate-spin mx-auto" />
+                                                    </TableCell>
+                                                </TableRow>
+                                            ) : contactBookings.length === 0 ? (
+                                                <TableRow>
+                                                    <TableCell colSpan={5} className="h-24 text-center text-sm text-muted-foreground">
+                                                        No bookings found for this client.
+                                                    </TableCell>
+                                                </TableRow>
+                                            ) : (
+                                                contactBookings.map((booking) => {
+                                                    const start = booking.startDateTime ? new Date(booking.startDateTime) : null;
+                                                    return (
+                                                        <TableRow
+                                                            key={booking._id || booking.id}
+                                                            className="cursor-pointer hover:bg-muted/60"
+                                                            onClick={() => openBookingDetails(booking)}
+                                                        >
+                                                            <TableCell>
+                                                                {booking.orderId ? `#${booking.orderId}` : (booking._id || booking.id)}
+                                                            </TableCell>
+                                                            <TableCell>{booking.serviceId?.name || "-"}</TableCell>
+                                                            <TableCell>
+                                                                {start ? start.toLocaleDateString() : "-"}
+                                                            </TableCell>
+                                                            <TableCell>
+                                                                {start ? start.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "-"}
+                                                            </TableCell>
+                                                            <TableCell className="capitalize">
+                                                                {booking.status ? String(booking.status).replace("_", " ") : "-"}
+                                                            </TableCell>
+                                                        </TableRow>
+                                                    );
+                                                })
+                                            )}
+                                        </TableBody>
+                                    </Table>
+                                </div>
+                            </div>
+                        </TabsContent>
                     </Tabs>
+                    {selectedAppointment && (
+                        <AppointmentDetailsSheet
+                            appointment={selectedAppointment}
+                            open={bookingSheetOpen}
+                            onOpenChange={setBookingSheetOpen}
+                            readOnly
+                        />
+                    )}
                 </div>
             </div>
         </div>

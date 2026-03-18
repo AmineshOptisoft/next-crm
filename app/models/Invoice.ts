@@ -18,6 +18,10 @@ const InvoiceSchema = new Schema(
     contactId: { type: Types.ObjectId, ref: "User", required: true },
     dealId: { type: Types.ObjectId, ref: "Deal" },
     bookingId: { type: Types.ObjectId, ref: "Booking" },
+    // When the same booking slot is represented by multiple documents (one per technician),
+    // we store a shared key so creating an invoice from any technician results in ONE invoice.
+    recurringGroupId: { type: String },
+    bookingStartDateTime: { type: Date },
     items: [InvoiceItemSchema],
     subtotal: { type: Number, required: true },
     taxAmount: { type: Number, default: 0 },
@@ -42,5 +46,7 @@ const InvoiceSchema = new Schema(
 InvoiceSchema.index({ companyId: 1, status: 1 });
 InvoiceSchema.index({ ownerId: 1, status: 1 });
 InvoiceSchema.index({ contactId: 1 });
+InvoiceSchema.index({ companyId: 1, bookingId: 1 });
+InvoiceSchema.index({ companyId: 1, recurringGroupId: 1, bookingStartDateTime: 1 });
 
 export const Invoice = models.Invoice || model("Invoice", InvoiceSchema);

@@ -41,6 +41,11 @@ export interface IBooking extends Document {
     };
 
     notes?: string;
+    promoCode?: string;
+    promocode?: {
+        code?: string;
+        discountAmount?: number;
+    };
 
     pricing: {
         baseAmount: number;
@@ -50,6 +55,17 @@ export interface IBooking extends Document {
         discount: number;
         finalAmount: number;
         billedHours: number;
+    };
+
+    timesheet?: {
+        cleaningTime?: number;
+        totalTeamTime?: number;
+        generalTime?: number;
+        drivingTime?: number;
+        trainingTime?: number;
+        technicianTime?: number;
+        teamMembers?: string[];
+        notes?: string;
     };
 
     status: "scheduled" | "in_progress" | "completed" | "cancelled" | "no_show";
@@ -158,6 +174,11 @@ const BookingSchema = new Schema({
     },
 
     notes: String,
+    promoCode: { type: String },
+    promocode: {
+        code: { type: String },
+        discountAmount: { type: Number, default: 0 },
+    },
 
     pricing: {
         baseAmount: {
@@ -188,6 +209,17 @@ const BookingSchema = new Schema({
             type: Number,
             default: 0
         }
+    },
+
+    timesheet: {
+        cleaningTime: { type: Number, default: 0 },
+        totalTeamTime: { type: Number, default: 0 },
+        generalTime: { type: Number, default: 0 },
+        drivingTime: { type: Number, default: 0 },
+        trainingTime: { type: Number, default: 0 },
+        technicianTime: { type: Number, default: 0 },
+        teamMembers: { type: [String], default: [] },
+        notes: { type: String, default: "" },
     },
 
     status: {

@@ -236,7 +236,7 @@ const AccordionItem = memo(function AccordionItem({
     title, isOpen, onToggle, children,
 }: { title: string; isOpen: boolean; onToggle: () => void; children: React.ReactNode }) {
     return (
-        <div className="border rounded-md bg-card mb-2 ">
+        <div className="border rounded-md bg-card mb-2">
             <button type="button" onClick={onToggle}
                 className="w-full flex items-center justify-between p-4 bg-card hover:bg-muted/50 transition-colors">
                 <span className="font-medium text-foreground">{title}</span>
@@ -261,9 +261,17 @@ interface AddBookingFormProps {
 }
 
 const defaultPersonal = () => ({
-    password: "", firstName: "", lastName: "", phoneNumber: "",
-    address: "", country: "United States", city: "", state: "California",
-    zipCode: "", gender: "Prefer not to say",
+    password: "",
+    confirmPassword: "",
+    firstName: "",
+    lastName: "",
+    phoneNumber: "",
+    address: "",
+    country: "United States",
+    city: "",
+    state: "California",
+    zipCode: "",
+    gender: "Prefer not to say",
 });
 const defaultShipping = () => ({
     shippingAddress: "", shippingCountry: "United States",
@@ -319,6 +327,7 @@ export function AddBookingForm({ open, onOpenChange, initialData, technicians, c
     const [discount, setDiscount]                       = useState(0);
     const [selectedPromocode, setSelectedPromocode]     = useState<string>("");
     const [isSubmitting, setIsSubmitting]               = useState(false);
+    const [formErrors, setFormErrors]                   = useState<Record<string, string>>({});
 
     // Reset on close
     useEffect(() => {
@@ -545,6 +554,7 @@ export function AddBookingForm({ open, onOpenChange, initialData, technicians, c
         if (!selectedService) return { total: 0, subTotal: 0, addonsTotal: 0 };
         const totalBookingHours = bookingStart && bookingEnd
             ? (bookingEnd.getTime() - bookingStart.getTime()) / 3_600_000 : 0;
+        // Base price should be charged once per service line (not per unit).
         const calcPrice = (item: any, qty: number) => {
             const B     = Number(item.basePrice) || 0;
             const H     = Number(item.hourlyRate) || 0;
@@ -577,13 +587,46 @@ export function AddBookingForm({ open, onOpenChange, initialData, technicians, c
     const handleSubmit = async () => {
         if (isSubmitting) return;
         try {
+            const newErrors: Record<string, string> = {};
+
             let contactId = selectedContact?._id;
             let newContactData = null;
             if (userType === "new") {
-                if (emailError) { toast.error("Please fix the email error before submitting"); return; }
-                if (!email || !personalData.password || !personalData.firstName || !personalData.lastName) {
-                    toast.error("Please fill all required fields (Email, Password, First Name, Last Name)"); return;
+                if (!email) newErrors.email = "Email is required";
+                if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) newErrors.email = "Enter a valid email address";
+                if (emailError) newErrors.email = emailError;
+
+                if (!personalData.password) newErrors.password = "Password is required";
+                if (personalData.password && personalData.password.length < 6) newErrors.password = "Password must be at least 6 characters";
+
+                if (!personalData.confirmPassword) newErrors.confirmPassword = "Confirm Password is required";
+                if (personalData.password && personalData.confirmPassword && personalData.password !== personalData.confirmPassword) {
+                    newErrors.confirmPassword = "Password and Confirm Password do not match";
                 }
+
+                if (!personalData.firstName) newErrors.firstName = "First name is required";
+                if (!personalData.lastName) newErrors.lastName = "Last name is required";
+
+                if (!personalData.phoneNumber) newErrors.phoneNumber = "Phone number is required";
+
+                if (!personalData.address) newErrors.address = "Street address is required";
+                if (!personalData.city) newErrors.city = "City is required";
+                if (!personalData.state) newErrors.state = "State is required";
+                if (!personalData.zipCode) newErrors.zipCode = "Zip code is required";
+
+                if (!shippingData.shippingAddress) newErrors.shippingAddress = "Shipping street address is required";
+                if (!shippingData.shippingCity) newErrors.shippingCity = "Shipping city is required";
+                if (!shippingData.shippingState) newErrors.shippingState = "Shipping state is required";
+                if (!shippingData.shippingZipCode) newErrors.shippingZipCode = "Shipping zip code is required";
+
+                if (Object.keys(newErrors).length > 0) {
+                    setFormErrors(newErrors);
+                    toast.error("Please fix the highlighted errors before submitting");
+                    return;
+                }
+
+                setFormErrors({});
+
                 newContactData = {
                     email, password: personalData.password,
                     firstName: personalData.firstName, lastName: personalData.lastName,
@@ -665,7 +708,7 @@ export function AddBookingForm({ open, onOpenChange, initialData, technicians, c
     // ─── Render ───────────────────────────────────────────────────────────────
     return (
         <Sheet open={open} onOpenChange={onOpenChange}>
-            <SheetContent side="right" className="sm:max-w-2xl w-full p-0 flex flex-col z-[100]">
+            <SheetContent side="right" className="sm:max-w-5xl w-full p-0 flex flex-col z-[100]">
                 <SheetHeader className="p-4 border-b gap-0">
                     <SheetTitle>Add Manual Booking</SheetTitle>
                     <SheetDescription>Enter appointment and customer details below.</SheetDescription>
@@ -704,38 +747,106 @@ export function AddBookingForm({ open, onOpenChange, initialData, technicians, c
                                         <Input id="email" placeholder="Enter email" value={email}
                                             onChange={e => setEmail(e.target.value)}
                                             disabled={userType === "existing"}
-                                            className={emailError ? "border-red-500" : ""} />
+                                            className={cn(formErrors.email || (emailError && userType === "new") ? "border-red-500" : "", "peer")} />
                                         {isCheckingEmail && userType === "new" && (
                                             <div className="absolute right-3 top-1/2 -translate-y-1/2">
                                                 <div className="animate-spin h-4 w-4 border-2 border-primary border-t-transparent rounded-full" />
                                             </div>
                                         )}
                                     </div>
-                                    {emailError && userType === "new" && <p className="text-sm text-red-500 mt-1">{emailError}</p>}
+                                    {userType === "new" && (formErrors.email || emailError) && (
+                                        <p className="text-sm text-red-500 mt-1">{formErrors.email || emailError}</p>
+                                    )}
                                 </div>
                                 {userType === "new" && (
-                                    <div className="space-y-2">
-                                        <Label htmlFor="password">Password</Label>
-                                        <Input id="password" type="password" placeholder="Enter password" value={personalData.password} onChange={e => setPersonalData(p => ({ ...p, password: e.target.value }))} />
-                                    </div>
+                                    <>
+                                        <div className="space-y-2">
+                                            <Label htmlFor="password">Password</Label>
+                                            <Input
+                                                id="password"
+                                                type="password"
+                                                placeholder="Enter password"
+                                                value={personalData.password}
+                                                onChange={e => setPersonalData(p => ({ ...p, password: e.target.value }))}
+                                                className={cn(formErrors.password ? "border-red-500" : "", "peer")}
+                                            />
+                                            {formErrors.password && (
+                                                <p className="text-sm text-red-500 mt-1">{formErrors.password}</p>
+                                            )}
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label htmlFor="confirmPassword">Confirm Password</Label>
+                                            <Input
+                                                id="confirmPassword"
+                                                type="password"
+                                                placeholder="Re-enter password"
+                                                value={personalData.confirmPassword}
+                                                onChange={e => setPersonalData(p => ({ ...p, confirmPassword: e.target.value }))}
+                                                className={cn(formErrors.confirmPassword ? "border-red-500" : "", "peer")}
+                                            />
+                                            {formErrors.confirmPassword && (
+                                                <p className="text-sm text-red-500 mt-1">{formErrors.confirmPassword}</p>
+                                            )}
+                                        </div>
+                                    </>
                                 )}
                                 <div className="space-y-2">
                                     <Label htmlFor="firstName">First Name</Label>
-                                    <Input id="firstName" placeholder="First Name" value={personalData.firstName} disabled={userType === "existing"} onChange={e => setPersonalData(p => ({ ...p, firstName: e.target.value }))} />
+                                    <Input
+                                        id="firstName"
+                                        placeholder="First Name"
+                                        value={personalData.firstName}
+                                        disabled={userType === "existing"}
+                                        onChange={e => setPersonalData(p => ({ ...p, firstName: e.target.value }))}
+                                        className={cn(formErrors.firstName ? "border-red-500" : "", "peer")}
+                                    />
+                                    {formErrors.firstName && (
+                                        <p className="text-sm text-red-500 mt-1">{formErrors.firstName}</p>
+                                    )}
                                 </div>
                                 <div className="space-y-2">
                                     <Label htmlFor="lastName">Last Name</Label>
-                                    <Input id="lastName" placeholder="Last Name" value={personalData.lastName} disabled={userType === "existing"} onChange={e => setPersonalData(p => ({ ...p, lastName: e.target.value }))} />
+                                    <Input
+                                        id="lastName"
+                                        placeholder="Last Name"
+                                        value={personalData.lastName}
+                                        disabled={userType === "existing"}
+                                        onChange={e => setPersonalData(p => ({ ...p, lastName: e.target.value }))}
+                                        className={cn(formErrors.lastName ? "border-red-500" : "", "peer")}
+                                    />
+                                    {formErrors.lastName && (
+                                        <p className="text-sm text-red-500 mt-1">{formErrors.lastName}</p>
+                                    )}
                                 </div>
                                 <div className="space-y-2">
                                     <Label htmlFor="phoneNumber">Phone Number</Label>
-                                    <Input id="phoneNumber" placeholder="Phone Number" value={personalData.phoneNumber} disabled={userType === "existing"} onChange={e => setPersonalData(p => ({ ...p, phoneNumber: e.target.value }))} />
+                                    <Input
+                                        id="phoneNumber"
+                                        placeholder="Phone Number"
+                                        value={personalData.phoneNumber}
+                                        disabled={userType === "existing"}
+                                        onChange={e => setPersonalData(p => ({ ...p, phoneNumber: e.target.value }))}
+                                        className={cn(formErrors.phoneNumber ? "border-red-500" : "", "peer")}
+                                    />
+                                    {formErrors.phoneNumber && (
+                                        <p className="text-sm text-red-500 mt-1">{formErrors.phoneNumber}</p>
+                                    )}
                                 </div>
                             </div>
 
                             <div className="space-y-2">
                                 <Label htmlFor="address">Street Address</Label>
-                                <Input id="address" placeholder="Street Address" value={personalData.address} disabled={userType === "existing"} onChange={e => setPersonalData(p => ({ ...p, address: e.target.value }))} />
+                                <Textarea
+                                    id="address"
+                                    placeholder="Street Address"
+                                    value={personalData.address}
+                                    disabled={userType === "existing"}
+                                    onChange={e => setPersonalData(p => ({ ...p, address: e.target.value }))}
+                                    className={cn(formErrors.address ? "border-red-500" : "", "peer")}
+                                />
+                                {formErrors.address && (
+                                    <p className="text-sm text-red-500 mt-1">{formErrors.address}</p>
+                                )}
                             </div>
 
                             {/* Country / State / City / Zip — virtualized, no DOM blowup */}
@@ -751,16 +862,32 @@ export function AddBookingForm({ open, onOpenChange, initialData, technicians, c
                                     <VirtualGeoSelect id="state" value={personalData.state} options={stateOptions}
                                         placeholder="Select State" disabled={userType === "existing" || !personalData.country || !geoLib}
                                         onChange={v => setPersonalData(p => ({ ...p, state: v, city: "" }))} />
+                                    {formErrors.state && (
+                                        <p className="text-sm text-red-500 mt-1">{formErrors.state}</p>
+                                    )}
                                 </div>
                                 <div className="space-y-2">
                                     <Label htmlFor="city">City</Label>
                                     <VirtualGeoSelect id="city" value={personalData.city} options={cityOptions}
                                         placeholder="Select City" disabled={userType === "existing" || !personalData.state || !geoLib}
                                         onChange={v => setPersonalData(p => ({ ...p, city: v }))} />
+                                    {formErrors.city && (
+                                        <p className="text-sm text-red-500 mt-1">{formErrors.city}</p>
+                                    )}
                                 </div>
                                 <div className="space-y-2">
                                     <Label htmlFor="zipCode">Zip Code</Label>
-                                    <Input id="zipCode" placeholder="Zip" value={personalData.zipCode} disabled={userType === "existing"} onChange={e => setPersonalData(p => ({ ...p, zipCode: e.target.value }))} />
+                                    <Input
+                                        id="zipCode"
+                                        placeholder="Zip"
+                                        value={personalData.zipCode}
+                                        disabled={userType === "existing"}
+                                        onChange={e => setPersonalData(p => ({ ...p, zipCode: e.target.value }))}
+                                        className={cn(formErrors.zipCode ? "border-red-500" : "", "peer")}
+                                    />
+                                    {formErrors.zipCode && (
+                                        <p className="text-sm text-red-500 mt-1">{formErrors.zipCode}</p>
+                                    )}
                                 </div>
                             </div>
 
@@ -777,7 +904,16 @@ export function AddBookingForm({ open, onOpenChange, initialData, technicians, c
                                     </div>
                                     <div className="space-y-2">
                                         <Label htmlFor="shippingAddress">Street Address</Label>
-                                        <Input id="shippingAddress" placeholder="Street Address" value={shippingData.shippingAddress} onChange={e => setShippingData(p => ({ ...p, shippingAddress: e.target.value }))} />
+                                        <Textarea
+                                            id="shippingAddress"
+                                            placeholder="Street Address"
+                                            value={shippingData.shippingAddress}
+                                            onChange={e => setShippingData(p => ({ ...p, shippingAddress: e.target.value }))}
+                                            className={cn(formErrors.shippingAddress ? "border-red-500" : "", "peer")}
+                                        />
+                                        {formErrors.shippingAddress && (
+                                            <p className="text-sm text-red-500 mt-1">{formErrors.shippingAddress}</p>
+                                        )}
                                     </div>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                         <div className="space-y-2">
@@ -791,16 +927,31 @@ export function AddBookingForm({ open, onOpenChange, initialData, technicians, c
                                             <VirtualGeoSelect id="shippingState" value={shippingData.shippingState} options={shippingStateOptions}
                                                 placeholder="Select State" disabled={!shippingData.shippingCountry || !geoLib}
                                                 onChange={v => setShippingData(p => ({ ...p, shippingState: v, shippingCity: "" }))} />
+                                            {formErrors.shippingState && (
+                                                <p className="text-sm text-red-500 mt-1">{formErrors.shippingState}</p>
+                                            )}
                                         </div>
                                         <div className="space-y-2">
                                             <Label htmlFor="shippingCity">City</Label>
                                             <VirtualGeoSelect id="shippingCity" value={shippingData.shippingCity} options={shippingCityOptions}
                                                 placeholder="Select City" disabled={!shippingData.shippingState || !geoLib}
                                                 onChange={v => setShippingData(p => ({ ...p, shippingCity: v }))} />
+                                            {formErrors.shippingCity && (
+                                                <p className="text-sm text-red-500 mt-1">{formErrors.shippingCity}</p>
+                                            )}
                                         </div>
                                         <div className="space-y-2">
                                             <Label htmlFor="shippingZipCode">Zip Code</Label>
-                                            <Input id="shippingZipCode" placeholder="Zip" value={shippingData.shippingZipCode} onChange={e => setShippingData(p => ({ ...p, shippingZipCode: e.target.value }))} />
+                                            <Input
+                                                id="shippingZipCode"
+                                                placeholder="Zip"
+                                                value={shippingData.shippingZipCode}
+                                                onChange={e => setShippingData(p => ({ ...p, shippingZipCode: e.target.value }))}
+                                                className={cn(formErrors.shippingZipCode ? "border-red-500" : "", "peer")}
+                                            />
+                                            {formErrors.shippingZipCode && (
+                                                <p className="text-sm text-red-500 mt-1">{formErrors.shippingZipCode}</p>
+                                            )}
                                         </div>
                                     </div>
                                 </div>

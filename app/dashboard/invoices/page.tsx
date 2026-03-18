@@ -24,6 +24,7 @@ import {
   SheetDescription,
   SheetHeader,
   SheetTitle,
+  SheetFooter,
 } from "@/components/ui/sheet";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -34,7 +35,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Pencil, Trash2, FileText, Eye, Loader2 } from "lucide-react";
+import { Plus, Pencil, Trash2, FileText, Eye, Loader2, Send, Download } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { usePermissions } from "@/hooks/usePermissions";
@@ -45,7 +46,8 @@ interface Invoice {
   invoiceNumber: string;
   contactId: {
     _id: string;
-    name: string;
+    firstName: string;
+    lastName: string;
     email?: string;
     company?: string;
   };
@@ -64,6 +66,9 @@ interface Invoice {
   issueDate: string;
   dueDate: string;
   paidDate?: string;
+  bookingId?: string;
+  recurringGroupId?: string;
+  bookingStartDateTime?: string;
 }
 
 interface Contact {
@@ -90,11 +95,15 @@ export default function InvoicesPage() {
   const [loading, setLoading] = useState(true);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [viewInvoice, setViewInvoice] = useState<Invoice | null>(null);
+  const [viewBooking, setViewBooking] = useState<any>(null);
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [savingInvoice, setSavingInvoice] = useState(false);
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
   const [actionLoadingType, setActionLoadingType] = useState<string | null>(null);
   const [deleteDialogInvoiceId, setDeleteDialogInvoiceId] = useState<string | null>(null);
+  const [company, setCompany] = useState<{ name?: string; logo?: string; email?: string; phone?: string } | null>(
+    null
+  );
   const [formData, setFormData] = useState({
     contactId: "",
     issueDate: new Date().toISOString().split("T")[0],
@@ -109,7 +118,47 @@ export default function InvoicesPage() {
     fetchInvoices();
     fetchContacts();
     fetchProducts();
+    fetchCompany();
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadBooking() {
+      if (!viewInvoice?.bookingId) {
+        setViewBooking(null);
+        return;
+      }
+      try {
+        const res = await fetch(`/api/bookings/${viewInvoice.bookingId}`);
+        if (!res.ok) throw new Error("Failed to fetch booking");
+        const data = await res.json();
+        if (!cancelled) setViewBooking(data);
+      } catch {
+        if (!cancelled) setViewBooking(null);
+      }
+    }
+    loadBooking();
+    return () => {
+      cancelled = true;
+    };
+  }, [viewInvoice?.bookingId]);
+
+  const fetchCompany = async () => {
+    try {
+      const response = await fetch("/api/company/settings", { credentials: "include" });
+      if (response.ok) {
+        const data = await response.json();
+        setCompany({
+          name: data?.name,
+          logo: data?.logo,
+          email: data?.email,
+          phone: data?.phone,
+        });
+      }
+    } catch {
+      // ignore
+    }
+  };
 
   const fetchInvoices = async () => {
     try {
@@ -495,7 +544,7 @@ export default function InvoicesPage() {
                         <TableCell>
                           <div>
                             <div className="font-medium">
-                              {invoice.contactId?.name || "N/A"}
+                              {invoice.contactId?.firstName + " " + invoice.contactId?.lastName || "N/A"}
                             </div>
                             {invoice.contactId?.company && (
                               <div className="text-sm text-muted-foreground">
@@ -577,101 +626,361 @@ export default function InvoicesPage() {
         </TabsContent>
       </Tabs>
 
-      {/* View Invoice Dialog */}
-      <Dialog open={!!viewInvoice} onOpenChange={() => setViewInvoice(null)}>
-        <DialogContent className="max-w-3xl">
-          <DialogHeader>
-            <DialogTitle>Invoice {viewInvoice?.invoiceNumber}</DialogTitle>
-          </DialogHeader>
+      {/* View Invoice Sheet (right side) */}
+      <Sheet
+        open={!!viewInvoice}
+        onOpenChange={(open) => {
+          if (!open) {
+            setViewInvoice(null);
+            setViewBooking(null);
+          }
+        }}
+      >
+        <SheetContent side="right" className="sm:max-w-3xl w-full p-0 flex flex-col">
+          <SheetHeader className="p-4 border-b gap-0">
+            <SheetTitle>Invoice Preview</SheetTitle>
+            <SheetDescription>Review invoice details before sending or sharing.</SheetDescription>
+          </SheetHeader>
+
           {viewInvoice && (
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <h3 className="font-semibold">Customer</h3>
-                  <p>{viewInvoice.contactId?.name || "N/A"}</p>
-                  {viewInvoice.contactId?.company && (
-                    <p className="text-sm text-muted-foreground">
-                      {viewInvoice.contactId.company}
-                    </p>
-                  )}
-                </div>
-                <div>
-                  <h3 className="font-semibold">Dates</h3>
-                  <p className="text-sm">
-                    Issue: {new Date(viewInvoice.issueDate).toLocaleDateString()}
-                  </p>
-                  <p className="text-sm">
-                    Due: {new Date(viewInvoice.dueDate).toLocaleDateString()}
-                  </p>
-                </div>
-              </div>
-              <div>
-                <h3 className="font-semibold mb-2">Items</h3>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Description</TableHead>
-                      <TableHead>Qty</TableHead>
-                      <TableHead>Price</TableHead>
-                      <TableHead>Total</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {viewInvoice.items.map((item, idx) => (
-                      <TableRow key={idx}>
-                        <TableCell>{item.description}</TableCell>
-                        <TableCell>{item.quantity}</TableCell>
-                        <TableCell>
-                          {formatCurrency(item.unitPrice, viewInvoice.currency)}
-                        </TableCell>
-                        <TableCell>
-                          {formatCurrency(item.total, viewInvoice.currency)}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-              <div className="border-t pt-4">
-                <div className="flex justify-end space-y-1">
-                  <div className="w-64 space-y-1">
-                    <div className="flex justify-between">
-                      <span>Subtotal:</span>
-                      <span>
-                        {formatCurrency(viewInvoice.subtotal, viewInvoice.currency)}
+            <div className="flex-1 overflow-y-auto p-4 sm:p-6">
+              <div className="rounded-2xl border bg-background shadow-sm overflow-hidden">
+                <div className="p-5 sm:p-7">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="text-sm text-muted-foreground">
+                      Date{" "}
+                      <span className="text-foreground font-medium">
+                        {new Date(viewInvoice.issueDate).toLocaleDateString()}
                       </span>
                     </div>
-                    <div className="flex justify-between">
-                      <span>Tax:</span>
-                      <span>
-                        {formatCurrency(viewInvoice.taxAmount, viewInvoice.currency)}
+                    <div className="text-sm text-muted-foreground text-right">
+                      Invoice{" "}
+                      <span className="text-foreground font-medium">
+                        #{viewInvoice.invoiceNumber}
                       </span>
                     </div>
-                    {viewInvoice.discountAmount > 0 && (
-                      <div className="flex justify-between">
-                        <span>Discount:</span>
-                        <span>
-                          -
-                          {formatCurrency(
-                            viewInvoice.discountAmount,
-                            viewInvoice.currency
-                          )}
-                        </span>
+                  </div>
+
+                  <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="rounded-xl border bg-muted/20 p-4">
+                      <div className="text-xs font-medium text-muted-foreground">To</div>
+                      <div className="mt-2 text-sm">
+                        <div className="font-semibold text-foreground">
+                          {viewInvoice.contactId?.firstName + " " + viewInvoice.contactId?.lastName || "N/A"}
+                        </div>
+                        {viewInvoice.contactId?.company && (
+                          <div className="text-muted-foreground">{viewInvoice.contactId.company}</div>
+                        )}
+                        {viewInvoice.contactId?.email && (
+                          <div className="text-muted-foreground">{viewInvoice.contactId.email}</div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="rounded-xl border bg-muted/20 p-4">
+                      <div className="text-xs font-medium text-muted-foreground">From</div>
+                      <div className="mt-2 text-sm">
+                        <div className="font-semibold text-foreground">{company?.name || "Company"}</div>
+                        <div className="text-muted-foreground">Billing</div>
+                        <div className="text-muted-foreground">{company?.email || "support@company.com"}</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 rounded-full border bg-muted/20 px-4 py-3 flex items-center justify-between gap-3">
+                    <div className="text-sm text-muted-foreground">
+                      <span className="font-medium text-destructive">
+                        {formatCurrency(
+                          (() => {
+                            const items = viewInvoice.items || [];
+                            const tax = Number(viewInvoice.taxAmount) || 0;
+                            const discount = Math.abs(
+                              items.reduce((sum, i) => {
+                                const t = Number((i as any).total) || 0;
+                                const desc = String((i as any).description || "").toLowerCase();
+                                return sum + (t < 0 || desc.startsWith("discount") ? t : 0);
+                              }, 0)
+                            );
+                            const grossSubtotal = items.reduce((sum, i) => {
+                              const t = Number((i as any).total) || 0;
+                              const desc = String((i as any).description || "").toLowerCase();
+                              const isDiscount = t < 0 || desc.startsWith("discount");
+                              return sum + (isDiscount ? 0 : Math.max(0, t));
+                            }, 0);
+                            const netSubtotal = Math.max(0, grossSubtotal - discount);
+                            return Math.max(0, netSubtotal + tax);
+                          })(),
+                          viewInvoice.currency
+                        )}
+                      </span>{" "}
+                      due on{" "}
+                      <span className="text-foreground font-medium">
+                        {new Date(viewInvoice.dueDate).toLocaleDateString()}
+                      </span>
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      Status: <span className="text-foreground font-medium">{viewInvoice.status}</span>
+                    </div>
+                  </div>
+
+                  <div className="mt-5 rounded-xl border bg-muted/10 overflow-hidden">
+                    <div className="px-4 py-3 border-b bg-background/50">
+                      <div className="text-sm font-semibold">Items</div>
+                    </div>
+                    <div className="p-0">
+                      {(() => {
+                        const items = viewInvoice.items || [];
+                        const subServices = items.filter((i) => i.description?.startsWith("Sub Service:"));
+                        const addons = items.filter((i) => i.description?.startsWith("Add On:"));
+                        const discounts = items.filter((i) => {
+                          const lineTotal = Number(i.total) || 0;
+                          return lineTotal < 0 || String(i.description || "").toLowerCase().startsWith("discount");
+                        });
+                        const other = items.filter(
+                          (i) =>
+                            !i.description?.startsWith("Sub Service:") &&
+                            !i.description?.startsWith("Add On:") &&
+                            !(Number(i.total) < 0) &&
+                            !String(i.description || "").toLowerCase().startsWith("discount")
+                        );
+                        const discountTotal = Math.abs(
+                          discounts.reduce((sum, i) => sum + (Number(i.total) || 0), 0)
+                        );
+
+                        const mainServiceName =
+                          viewBooking?.serviceId?.name ||
+                          (typeof viewBooking?.serviceId === "string" ? "Service" : "") ||
+                          "Main service";
+
+                        const renderGroup = (title: string, groupItems: any[], titleClass?: string) => {
+                          if (!groupItems.length) return null;
+                          return (
+                            <>
+                              <TableRow>
+                                <TableCell colSpan={4} className={titleClass || "font-semibold"}>
+                                  {title}
+                                </TableCell>
+                              </TableRow>
+                              {groupItems.map((item, idx) => (
+                                <TableRow key={`${title}-${idx}`}>
+                                  <TableCell>
+                                    <div className="font-medium text-foreground">
+                                      {String(item.description || "")
+                                        .replace(/^Sub Service:\s*/i, "")
+                                        .replace(/^Add On:\s*/i, "")}
+                                    </div>
+                                  </TableCell>
+                                  <TableCell className="text-muted-foreground">{item.quantity}</TableCell>
+                                  <TableCell className="text-muted-foreground">
+                                    {formatCurrency(item.unitPrice, viewInvoice.currency)}
+                                  </TableCell>
+                                  <TableCell className="text-right font-medium">
+                                    {formatCurrency(item.total, viewInvoice.currency)}
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                            </>
+                          );
+                        };
+
+                        return (
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead className="w-[55%]">Service</TableHead>
+                                <TableHead className="w-[15%]">Qty</TableHead>
+                                <TableHead className="w-[15%]">Rate</TableHead>
+                                <TableHead className="w-[15%] text-right">Line total</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              <TableRow>
+                                <TableCell colSpan={4} className="font-bold">
+                                  {mainServiceName}
+                                </TableCell>
+                              </TableRow>
+                              {renderGroup("Sub services", subServices, "pl-2 font-semibold text-primary")}
+                              {renderGroup("Addons", addons, "pl-2 font-semibold text-primary")}
+                              {renderGroup("Other", other, "pl-2 font-semibold text-primary")}
+                              {discounts.length > 0 && (
+                                <>
+                                  <TableRow>
+                                    <TableCell colSpan={4} className="pl-2 font-semibold text-primary">
+                                      Discounts
+                                    </TableCell>
+                                  </TableRow>
+                                  {discounts.map((item, idx) => (
+                                    <TableRow key={`discount-${idx}`}>
+                                      <TableCell>
+                                        <div className="font-medium text-foreground">{item.description}</div>
+                                      </TableCell>
+                                      <TableCell className="text-muted-foreground">{item.quantity}</TableCell>
+                                      <TableCell className="text-muted-foreground">
+                                        {formatCurrency(item.unitPrice, viewInvoice.currency)}
+                                      </TableCell>
+                                      <TableCell className="text-right font-medium">
+                                        {formatCurrency(item.total, viewInvoice.currency)}
+                                      </TableCell>
+                                    </TableRow>
+                                  ))}
+                                  <TableRow>
+                                    <TableCell colSpan={3} className="text-right text-muted-foreground">
+                                      Total discount
+                                    </TableCell>
+                                    <TableCell className="text-right font-semibold">
+                                      -{formatCurrency(discountTotal, viewInvoice.currency)}
+                                    </TableCell>
+                                  </TableRow>
+                                </>
+                              )}
+                            </TableBody>
+                          </Table>
+                        );
+                      })()}
+                    </div>
+
+                    <div className="px-4 py-4 border-t bg-background/50">
+                      <div className="flex justify-end">
+                        <div className="w-full sm:w-72 space-y-2 text-sm">
+                          {(() => {
+                            const items = viewInvoice.items || [];
+                            const tax = Number(viewInvoice.taxAmount) || 0;
+                            const discount = Math.abs(
+                              items.reduce((sum, i) => {
+                                const t = Number((i as any).total) || 0;
+                                const desc = String((i as any).description || "").toLowerCase();
+                                return sum + (t < 0 || desc.startsWith("discount") ? t : 0);
+                              }, 0)
+                            );
+                            const grossSubtotal = items.reduce((sum, i) => {
+                              const t = Number((i as any).total) || 0;
+                              const desc = String((i as any).description || "").toLowerCase();
+                              const isDiscount = t < 0 || desc.startsWith("discount");
+                              return sum + (isDiscount ? 0 : Math.max(0, t));
+                            }, 0);
+                            const subtotal = Math.max(0, grossSubtotal - discount);
+                            const total = Math.max(0, subtotal + tax);
+                            return (
+                              <>
+                                <div className="flex justify-between text-muted-foreground">
+                                  <span>Subtotal</span>
+                                  <span className="text-foreground">
+                                    {formatCurrency(subtotal, viewInvoice.currency)}
+                                  </span>
+                                </div>
+                                <div className="flex justify-between text-muted-foreground">
+                                  <span>Tax</span>
+                                  <span className="text-foreground">
+                                    {formatCurrency(tax, viewInvoice.currency)}
+                                  </span>
+                                </div>
+                                {discount > 0 && (
+                                  <div className="flex justify-between text-muted-foreground">
+                                    <span>Total discount</span>
+                                    <span className="text-foreground">
+                                      -{formatCurrency(discount, viewInvoice.currency)}
+                                    </span>
+                                  </div>
+                                )}
+                                <div className="pt-2 border-t flex justify-between font-semibold">
+                                  <span>Total</span>
+                                  <span>{formatCurrency(total, viewInvoice.currency)}</span>
+                                </div>
+                                <div className="pt-2 flex justify-between text-xs text-muted-foreground">
+                                  <span>Amount due</span>
+                                  <span className="text-foreground font-medium">
+                                    {formatCurrency(total, viewInvoice.currency)}
+                                  </span>
+                                </div>
+                              </>
+                            );
+                          })()}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {viewInvoice.status !== "paid" ? (
+                      <div className="rounded-xl border bg-muted/20 p-4">
+                        <div className="text-sm font-semibold">Thank you for the business!</div>
+                        <div className="mt-1 text-xs text-muted-foreground">
+                          Please pay within 15 days of receiving this invoice.
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="rounded-xl border bg-muted/20 p-4">
+                        <div className="text-sm font-semibold">Payment received</div>
+                        <div className="mt-1 text-xs text-muted-foreground">This invoice is marked as paid.</div>
                       </div>
                     )}
-                    <div className="flex justify-between font-bold text-lg border-t pt-1">
-                      <span>Total:</span>
-                      <span>
-                        {formatCurrency(viewInvoice.total, viewInvoice.currency)}
-                      </span>
+                    <div className="rounded-xl border bg-muted/20 p-4">
+                      <div className="text-sm font-semibold">Bank details</div>
+                      <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+                        <div className="text-muted-foreground">Bank details</div>
+                        <div className="text-foreground">ABCD BANK</div>
+                        <div className="text-muted-foreground">IFSC code</div>
+                        <div className="text-foreground">ABCD000XXXX</div>
+                        <div className="text-muted-foreground">Swift code</div>
+                        <div className="text-foreground">ABCDUSBBXXX</div>
+                        <div className="text-muted-foreground">Account #</div>
+                        <div className="text-foreground">37474892300011</div>
+                      </div>
                     </div>
+                  </div>
+                </div>
+
+                <div className="border-t bg-muted/10 px-5 sm:px-7 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    {company?.logo ? (
+                      <img
+                        src={company.logo}
+                        alt={company?.name || "Company logo"}
+                        className="h-7 w-7 rounded-full object-cover border"
+                      />
+                    ) : (
+                      <div className="h-7 w-7 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-semibold">
+                        {(company?.name || "Company").slice(0, 2).toUpperCase()}
+                      </div>
+                    )}
+                    <div className="text-sm font-semibold text-foreground">{company?.name || "Company"}</div>
+                  </div>
+                  <div className="text-xs text-muted-foreground flex flex-wrap gap-x-4 gap-y-1">
+                    {company?.phone ? <span>{company.phone}</span> : <span>+0 (000) 123-4567</span>}
+                    {company?.email ? <span>{company.email}</span> : <span>support@company.com</span>}
                   </div>
                 </div>
               </div>
             </div>
           )}
-        </DialogContent>
-      </Dialog>
+
+          {viewInvoice && (
+            <SheetFooter className="p-4 border-t bg-muted/30 flex justify-end gap-2">
+              {permissions.canEdit && viewInvoice.status === "draft" && (
+                <Button
+                  onClick={async () => {
+                    await handleStatusChange(viewInvoice._id, "sent");
+                    setViewInvoice({ ...viewInvoice, status: "sent" });
+                  }}
+                >
+                  <Send className="mr-2 h-4 w-4" />
+                  Send
+                </Button>
+              )}
+              <Button
+                variant="outline"
+                onClick={() => {
+                  // Simple "download": open print dialog (user can save as PDF)
+                  window.print();
+                }}
+              >
+                <Download className="mr-2 h-4 w-4" />
+                Download
+              </Button>
+            </SheetFooter>
+          )}
+        </SheetContent>
+      </Sheet>
 
       {/* Delete Invoice Confirmation */}
       <Dialog

@@ -93,7 +93,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </div>
           )}
         </header>
-        <main className="flex-1 overflow-auto w-full max-w-full p-4">{children}</main>
+        <main className="flex-1 overflow-y-auto overflow-x-hidden w-full max-w-full p-4">{children}</main>
       </SidebarInset>
     </SidebarProvider>
   );

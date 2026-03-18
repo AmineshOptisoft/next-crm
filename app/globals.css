@@ -121,6 +121,23 @@
   }
 }
 
+.no-scrollbar {
+  -ms-overflow-style: none; /* IE/Edge legacy */
+  scrollbar-width: none; /* Firefox */
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none; /* Chrome/Safari */
+}
+
+/* Timesheets page: keep scroll functional but hide scrollbars */
+.timesheets-page [data-slot="table-container"] {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.timesheets-page [data-slot="table-container"]::-webkit-scrollbar {
+  display: none;
+}
+
 .text-card-foreground.flex.flex-col.gap-6 {
     @apply py-4;
 }

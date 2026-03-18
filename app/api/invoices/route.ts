@@ -14,6 +14,8 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const status = searchParams.get("status");
   const contactId = searchParams.get("contactId");
+  const recurringGroupId = searchParams.get("recurringGroupId");
+  const bookingStartDateTime = searchParams.get("bookingStartDateTime");
 
   await connectDB();
 
@@ -21,6 +23,8 @@ export async function GET(req: NextRequest) {
   if (status) filter.status = status;
   if (contactId) filter.contactId = contactId;
   if (searchParams.get("bookingId")) filter.bookingId = searchParams.get("bookingId");
+  if (recurringGroupId) filter.recurringGroupId = recurringGroupId;
+  if (bookingStartDateTime) filter.bookingStartDateTime = new Date(bookingStartDateTime);
 
   const invoices = await Invoice.find(filter)
     .populate("contactId", "name email company")
@@ -49,6 +53,8 @@ export async function POST(req: NextRequest) {
     contactId,
     dealId,
     bookingId,
+    recurringGroupId,
+    bookingStartDateTime,
     items,
     issueDate,
     dueDate,
@@ -65,6 +71,19 @@ export async function POST(req: NextRequest) {
   }
 
   await connectDB();
+
+  // For multi-tech bookings (1 doc per technician), ensure a single invoice per shared slot.
+  // We treat (companyId + recurringGroupId + bookingStartDateTime) as the unique slot key.
+  if (recurringGroupId && bookingStartDateTime) {
+    const existing = await Invoice.findOne({
+      companyId: user.companyId,
+      recurringGroupId,
+      bookingStartDateTime: new Date(bookingStartDateTime),
+    }).lean();
+    if (existing) {
+      return NextResponse.json(existing, { status: 200 });
+    }
+  }
 
   // Generate invoice number
   const count = await Invoice.countDocuments({ companyId: user.companyId });
@@ -100,6 +119,8 @@ export async function POST(req: NextRequest) {
     contactId,
     dealId,
     bookingId,
+    recurringGroupId,
+    bookingStartDateTime: bookingStartDateTime ? new Date(bookingStartDateTime) : undefined,
     items: processedItems,
     subtotal,
     taxAmount,

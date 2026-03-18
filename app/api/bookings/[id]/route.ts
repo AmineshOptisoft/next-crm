@@ -16,8 +16,11 @@ const SHARED_FIELDS = [
     "startDateTime",
     "endDateTime",
     "notes",
+    "promoCode",
+    "promocode",
     "shippingAddress",
     "pricing",
+    "timesheet",
 ] as const;
 
 // Fields that are only personal to this specific booking document
