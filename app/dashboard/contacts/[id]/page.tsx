@@ -272,6 +272,7 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
                 const contact = await res.json();
                 contact.billingAddress = contact.billingAddress || {};
                 contact.shippingAddress = contact.shippingAddress || {};
+                contact.defaultShippingAddress = contact.defaultShippingAddress || contact.shippingAddress || {};
                 contact.shippingAddresses = contact.shippingAddresses || [];
                 setData(contact);
 
@@ -426,15 +427,16 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
         }
     }
 
-    async function handleUpdate(section: string) {
+    async function handleUpdate(section: string, nextData?: any, successMessage = "Updated successfully") {
         try {
             setUpdatingSection(section);
+            const sourceData = nextData || data;
             const updatePayload = {
-                ...data,
-                phone: data.phoneNumber,
-                status: data.contactStatus,
-                image: data.avatarUrl,
-                company: data.companyName,
+                ...sourceData,
+                phone: sourceData.phoneNumber,
+                status: sourceData.contactStatus,
+                image: sourceData.avatarUrl,
+                company: sourceData.companyName,
             };
             const res = await fetch(`/api/contacts/${id}`, {
                 method: "PUT",
@@ -442,7 +444,7 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
                 body: JSON.stringify(updatePayload),
             });
             if (res.ok) {
-                toast.success("Updated successfully");
+                toast.success(successMessage);
             } else {
                 const errorData = await res.json();
                 toast.error(errorData.error || "Update failed");
@@ -482,6 +484,17 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
             setUploading(false);
         }
     }
+
+    const isDefaultShippingAddress = (addr: any) => {
+        const currentDefault = data?.defaultShippingAddress || data?.shippingAddress || {};
+        return (
+            (addr?.street || "") === (currentDefault?.street || "") &&
+            (addr?.city || "") === (currentDefault?.city || "") &&
+            (addr?.state || "") === (currentDefault?.state || "") &&
+            (addr?.zipCode || "") === (currentDefault?.zipCode || "") &&
+            (addr?.title || "") === (currentDefault?.title || "")
+        );
+    };
 
     if (loading) return <div className="p-8 text-center">Loading...</div>;
     if (!data) return <div className="p-8 text-center">Contact not found</div>;
@@ -927,8 +940,14 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
                                                     state: formData.get('state'),
                                                 };
                                                 const currentAddresses = data.shippingAddresses || [];
-                                                setData({ ...data, shippingAddresses: [...currentAddresses, newAddress] });
-                                                toast.success("Address added. Click Update to save.");
+                                                const nextData = {
+                                                    ...data,
+                                                    shippingAddresses: [...currentAddresses, newAddress],
+                                                    shippingAddress: { ...newAddress },
+                                                    defaultShippingAddress: { ...newAddress },
+                                                };
+                                                setData(nextData);
+                                                handleUpdate("shipping", nextData, "Shipping address added and saved");
                                             }} className="flex-1 flex flex-col overflow-hidden">
                                                 <div className="flex-1 overflow-y-auto p-6 space-y-4">
                                                     <div className="space-y-2">
@@ -969,35 +988,47 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
                                     {data.shippingAddresses && data.shippingAddresses.map((addr: any, index: number) => (
                                         <div key={index} className="flex items-center justify-between p-3">
                                             <div>
-                                                {addr.title && <p className="text-sm font-medium">{addr.title}</p>}
+                                                <div className="flex items-center gap-2">
+                                                    {addr.title && <p className="text-sm font-medium">{addr.title}</p>}
+                                                    {isDefaultShippingAddress(addr) && <Badge variant="secondary">Default</Badge>}
+                                                </div>
                                                 <p className="text-sm text-muted-foreground">
                                                     {[addr.street, addr.city, addr.state, addr.zipCode].filter(Boolean).join(", ")}
                                                 </p>
                                             </div>
-                                            <Button size="icon" variant="ghost" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={() => {
-                                                const newAddrs = [...data.shippingAddresses];
-                                                newAddrs.splice(index, 1);
-                                                setData({ ...data, shippingAddresses: newAddrs });
-                                            }}>
-                                                <Trash2 className="h-4 w-4" />
-                                            </Button>
+                                            <div className="flex items-center gap-2">
+                                                {!isDefaultShippingAddress(addr) && (
+                                                    <Button
+                                                        variant="outline"
+                                                        size="sm"
+                                                        onClick={async () => {
+                                                            const nextData = { ...data, shippingAddress: { ...addr }, defaultShippingAddress: { ...addr } };
+                                                            setData(nextData);
+                                                            await handleUpdate("shipping", nextData, "Default shipping address updated");
+                                                        }}
+                                                    >
+                                                        Set Default
+                                                    </Button>
+                                                )}
+                                                <Button size="icon" variant="ghost" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={() => {
+                                                    const newAddrs = [...data.shippingAddresses];
+                                                    const deletingDefault = isDefaultShippingAddress(addr);
+                                                    newAddrs.splice(index, 1);
+                                                    setData({
+                                                        ...data,
+                                                        shippingAddresses: newAddrs,
+                                                        shippingAddress: deletingDefault ? (newAddrs[0] ? { ...newAddrs[0] } : {}) : data.shippingAddress,
+                                                        defaultShippingAddress: deletingDefault ? (newAddrs[0] ? { ...newAddrs[0] } : {}) : (data.defaultShippingAddress || data.shippingAddress),
+                                                    });
+                                                }}>
+                                                    <Trash2 className="h-4 w-4" />
+                                                </Button>
+                                            </div>
                                         </div>
                                     ))}
                                     {(!data.shippingAddresses || data.shippingAddresses.length === 0) && (
                                         <div className="text-center text-muted-foreground text-sm py-8">No shipping addresses added yet</div>
                                     )}
-                                </div>
-                                <div className="flex item-center justify-end">
-                                    <Button
-                                        className="flex-1"
-                                        onClick={() => handleUpdate("shipping")}
-                                        disabled={updatingSection === "shipping"}
-                                    >
-                                        {updatingSection === "shipping" && (
-                                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                        )}
-                                        Update
-                                    </Button>
                                 </div>
                             </div>
                         </TabsContent>

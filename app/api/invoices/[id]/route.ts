@@ -24,7 +24,7 @@ export async function GET(req: NextRequest, context: Context) {
   await connectDB();
   const filter = { _id: id, ...buildCompanyFilter(user) };
   const invoice = await Invoice.findOne(filter)
-    .populate("contactId", "name email company")
+    .populate("contactId", "firstName lastName name email company")
     .populate("items.productId", "name sku")
     .lean();
 
@@ -91,7 +91,7 @@ export async function PUT(req: NextRequest, context: Context) {
     update,
     { new: true, runValidators: true }
   )
-    .populate("contactId", "name email company")
+    .populate("contactId", "firstName lastName name email company")
     .populate("items.productId", "name sku")
     .lean();
 

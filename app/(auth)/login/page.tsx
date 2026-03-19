@@ -85,7 +85,7 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen bg-primary">
+    <div className="flex min-h-screen bg-primary text-secondary">
       {/* Left panel – form */}
       <div className="flex flex-1 items-center justify-center px-8 lg:px-20">
         <div className="w-full max-w-md">
@@ -127,7 +127,7 @@ export default function LoginPage() {
                           <Input
                             type="email"
                             placeholder="Enter your email"
-                            className="h-11 rounded-lg border border-[#b6b6bd] bg-white text-sm placeholder:text-muted-foreground/70 text-secondary"
+                            className="h-11 rounded-lg border border-[#b6b6bd] bg-white text-sm placeholder:text-muted-foreground/70 text-primary"
                             {...field}
                           />
                         </FormControl>
@@ -147,7 +147,7 @@ export default function LoginPage() {
                           <Input
                             type="password"
                             placeholder="Enter your password"
-                            className="h-11 rounded-lg border border-[#b6b6bd] bg-white text-sm text-secondary"
+                            className="h-11 rounded-lg border border-[#b6b6bd] bg-white text-sm text-primary"
                             {...field}
                           />
                         </FormControl>

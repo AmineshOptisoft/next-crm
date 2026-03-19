@@ -21,6 +21,7 @@ import { cn } from "@/lib/utils";
 import { Promocode } from "@/components/company-settings/types";
 
 const fetcher = (url: string) => fetch(url, { credentials: "include" }).then(r => r.json());
+const TECHNICIAN_BOOKING_BUFFER_MINUTES = 30;
 
 // Helper: service (main, sub, or addon) is available for the selected user type (new vs existing)
 function isServiceAvailableForUserType(
@@ -32,46 +33,6 @@ function isServiceAvailableForUserType(
     if (userType === "new" && availability === "new_client") return true;
     if (userType === "existing" && availability === "existing_client") return true;
     return false;
-}
-
-// Helper: compute default start Date for a technician on a given day,
-// based on availability blocks encoded as unavailability events.
-function getAvailabilityStartForDay(
-    events: any[],
-    technicianId: string | undefined,
-    baseDate: Date | undefined
-): Date | undefined {
-    if (!technicianId || !baseDate) return baseDate;
-
-    const startOfDay = new Date(baseDate);
-    startOfDay.setHours(0, 0, 0, 0);
-    const endOfDay = new Date(baseDate);
-    endOfDay.setHours(23, 59, 59, 999);
-
-    const beforeBlocks = events.filter((ev: any) => {
-        if (ev.resourceId !== technicianId) return false;
-        if (ev.type !== "unavailability_timed") return false;
-        const evStart = new Date(ev.start);
-        return evStart.getTime() === startOfDay.getTime();
-    });
-
-    // If no specific "before" block, assume availability starts at midnight.
-    if (!beforeBlocks.length) {
-        return startOfDay;
-    }
-
-    // Use the earliest end time of any "before" block as the availability start.
-    let earliestEnd = new Date(beforeBlocks[0].end);
-    for (const ev of beforeBlocks.slice(1)) {
-        const evEnd = new Date(ev.end);
-        if (evEnd.getTime() < earliestEnd.getTime()) {
-            earliestEnd = evEnd;
-        }
-    }
-
-    const result = new Date(baseDate);
-    result.setHours(earliestEnd.getHours(), earliestEnd.getMinutes(), 0, 0);
-    return result;
 }
 
 // ─── Lazy-load country-state-city once — never blocks the JS bundle ───────────
@@ -345,12 +306,7 @@ export function AddBookingForm({ open, onOpenChange, initialData, technicians, c
 
     useEffect(() => {
         if (open) {
-            const computedStart = getAvailabilityStartForDay(
-                calendarEvents,
-                initialData?.technicianId,
-                initialData?.start
-            );
-            if (computedStart) setBookingStart(computedStart);
+            if (initialData?.start) setBookingStart(initialData.start);
             if (initialData?.end)   setBookingEnd(initialData.end);
             if (initialData?.technicianId) {
                 setSelectedTechnicianServiceId(initialData.technicianId);
@@ -406,15 +362,27 @@ export function AddBookingForm({ open, onOpenChange, initialData, technicians, c
 
     const shippingStateOptions = useMemo(() => {
         if (!geoLib || !shippingCountryCode) return [];
-        return geoLib.State.getStatesOfCountry(shippingCountryCode).map((s: any) => ({ label: s.name, value: s.name, isoCode: s.isoCode }));
-    }, [geoLib, shippingCountryCode]);
+        const states = geoLib.State.getStatesOfCountry(shippingCountryCode).map((s: any) => ({ label: s.name, value: s.name, isoCode: s.isoCode }));
+        const currentState = shippingData.shippingState?.trim();
+        if (currentState && !states.some((s: any) => s.value === currentState)) {
+            states.unshift({ label: currentState, value: currentState, isoCode: "" });
+        }
+        return states;
+    }, [geoLib, shippingCountryCode, shippingData.shippingState]);
 
     const shippingCityOptions = useMemo(() => {
         if (!geoLib || !shippingCountryCode || !shippingData.shippingState) return [];
         const stateCode = shippingStateOptions.find((s: any) => s.value === shippingData.shippingState)?.isoCode;
-        if (!stateCode) return [];
-        return geoLib.City.getCitiesOfState(shippingCountryCode, stateCode).map((c: any) => ({ label: c.name, value: c.name }));
-    }, [geoLib, shippingCountryCode, shippingData.shippingState, shippingStateOptions]);
+        const currentCity = shippingData.shippingCity?.trim();
+        if (!stateCode) {
+            return currentCity ? [{ label: currentCity, value: currentCity }] : [];
+        }
+        const cities = geoLib.City.getCitiesOfState(shippingCountryCode, stateCode).map((c: any) => ({ label: c.name, value: c.name }));
+        if (currentCity && !cities.some((c: any) => c.value === currentCity)) {
+            cities.unshift({ label: currentCity, value: currentCity });
+        }
+        return cities;
+    }, [geoLib, shippingCountryCode, shippingData.shippingState, shippingData.shippingCity, shippingStateOptions]);
 
     // Filtered technicians
     const filteredTechnicians = useMemo(() => {
@@ -500,15 +468,40 @@ export function AddBookingForm({ open, onOpenChange, initialData, technicians, c
     const handleContactSelect = useCallback((contactId: string) => {
         const contact = contacts.find(c => c._id === contactId);
         if (!contact) return;
-        setSelectedContact(contact);
-        setEmail(contact.email || "");
-        setPersonalData(prev => ({
-            ...prev,
-            firstName: contact.firstName || "", lastName: contact.lastName || "",
-            phoneNumber: contact.phoneNumber || "", address: contact.address || "",
-            city: contact.city || "", state: contact.state || "California",
-            zipCode: contact.zipCode || "", country: contact.country || "United States",
-        }));
+
+        (async () => {
+            try {
+                const res = await fetch(`/api/contacts/${contactId}`);
+                if (!res.ok) {
+                    toast.error("Failed to load contact shipping addresses");
+                    return;
+                }
+                const fullContact = await res.json();
+                setSelectedContact(fullContact);
+                setEmail(fullContact.email || "");
+                setPersonalData(prev => ({
+                    ...prev,
+                    firstName: fullContact.firstName || "", lastName: fullContact.lastName || "",
+                    phoneNumber: fullContact.phoneNumber || "", address: fullContact.address || "",
+                    city: fullContact.city || "", state: fullContact.state || "California",
+                    zipCode: fullContact.zipCode || "", country: fullContact.country || "United States",
+                }));
+
+                const defaultShip = fullContact.defaultShippingAddress || fullContact.shippingAddress;
+                if (defaultShip?.street || defaultShip?.city || defaultShip?.state || defaultShip?.zipCode) {
+                    setShippingData({
+                        shippingAddress: defaultShip.street || "",
+                        shippingCountry: defaultShip.country || "United States",
+                        shippingCity: defaultShip.city || "",
+                        shippingState: defaultShip.state || "California",
+                        shippingZipCode: defaultShip.zipCode || "",
+                    });
+                }
+            } catch (error) {
+                console.error("Failed to fetch contact details:", error);
+                toast.error("Failed to load contact details");
+            }
+        })();
     }, [contacts]);
 
     const handleSameAsAbove = useCallback(() => {
@@ -584,6 +577,31 @@ export function AddBookingForm({ open, onOpenChange, initialData, technicians, c
         <SelectItem key={c._id} value={c._id}>{c.firstName} {c.lastName} – {c.email}</SelectItem>
     )), [contacts]);
 
+    const shippingAddressOptions = useMemo(() => {
+        const options: Array<{ value: string; label: string; address: any }> = [];
+        const addresses = selectedContact?.shippingAddresses || [];
+        const defaultAddress = selectedContact?.defaultShippingAddress || selectedContact?.shippingAddress;
+
+        if (defaultAddress?.street || defaultAddress?.city || defaultAddress?.state || defaultAddress?.zipCode) {
+            options.push({
+                value: "default",
+                label: `Default - ${[defaultAddress.street, defaultAddress.city, defaultAddress.state, defaultAddress.zipCode].filter(Boolean).join(", ")}`,
+                address: defaultAddress,
+            });
+        }
+
+        addresses.forEach((addr: any, index: number) => {
+            const labelParts = [addr.title, addr.street, addr.city, addr.state, addr.zipCode].filter(Boolean);
+            options.push({
+                value: `address-${index}`,
+                label: labelParts.join(", "),
+                address: addr,
+            });
+        });
+
+        return options;
+    }, [selectedContact]);
+
     const handleSubmit = async () => {
         if (isSubmitting) return;
         try {
@@ -652,7 +670,16 @@ export function AddBookingForm({ open, onOpenChange, initialData, technicians, c
                 if (frequency === "monthly" && !monthlyWeeks.length) { toast.error("Please select at least one week/day combination"); return; }
                 if (frequency === "weekly" && !selectedDays.length) { toast.error("Please select at least one day for recurrence"); return; }
             }
+            if (!bookingEnd) {
+                toast.error("Please select a valid booking time range");
+                return;
+            }
+            if (bookingEnd <= bookingStart) {
+                toast.error("Booking end time must be after the start time");
+                return;
+            }
             if (bookingStart && bookingEnd) {
+                const bufferMs = TECHNICIAN_BOOKING_BUFFER_MINUTES * 60_000;
                 for (const techId of selectedTechnicianIds) {
                     const violation = calendarEvents.find((ev: any) => {
                         if (ev.resourceId !== techId) return false;
@@ -664,6 +691,29 @@ export function AddBookingForm({ open, onOpenChange, initialData, technicians, c
                     if (violation) {
                         const techName = allTechnicians.find(t => t.id === techId)?.title || "A technician";
                         toast.error(`${techName}'s booking overlaps with their unavailable hours.`); return;
+                    }
+
+                    const bookingConflict = calendarEvents.find((ev: any) => {
+                        if (ev.resourceId !== techId) return false;
+                        if (ev.type !== "booking") return false;
+
+                        const existingStart = new Date(ev.start).getTime();
+                        const existingEnd = new Date(ev.end).getTime();
+                        const newStart = bookingStart.getTime();
+                        const newEnd = bookingEnd.getTime();
+
+                        // No overlap allowed for the same technician.
+                        const overlaps = newStart < existingEnd && newEnd > existingStart;
+                        // Enforce a 30-minute gap after each existing booking ends.
+                        const withinPostBookingBuffer = newStart >= existingEnd && newStart < existingEnd + bufferMs;
+
+                        return overlaps || withinPostBookingBuffer;
+                    });
+
+                    if (bookingConflict) {
+                        const techName = allTechnicians.find(t => t.id === techId)?.title || "Selected technician";
+                        toast.error(`${techName} is not available for that time. A 30-minute buffer is required after each booking.`);
+                        return;
                     }
                 }
             }
@@ -734,7 +784,7 @@ export function AddBookingForm({ open, onOpenChange, initialData, technicians, c
                                 <div className="space-y-2">
                                     <Label>Select Contact</Label>
                                     <Select onValueChange={handleContactSelect}>
-                                        <SelectTrigger><SelectValue placeholder="Choose a contact" /></SelectTrigger>
+                                        <SelectTrigger className="w-full"><SelectValue placeholder="Choose a contact" /></SelectTrigger>
                                         <SelectContent className="z-[150]" position="popper">{contactSelectOptions}</SelectContent>
                                     </Select>
                                 </div>
@@ -897,9 +947,31 @@ export function AddBookingForm({ open, onOpenChange, initialData, technicians, c
                                 <div className="space-y-4">
                                     <div className="space-y-2">
                                         <Label>Select Default Shipping Address</Label>
-                                        <Select onValueChange={v => v === "same" && handleSameAsAbove()}>
+                                        <Select onValueChange={v => {
+                                            if (v === "same") {
+                                                handleSameAsAbove();
+                                                return;
+                                            }
+                                            const selected = shippingAddressOptions.find(opt => opt.value === v);
+                                            if (!selected) return;
+                                            const addr = selected.address || {};
+                                            setShippingData({
+                                                shippingAddress: addr.street || "",
+                                                shippingCountry: addr.country || "United States",
+                                                shippingCity: addr.city || "",
+                                                shippingState: addr.state || "California",
+                                                shippingZipCode: addr.zipCode || "",
+                                            });
+                                        }}>
                                             <SelectTrigger className="w-full"><SelectValue placeholder="Select Default Shipping Address" /></SelectTrigger>
-                                            <SelectContent className="z-[150] w-full"><SelectItem value="same">Same As Above</SelectItem></SelectContent>
+                                            <SelectContent className="z-[150] w-full">
+                                                <SelectItem value="same">Same As Above</SelectItem>
+                                                {shippingAddressOptions.map((opt) => (
+                                                    <SelectItem key={opt.value} value={opt.value}>
+                                                        {opt.label}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
                                         </Select>
                                     </div>
                                     <div className="space-y-2">

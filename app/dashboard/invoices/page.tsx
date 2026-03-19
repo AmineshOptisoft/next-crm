@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Table,
@@ -101,9 +101,11 @@ export default function InvoicesPage() {
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
   const [actionLoadingType, setActionLoadingType] = useState<string | null>(null);
   const [deleteDialogInvoiceId, setDeleteDialogInvoiceId] = useState<string | null>(null);
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
   const [company, setCompany] = useState<{ name?: string; logo?: string; email?: string; phone?: string } | null>(
     null
   );
+  const invoicePreviewRef = useRef<HTMLDivElement | null>(null);
   const [formData, setFormData] = useState({
     contactId: "",
     issueDate: new Date().toISOString().split("T")[0],
@@ -319,6 +321,160 @@ export default function InvoicesPage() {
       cancelled: "destructive",
     };
     return <Badge variant={variants[status] || "default"}>{status}</Badge>;
+  };
+
+  const handleDownloadPdf = async () => {
+    if (!viewInvoice || !invoicePreviewRef.current) return;
+    let wrapper: HTMLDivElement | null = null;
+    try {
+      setDownloadingPdf(true);
+      const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
+        import("html2canvas"),
+        import("jspdf"),
+      ]);
+
+      const saveFallbackPdf = () => {
+        const pdf = new jsPDF("p", "mm", "a4");
+        const margin = 12;
+        let y = 14;
+        const line = (label: string, value: string = "") => {
+          pdf.setFont("helvetica", "bold");
+          pdf.text(label, margin, y);
+          pdf.setFont("helvetica", "normal");
+          if (value) pdf.text(value, margin + 45, y);
+          y += 6;
+          if (y > 282) {
+            pdf.addPage();
+            y = 14;
+          }
+        };
+
+        const customerName =
+          [viewInvoice.contactId?.firstName, viewInvoice.contactId?.lastName].filter(Boolean).join(" ") ||
+          (viewInvoice.contactId as any)?.name ||
+          "N/A";
+
+        pdf.setFont("helvetica", "bold");
+        pdf.setFontSize(16);
+        pdf.text(`Invoice #${viewInvoice.invoiceNumber}`, margin, y);
+        y += 8;
+        pdf.setFontSize(11);
+        line("Date", new Date(viewInvoice.issueDate).toLocaleDateString());
+        line("Due Date", new Date(viewInvoice.dueDate).toLocaleDateString());
+        line("Status", viewInvoice.status);
+        line("Customer", customerName);
+        line("Customer Email", viewInvoice.contactId?.email || "-");
+        line("Company", company?.name || "Company");
+        line("Company Email", company?.email || "-");
+        line("Company Phone", company?.phone || "-");
+        if (viewBooking?.serviceId?.name) line("Main Service", viewBooking.serviceId.name);
+        y += 2;
+
+        pdf.setFont("helvetica", "bold");
+        pdf.text("Items", margin, y);
+        y += 6;
+        pdf.setFont("helvetica", "normal");
+        (viewInvoice.items || []).forEach((item) => {
+          const txt = `${item.description} | Qty: ${item.quantity} | Rate: ${formatCurrency(
+            Number(item.unitPrice) || 0,
+            viewInvoice.currency
+          )} | Total: ${formatCurrency(Number(item.total) || 0, viewInvoice.currency)}`;
+          const lines = pdf.splitTextToSize(txt, 180);
+          pdf.text(lines, margin, y);
+          y += 6 * lines.length;
+          if (y > 282) {
+            pdf.addPage();
+            y = 14;
+          }
+        });
+
+        const tax = Number(viewInvoice.taxAmount) || 0;
+        const discount = Math.abs(
+          (viewInvoice.items || []).reduce((sum, i) => {
+            const t = Number((i as any).total) || 0;
+            const desc = String((i as any).description || "").toLowerCase();
+            return sum + (t < 0 || desc.startsWith("discount") ? t : 0);
+          }, 0)
+        );
+        const grossSubtotal = (viewInvoice.items || []).reduce((sum, i) => {
+          const t = Number((i as any).total) || 0;
+          const desc = String((i as any).description || "").toLowerCase();
+          const isDiscount = t < 0 || desc.startsWith("discount");
+          return sum + (isDiscount ? 0 : Math.max(0, t));
+        }, 0);
+        const subtotal = Math.max(0, grossSubtotal - discount);
+        const total = Math.max(0, subtotal + tax);
+
+        y += 4;
+        line("Subtotal", formatCurrency(subtotal, viewInvoice.currency));
+        line("Tax", formatCurrency(tax, viewInvoice.currency));
+        line("Total Discount", `-${formatCurrency(discount, viewInvoice.currency)}`);
+        line("Total", formatCurrency(total, viewInvoice.currency));
+
+        pdf.save(`invoice-${viewInvoice.invoiceNumber}.pdf`);
+      };
+
+      try {
+        // Render a clone off-screen at full height so PDF matches the invoice screenshot view.
+        const source = invoicePreviewRef.current;
+        const clone = source.cloneNode(true) as HTMLDivElement;
+        wrapper = document.createElement("div");
+        wrapper.style.position = "fixed";
+        wrapper.style.left = "-99999px";
+        wrapper.style.top = "0";
+        wrapper.style.width = `${source.clientWidth}px`;
+        wrapper.style.background = "#0b0b0b";
+        wrapper.style.padding = "0";
+        wrapper.style.zIndex = "-1";
+        clone.style.maxHeight = "none";
+        clone.style.height = "auto";
+        clone.style.overflow = "visible";
+        wrapper.appendChild(clone);
+        document.body.appendChild(wrapper);
+
+        const canvas = await html2canvas(clone, {
+          scale: 2,
+          useCORS: true,
+          backgroundColor: "#0b0b0b",
+          windowWidth: source.scrollWidth,
+          windowHeight: source.scrollHeight,
+        });
+
+        const imgData = canvas.toDataURL("image/png");
+        const pdf = new jsPDF("p", "mm", "a4");
+        const pageWidth = pdf.internal.pageSize.getWidth();
+        const pageHeight = pdf.internal.pageSize.getHeight();
+        const imgWidth = pageWidth;
+        const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+        let heightLeft = imgHeight;
+        let position = 0;
+
+        pdf.addImage(imgData, "PNG", 0, position, imgWidth, imgHeight);
+        heightLeft -= pageHeight;
+
+        while (heightLeft > 0) {
+          position = heightLeft - imgHeight;
+          pdf.addPage();
+          pdf.addImage(imgData, "PNG", 0, position, imgWidth, imgHeight);
+          heightLeft -= pageHeight;
+        }
+
+        pdf.save(`invoice-${viewInvoice.invoiceNumber}.pdf`);
+      } catch (captureError) {
+        // html2canvas can fail on unsupported CSS color functions like lab()/oklch()
+        console.warn("Screenshot export failed, using data-driven PDF fallback.", captureError);
+        saveFallbackPdf();
+      }
+    } catch (error) {
+      console.error("Failed to download invoice PDF:", error);
+      toast.error("Failed to download invoice PDF");
+    } finally {
+      if (wrapper && wrapper.parentNode) {
+        wrapper.parentNode.removeChild(wrapper);
+      }
+      setDownloadingPdf(false);
+    }
   };
 
   const filteredInvoices =
@@ -636,7 +792,7 @@ export default function InvoicesPage() {
           }
         }}
       >
-        <SheetContent side="right" className="sm:max-w-3xl w-full p-0 flex flex-col">
+        <SheetContent side="right" className="sm:max-w-5xl w-full p-0 flex flex-col">
           <SheetHeader className="p-4 border-b gap-0">
             <SheetTitle>Invoice Preview</SheetTitle>
             <SheetDescription>Review invoice details before sending or sharing.</SheetDescription>
@@ -644,7 +800,7 @@ export default function InvoicesPage() {
 
           {viewInvoice && (
             <div className="flex-1 overflow-y-auto p-4 sm:p-6">
-              <div className="rounded-2xl border bg-background shadow-sm overflow-hidden">
+              <div ref={invoicePreviewRef} className="rounded-2xl border bg-background shadow-sm overflow-hidden">
                 <div className="p-5 sm:p-7">
                   <div className="flex items-start justify-between gap-4">
                     <div className="text-sm text-muted-foreground">
@@ -967,15 +1123,27 @@ export default function InvoicesPage() {
                   Send
                 </Button>
               )}
+              {permissions.canEdit && viewInvoice.status === "sent" && (
+                <Button
+                  onClick={async () => {
+                    await handleStatusChange(viewInvoice._id, "paid");
+                    setViewInvoice({ ...viewInvoice, status: "paid" });
+                  }}
+                >
+                  Mark Paid
+                </Button>
+              )}
               <Button
                 variant="outline"
-                onClick={() => {
-                  // Simple "download": open print dialog (user can save as PDF)
-                  window.print();
-                }}
+                onClick={handleDownloadPdf}
+                disabled={downloadingPdf}
               >
-                <Download className="mr-2 h-4 w-4" />
-                Download
+                {downloadingPdf ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Download className="mr-2 h-4 w-4" />
+                )}
+                {downloadingPdf ? "Generating..." : "Download"}
               </Button>
             </SheetFooter>
           )}

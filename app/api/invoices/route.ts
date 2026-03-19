@@ -27,7 +27,7 @@ export async function GET(req: NextRequest) {
   if (bookingStartDateTime) filter.bookingStartDateTime = new Date(bookingStartDateTime);
 
   const invoices = await Invoice.find(filter)
-    .populate("contactId", "name email company")
+    .populate("contactId", "firstName lastName name email company")
     .populate("items.productId", "name sku")
     .sort({ createdAt: -1 })
     .lean();
@@ -85,9 +85,17 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // Generate invoice number
-  const count = await Invoice.countDocuments({ companyId: user.companyId });
-  const invoiceNumber = `INV-${String(count + 1).padStart(5, "0")}`;
+  // Generate invoice number (collision-safe).
+  // countDocuments can collide after deletions or concurrent creates.
+  const baseCount = await Invoice.countDocuments({ companyId: user.companyId });
+  let sequence = baseCount + 1;
+  let invoiceNumber = `INV-${String(sequence).padStart(5, "0")}`;
+  // Keep incrementing until we find a free number.
+  // (invoiceNumber is globally unique in current schema)
+  while (await Invoice.exists({ invoiceNumber })) {
+    sequence += 1;
+    invoiceNumber = `INV-${String(sequence).padStart(5, "0")}`;
+  }
 
   // Calculate totals
   let subtotal = 0;

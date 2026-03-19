@@ -94,6 +94,15 @@ const UserSchema = new Schema(
       zipCode: String,
     },
     shippingAddress: {
+      title: String,
+      street: String,
+      country: String,
+      state: String,
+      city: String,
+      zipCode: String,
+    },
+    defaultShippingAddress: {
+      title: String,
       street: String,
       country: String,
       state: String,

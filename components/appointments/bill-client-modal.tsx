@@ -260,13 +260,23 @@ export function BillClientModal({
                 body: JSON.stringify(payload),
             });
 
-            if (!res.ok) throw new Error("Failed to create invoice");
+            if (!res.ok) {
+                let message = "Failed to create invoice";
+                try {
+                    const err = await res.json();
+                    if (err?.error) message = err.error;
+                    else if (err?.message) message = err.message;
+                } catch {
+                    // ignore parse errors and fallback to default message
+                }
+                throw new Error(message);
+            }
 
             toast.success("Invoice created successfully");
             fetchData();
         } catch (error) {
             console.error(error);
-            toast.error("Failed to create invoice");
+            toast.error(error instanceof Error ? error.message : "Failed to create invoice");
         } finally {
             setLoading(false);
         }
@@ -338,10 +348,9 @@ export function BillClientModal({
                         <div className="overflow-x-auto">
                             <Table>
                                 <TableHeader className="bg-muted text-[10px] font-bold uppercase">
-                                    <TableRow>
+                                    <TableRow >
                                         <TableHead className="w-[45%]">Details</TableHead>
-                                        <TableHead className="text-center">Qty</TableHead>
-                                        <TableHead className="text-center">Price</TableHead>
+                                        <TableHead className="">Qty</TableHead>
                                         <TableHead className="text-right">Amount</TableHead>
                                         <TableHead className="w-[50px]"></TableHead>
                                     </TableRow>
@@ -379,14 +388,7 @@ export function BillClientModal({
                                                         onChange={(e) => updateItem(idx, "quantity", e.target.value)}
                                                     />
                                                 </TableCell>
-                                                <TableCell className="py-2 px-1">
-                                                    <Input
-                                                        type="number"
-                                                        className="text-center bg-background w-16 md:w-24 text-xs md:text-sm"
-                                                        value={item.unitPrice}
-                                                        onChange={(e) => updateItem(idx, "unitPrice", e.target.value)}
-                                                    />
-                                                </TableCell>
+                                                
                                                 <TableCell className="text-right font-bold py-2 text-xs md:text-sm">
                                                     ${Number(item.total || 0).toFixed(2)}
                                                 </TableCell>
@@ -423,14 +425,7 @@ export function BillClientModal({
                                                         onChange={(e) => updateItem(idx, "quantity", e.target.value)}
                                                     />
                                                 </TableCell>
-                                                <TableCell className="py-2 px-1">
-                                                    <Input
-                                                        type="number"
-                                                        className="text-center bg-background w-16 md:w-24 text-xs md:text-sm"
-                                                        value={item.unitPrice}
-                                                        onChange={(e) => updateItem(idx, "unitPrice", e.target.value)}
-                                                    />
-                                                </TableCell>
+                                                
                                                 <TableCell className="text-right font-bold py-2 text-xs md:text-sm">
                                                     ${Number(item.total || 0).toFixed(2)}
                                                 </TableCell>
