@@ -353,7 +353,7 @@ export default function ServicesPage() {
                             Create Service
                         </Button>
                     </SheetTrigger>
-                    <SheetContent className="w-full sm:max-w-xl md:max-w-2xl lg:max-w-3xl  overflow-y-auto p-0">
+                    <SheetContent className="w-full sm:max-w-xl md:max-w-5xl overflow-y-auto p-0">
                         <div className="p-0 pb-0">
                             <SheetHeader className="mb-0">
                                 <SheetTitle className="text-2xl font-bold">

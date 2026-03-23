@@ -337,6 +337,7 @@ export async function GET(req: NextRequest) {
                 type:            "booking",
                 extendedProps: {
                     bookingId:      booking._id,
+                    recurringGroupId: booking.recurringGroupId,
                     bookingStatus:  booking.status,
                     appointmentNumber: booking.orderId,
                     service:        service.name,

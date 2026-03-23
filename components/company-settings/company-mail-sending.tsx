@@ -349,7 +349,7 @@ export function CompanyMailSending({ company }: CompanyMailSendingProps) {
                             </div>
                         </div>
                         <div className="pt-2">
-                            <Button onClick={handleSaveSmtp} disabled={isSaving} className="bg-zinc-900 hover:bg-zinc-800 text-white">
+                            <Button onClick={handleSaveSmtp} disabled={isSaving} className="bg-primary hover:bg-primary/90 text-secondary">
                                 {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                                 {isSaving ? "Saving Configuration..." : "Save SMTP Settings"}
                             </Button>

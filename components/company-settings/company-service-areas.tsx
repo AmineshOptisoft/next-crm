@@ -155,7 +155,7 @@ export function CompanyServiceAreas() {
                             Add Service Area
                         </Button>
                     </SheetTrigger>
-                    <SheetContent className="w-full sm:max-w-md flex flex-col h-full p-0 border-l shadow-2xl">
+                    <SheetContent className="w-full sm:max-w-5xl flex flex-col h-full p-0 border-l shadow-2xl">
                         <div className="p-6 border-b bg-gradient-to-r from-muted/50 to-muted/20">
                             <SheetHeader className="space-y-4">
                                 <div className="flex items-center gap-3">

@@ -240,7 +240,7 @@ export function TimesheetsClient() {
           <div className="space-y-1">
             <Label>Technician</Label>
             <Select value={technicianId} onValueChange={setTechnicianId}>
-              <SelectTrigger>
+              <SelectTrigger className="w-full">
                 <SelectValue placeholder="Select Technician" />
               </SelectTrigger>
               <SelectContent>
@@ -266,7 +266,7 @@ export function TimesheetsClient() {
         </div>
       </Card>
 
-      <div className="flex-1 min-h-0 min-w-0 w-full max-w-full">
+      <div className="flex-1 w-full h-fit">
       <DataTable
         columns={columns}
         data={rows}

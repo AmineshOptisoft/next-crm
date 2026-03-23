@@ -12,6 +12,7 @@ interface Employee {
   lastName: string;
   email: string;
   salary?: number;
+  role?: string;
 }
 
 interface EmployeeListProps {
@@ -19,6 +20,10 @@ interface EmployeeListProps {
 }
 
 export function EmployeeList({ employees }: EmployeeListProps) {
+  const visibleEmployees = employees.filter(
+    (employee) => employee.role !== "company_admin" && employee.role !== "admin"
+  );
+
   const getInitials = (firstName: string, lastName: string) => {
     return `${firstName[0]}${lastName[0]}`.toUpperCase();
   };
@@ -39,7 +44,7 @@ export function EmployeeList({ employees }: EmployeeListProps) {
           Showing 10 most recent employees.
         </p>
         </div>
-        {employees.length > 0 && (
+        {visibleEmployees.length > 0 && (
           <div className="mt-4 flex justify-end">
             <Button asChild variant="outline" size="sm">
               <Link href="/dashboard/users">Show more</Link>
@@ -50,12 +55,17 @@ export function EmployeeList({ employees }: EmployeeListProps) {
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
-          {employees.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-4">
-              No employees found. Add your first employee to get started.
-            </p>
+          {visibleEmployees.length === 0 ? (
+            <div className="flex flex-col items-center gap-3 py-4 text-center">
+              <p className="text-sm text-muted-foreground">
+                No employees found. Add your first employee to get started.
+              </p>
+              <Button asChild size="sm">
+                <Link href="/dashboard/users">Create Technician</Link>
+              </Button>
+            </div>
           ) : (
-            employees.map((employee) => (
+            visibleEmployees.map((employee) => (
               <div
                 key={employee._id}
                 className="flex items-center justify-between gap-2"

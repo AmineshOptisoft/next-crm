@@ -442,12 +442,26 @@ export async function GET(req: NextRequest) {
         }
 
         await connectDB();
+        const sp = req.nextUrl.searchParams;
+        const contactId = sp.get("contactId");
+        const technicianId = sp.get("technicianId");
+        const sortBy = sp.get("sortBy") || "startDateTime";
+        const sortOrder = (sp.get("sortOrder") || "asc").toLowerCase() === "desc" ? -1 : 1;
+        const limitRaw = Number(sp.get("limit"));
+        const limit = Number.isFinite(limitRaw) && limitRaw > 0 ? Math.min(limitRaw, 1000) : undefined;
 
-        const bookings = await Booking.find({ companyId: user.companyId })
+        const filter: any = { companyId: user.companyId };
+        if (contactId) filter.contactId = contactId;
+        if (technicianId) filter.technicianId = technicianId;
+
+        let query = Booking.find(filter)
             .populate('contactId', 'firstName lastName email')
             .populate('technicianId', 'firstName lastName')
             .populate('serviceId', 'name')
-            .sort({ startDateTime: 1 });
+            .sort({ [sortBy]: sortOrder });
+        if (limit) query = query.limit(limit);
+
+        const bookings = await query;
 
         return NextResponse.json(bookings);
     } catch (error: any) {

@@ -365,7 +365,7 @@ export default function ActivitiesPage() {
       {/* Create/Edit Activity Sheet (replaces modal) */}
       {(permissions.canCreate || permissions.canEdit) && (
         <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
-          <SheetContent side="right" className="sm:max-w-2xl w-full p-0 flex flex-col">
+          <SheetContent side="right" className="sm:max-w-5xl w-full p-0 flex flex-col">
             <SheetHeader className="p-4 border-b gap-0">
               <SheetTitle>{editingActivity ? "Edit Activity" : "Log New Activity"}</SheetTitle>
               <SheetDescription>Record an interaction with a contact</SheetDescription>

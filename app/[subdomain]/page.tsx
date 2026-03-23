@@ -72,6 +72,10 @@ export default async function PublicSiteByPathPage({ params }: PageProps) {
     }));
   }
 
+  // Ensure server data passed to Client Components is fully JSON-serializable.
+  const serializedCompany = JSON.parse(JSON.stringify(company));
+  const serializedServices = JSON.parse(JSON.stringify(servicesWithHierarchy));
+
   let template: "templateA" | "templateB" = "templateA";
 
   if (company.subdomain === subdomain && company.publicTemplate) {
@@ -86,8 +90,14 @@ export default async function PublicSiteByPathPage({ params }: PageProps) {
   }
 
   if (template === "templateB") {
-    return <PublicTemplateB company={company} subdomain={subdomain} />;
+    return <PublicTemplateB company={serializedCompany} subdomain={subdomain} />;
   }
 
-  return <PublicTemplateA company={company} subdomain={subdomain} services={servicesWithHierarchy} />;
+  return (
+    <PublicTemplateA
+      company={serializedCompany}
+      subdomain={subdomain}
+      services={serializedServices}
+    />
+  );
 }

@@ -6,6 +6,7 @@ import {
   DateSelectArg,
   EventChangeArg,
   EventClickArg,
+  EventDropArg,
   DatesSetArg,
 } from "@fullcalendar/core/index.js";
 import interactionPlugin from "@fullcalendar/interaction";
@@ -122,6 +123,23 @@ export default function Calendar() {
     });
   }, [events, currentView]);
 
+  const isTechnicianUnavailable = useCallback(
+    (resourceId: string | undefined, start: Date, end: Date) => {
+      if (!resourceId) return false;
+
+      return events.some((event: any) => {
+        if (event.resourceId !== resourceId) return false;
+        if (event.type !== "unavailability" && event.type !== "unavailability_timed") return false;
+        if (event.type === "unavailability_timed" && currentView !== "resourceTimelineDay") return false;
+
+        const eventStart = new Date(event.start);
+        const eventEnd = new Date(event.end);
+        return start < eventEnd && end > eventStart;
+      });
+    },
+    [events, currentView]
+  );
+
   const handleEventClick = useCallback((info: EventClickArg) => {
     const props = info.event.extendedProps as Record<string, any>;
 
@@ -211,14 +229,7 @@ export default function Calendar() {
     }
 
     // Check if the selected slot overlaps with any unavailability event
-    const isUnavailable = events.some((event: any) => {
-      if (event.resourceId !== info.resource?.id) return false;
-      if (event.type !== "unavailability" && event.type !== "unavailability_timed") return false;
-      if (event.type === "unavailability_timed" && currentView !== "resourceTimelineDay") return false;
-      const eventStart = new Date(event.start);
-      const eventEnd = new Date(event.end);
-      return info.start < eventEnd && info.end > eventStart;
-    });
+    const isUnavailable = isTechnicianUnavailable(info.resource?.id, info.start, info.end);
 
     if (isUnavailable) {
       toast.error("Technician is unavailable at this time.");
@@ -244,7 +255,65 @@ export default function Calendar() {
         }
       );
     }
-  }, [currentView, events, hasAppointmentPermission, mutate]);
+  }, [hasAppointmentPermission, isTechnicianUnavailable, mutate]);
+
+  const handleEventDrop = useCallback((info: EventDropArg) => {
+    const props = info.event.extendedProps as Record<string, any>;
+    if (props?.type !== "booking") return;
+
+    const resourceId =
+      info.newResource?.id ??
+      info.event.getResources()?.[0]?.id ??
+      info.oldResource?.id;
+
+    const start = info.event.start;
+    const end = info.event.end;
+
+    if (!start || !end) return;
+
+    const isUnavailable = isTechnicianUnavailable(resourceId, start, end);
+
+    if (isUnavailable) {
+      info.revert();
+      toast.error("Technician is not available at this time.");
+      return;
+    }
+
+    const hasMultipleTechnicians =
+      Array.isArray(props?.coTechnicians) && props.coTechnicians.length > 0;
+    const recurringGroupId = props?.recurringGroupId;
+    if (!hasMultipleTechnicians || !recurringGroupId || !info.oldEvent.start) return;
+
+    const deltaMs = start.getTime() - info.oldEvent.start.getTime();
+    if (deltaMs === 0) return;
+
+    const calendarApi = info.view.calendar;
+    const relatedEvents = calendarApi.getEvents().filter((ev) => {
+      if (ev.id === info.event.id) return false;
+      const evProps = ev.extendedProps as Record<string, any>;
+      return evProps?.type === "booking" && evProps?.recurringGroupId === recurringGroupId;
+    });
+
+    for (const relatedEvent of relatedEvents) {
+      if (!relatedEvent.start || !relatedEvent.end) continue;
+      const relatedResourceId = relatedEvent.getResources()?.[0]?.id;
+      const nextStart = new Date(relatedEvent.start.getTime() + deltaMs);
+      const nextEnd = new Date(relatedEvent.end.getTime() + deltaMs);
+
+      if (isTechnicianUnavailable(relatedResourceId, nextStart, nextEnd)) {
+        info.revert();
+        toast.error("Technician is not available at this time.");
+        return;
+      }
+    }
+
+    for (const relatedEvent of relatedEvents) {
+      if (!relatedEvent.start || !relatedEvent.end) continue;
+      const nextStart = new Date(relatedEvent.start.getTime() + deltaMs);
+      const nextEnd = new Date(relatedEvent.end.getTime() + deltaMs);
+      relatedEvent.setDates(nextStart, nextEnd);
+    }
+  }, [isTechnicianUnavailable]);
 
   const [windowWidth, setWindowWidth] = useState(1200);
 
@@ -306,6 +375,7 @@ export default function Calendar() {
           select={handleDateSelect}
           eventClick={handleEventClick}
           eventChange={handleEventChange}
+          eventDrop={handleEventDrop}
           datesSet={handleDatesSet}
           views={{
             resourceTimelineDay: {

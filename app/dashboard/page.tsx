@@ -153,6 +153,7 @@ async function getStats(companyId: string) {
         lastName: e.lastName,
         email: e.email,
         salary: e.salary,
+        role: e.role,
       })),
     },
     leaves: {

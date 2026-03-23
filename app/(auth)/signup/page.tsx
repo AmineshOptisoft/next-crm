@@ -151,7 +151,7 @@ const VirtualGeoSelect = memo(function VirtualGeoSelect({
         disabled={disabled}
         onClick={() => setOpen(o => !o)}
         className={cn(
-          "flex h-11 w-full min-w-0 items-center justify-between rounded-lg border border-[#b6b6bd] bg-white px-3 py-2 text-sm text-primary",
+          "flex h-11 w-full min-w-0 items-center justify-between rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground",
           "ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
           "disabled:cursor-not-allowed disabled:opacity-50",
         )}
@@ -323,7 +323,7 @@ export default function SignupPage() {
   }
 
   return (
-    <div className="flex min-h-screen bg-secondary">
+    <div className="flex min-h-screen bg-background text-foreground">
       {/* Left panel – form */}
       <div className="flex flex-1 items-center justify-center px-8 lg:px-20">
         <div className="w-full max-w-xl">
@@ -332,12 +332,12 @@ export default function SignupPage() {
             <div className="flex h-9 w-9 items-center justify-center rounded-full bg-black text-white text-xl font-semibold">
               m
             </div>
-            <span className="text-xl font-semibold tracking-tight text-primary">Greenfrog.</span>
+            <span className="text-xl font-semibold tracking-tight text-foreground">Greenfrog.</span>
           </div>
 
           <Card className="border-none shadow-none bg-transparent p-0">
             <CardHeader className="px-0 pb-6 pt-0">
-              <CardTitle className="text-3xl font-semibold text-primary">
+              <CardTitle className="text-3xl font-semibold text-foreground">
                 Create account
               </CardTitle>
               <CardDescription className="mt-1 text-base text-muted-foreground">
@@ -353,13 +353,13 @@ export default function SignupPage() {
                       name="firstName"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel className="text-sm font-medium text-primary">
+                          <FormLabel className="text-sm font-medium text-foreground">
                             First name
                           </FormLabel>
                           <FormControl>
                             <Input
                               placeholder="John"
-                              className="h-11 rounded-lg border border-[#b6b6bd] bg-white text-sm text-primary"
+                              className="h-11 rounded-lg border border-input bg-background text-sm text-foreground placeholder:text-muted-foreground"
                               {...field}
                             />
                           </FormControl>
@@ -372,13 +372,13 @@ export default function SignupPage() {
                       name="lastName"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel className="text-sm font-medium text-primary">
+                          <FormLabel className="text-sm font-medium text-foreground">
                             Last name
                           </FormLabel>
                           <FormControl>
                             <Input
                               placeholder="Doe"
-                              className="h-11 rounded-lg border border-[#b6b6bd] bg-white text-sm text-primary"
+                              className="h-11 rounded-lg border border-input bg-background text-sm text-foreground placeholder:text-muted-foreground"
                               {...field}
                             />
                           </FormControl>
@@ -393,14 +393,14 @@ export default function SignupPage() {
                     name="email"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel className="text-sm font-medium text-primary">
+                        <FormLabel className="text-sm font-medium text-foreground">
                           Email
                         </FormLabel>
                         <FormControl>
                           <Input
                             type="email"
                             placeholder="Enter your email"
-                            className="h-11 rounded-lg border border-[#b6b6bd] bg-white text-sm text-primary"
+                            className="h-11 rounded-lg border border-input bg-background text-sm text-foreground placeholder:text-muted-foreground"
                             {...field}
                           />
                         </FormControl>
@@ -415,14 +415,14 @@ export default function SignupPage() {
                       name="password"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel className="text-sm font-medium text-primary">
+                          <FormLabel className="text-sm font-medium text-foreground">
                             Password
                           </FormLabel>
                           <FormControl>
                             <Input
                               type="password"
                               placeholder="Enter your password"
-                              className="h-11 rounded-lg border border-[#b6b6bd] bg-white text-sm text-primary"
+                              className="h-11 rounded-lg border border-input bg-background text-sm text-foreground placeholder:text-muted-foreground"
                               {...field}
                             />
                           </FormControl>
@@ -435,14 +435,14 @@ export default function SignupPage() {
                       name="confirmPassword"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel className="text-sm font-medium text-primary">
+                          <FormLabel className="text-sm font-medium text-foreground">
                             Confirm password
                           </FormLabel>
                           <FormControl>
                             <Input
                               type="password"
                               placeholder="Confirm your password"
-                              className="h-11 rounded-lg border border-[#b6b6bd] bg-white text-sm text-primary"
+                              className="h-11 rounded-lg border border-input bg-background text-sm text-foreground placeholder:text-muted-foreground"
                               {...field}
                             />
                           </FormControl>
@@ -457,13 +457,13 @@ export default function SignupPage() {
                     name="companyName"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel className="text-sm font-medium text-primary">
+                        <FormLabel className="text-sm font-medium text-foreground">
                           Company
                         </FormLabel>
                         <FormControl>
                           <Input
                             placeholder="Acme Inc."
-                            className="h-11 rounded-lg border border-[#b6b6bd] bg-white text-sm text-primary"
+                            className="h-11 rounded-lg border border-input bg-background text-sm text-foreground placeholder:text-muted-foreground"
                             {...field}
                           />
                         </FormControl>
@@ -479,7 +479,7 @@ export default function SignupPage() {
                       name="countryId"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel className="text-sm font-medium text-primary">
+                          <FormLabel className="text-sm font-medium text-foreground">
                             Country
                           </FormLabel>
                           <FormControl>
@@ -505,7 +505,7 @@ export default function SignupPage() {
                       name="stateId"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel className="text-sm font-medium text-primary">
+                          <FormLabel className="text-sm font-medium text-foreground">
                             State
                           </FormLabel>
                           <FormControl>
@@ -530,7 +530,7 @@ export default function SignupPage() {
                       name="cityId"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel className="text-sm font-medium text-primary">
+                          <FormLabel className="text-sm font-medium text-foreground">
                             City
                           </FormLabel>
                           <FormControl>
@@ -551,7 +551,7 @@ export default function SignupPage() {
 
                   <Button
                     type="submit"
-                    className="mt-1 h-11 w-full rounded-lg bg-primary text-sm font-semibold text-black hover:bg-[#b8f232]"
+                    className="mt-1 h-11 w-full rounded-lg bg-primary text-sm font-semibold text-secondary hover:bg-primary/90"
                     disabled={loading}
                   >
                     {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
@@ -560,11 +560,11 @@ export default function SignupPage() {
                 </form>
               </Form>
 
-              <p className="mt-8 text-center text-xs text-primary">
+              <p className="mt-8 text-center text-xs text-foreground">
                 Already have an account?
                 <Link
                   href="/login"
-                  className="ml-1 text-xs font-medium text-primary underline hover:text-primary/30"
+                  className="ml-1 text-xs font-medium text-foreground underline hover:text-muted-foreground"
                 >
                   Login
                 </Link>

@@ -374,11 +374,18 @@ export async function sendMailWithCompanyProvider({
   to,
   subject,
   html,
+  attachments,
 }: {
   companyId: string;
   to: string;
   subject: string;
   html: string;
+  attachments?: Array<{
+    filename?: string;
+    content?: string | Buffer;
+    contentType?: string;
+    encoding?: string;
+  }>;
 }) {
   try {
     const mailTransporter = await getCompanyTransporter(companyId);
@@ -390,6 +397,7 @@ export async function sendMailWithCompanyProvider({
       to,
       subject,
       html,
+      attachments,
     });
   } catch (err: any) {
     console.error(

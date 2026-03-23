@@ -85,7 +85,7 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen bg-primary text-secondary">
+    <div className="flex min-h-screen bg-background text-foreground">
       {/* Left panel – form */}
       <div className="flex flex-1 items-center justify-center px-8 lg:px-20">
         <div className="w-full max-w-md">
@@ -94,12 +94,12 @@ export default function LoginPage() {
             <div className="flex h-9 w-9 items-center justify-center rounded-full bg-black text-white text-xl font-semibold">
               m
             </div>
-            <span className="text-xl font-semibold tracking-tight text-secondary">GreenFrog.</span>
+            <span className="text-xl font-semibold tracking-tight text-foreground">GreenFrog.</span>
           </div>
 
           <Card className="border-none shadow-none bg-transparent p-0">
             <CardHeader className="px-0 pb-6 pt-0">
-              <CardTitle className="text-3xl font-semibold text-secondary">
+              <CardTitle className="text-3xl font-semibold text-foreground">
                 Welcome back
               </CardTitle>
               <CardDescription className="mt-1 text-base text-muted-foreground">
@@ -120,14 +120,14 @@ export default function LoginPage() {
                     name="email"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel className="text-sm font-medium text-secondary">
+                        <FormLabel className="text-sm font-medium text-foreground">
                           Email
                         </FormLabel>
                         <FormControl>
                           <Input
                             type="email"
                             placeholder="Enter your email"
-                            className="h-11 rounded-lg border border-[#b6b6bd] bg-white text-sm placeholder:text-muted-foreground/70 text-primary"
+                            className="h-11 rounded-lg border border-input bg-background text-sm text-foreground placeholder:text-muted-foreground"
                             {...field}
                           />
                         </FormControl>
@@ -140,14 +140,14 @@ export default function LoginPage() {
                     name="password"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel className="text-sm font-medium text-secondary">
+                        <FormLabel className="text-sm font-medium text-foreground">
                           Password
                         </FormLabel>
                         <FormControl>
                           <Input
                             type="password"
                             placeholder="Enter your password"
-                            className="h-11 rounded-lg border border-[#b6b6bd] bg-white text-sm text-primary"
+                            className="h-11 rounded-lg border border-input bg-background text-sm text-foreground placeholder:text-muted-foreground"
                             {...field}
                           />
                         </FormControl>
@@ -164,7 +164,7 @@ export default function LoginPage() {
                     </label>
                     <Link
                       href="/forgot-password"
-                      className="text-xs font-medium text-[#7f7f90] hover:text-black"
+                      className="text-xs font-medium text-muted-foreground hover:text-foreground"
                     >
                       Forgot password
                     </Link>
@@ -173,7 +173,7 @@ export default function LoginPage() {
                   {/* Primary sign in */}
                   <Button
                     type="submit"
-                    className="mt-1 h-11 w-full rounded-lg bg-[#C7FF3D] text-sm font-semibold text-black hover:bg-[#b8f232]"
+                    className="mt-1 h-11 w-full rounded-lg bg-primary text-sm font-semibold text-secondary hover:bg-primary/90"
                     disabled={loading}
                   >
                     {loading && (
@@ -187,11 +187,11 @@ export default function LoginPage() {
               </Form>
 
               {/* Bottom sign up text */}
-              <p className="mt-8 text-center text-xs text-secondary">
+              <p className="mt-8 text-center text-xs text-foreground">
                 Don&apos;t have an account?
                 <Link
                   href="/signup"
-                  className="ml-1 text-xs font-medium text-secondary underline decoration-[#C7FF3D] decoration-2 underline-offset-[6px]"
+                  className="ml-1 text-xs font-medium text-foreground underline decoration-zinc-400 decoration-2 underline-offset-[6px]"
                 >
                   Sign up for free
                 </Link>

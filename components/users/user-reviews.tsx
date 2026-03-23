@@ -7,13 +7,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-  DialogFooter,
-} from "@/components/ui/dialog";
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 
 interface Review {
     _id?: string;
@@ -30,7 +30,7 @@ interface UserReviewsProps {
 }
 
 export function UserReviews({ reviews, onSave }: UserReviewsProps) {
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [newReview, setNewReview] = useState<Partial<Review>>({
       rating: 5,
@@ -52,7 +52,7 @@ export function UserReviews({ reviews, onSave }: UserReviewsProps) {
             createdAt: new Date().toISOString()
         };
         await onSave(reviewToSave);
-        setIsDialogOpen(false);
+        setIsSheetOpen(false);
         setNewReview({ rating: 5, title: "", text: "", reviewer: "Admin" });
       } finally {
         setSaving(false);
@@ -63,17 +63,17 @@ export function UserReviews({ reviews, onSave }: UserReviewsProps) {
     <div className="space-y-4">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 sm:gap-0">
           <h3 className="text-lg font-medium">Customer Reviews</h3>
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-              <DialogTrigger asChild>
-                  <Button size="sm" className="gap-2">
-                      <Plus className="h-4 w-4" /> Add Review
-                  </Button>
-              </DialogTrigger>
-              <DialogContent>
-                  <DialogHeader>
-                      <DialogTitle>Add New Review</DialogTitle>
-                  </DialogHeader>
-                  <div className="space-y-4 py-4">
+          <Button size="sm" className="gap-2" onClick={() => setIsSheetOpen(true)}>
+              <Plus className="h-4 w-4" /> Add Review
+          </Button>
+          <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
+              <SheetContent side="right" className="sm:max-w-2xl w-full p-0 flex flex-col">
+                  <SheetHeader className="p-4 border-b gap-0">
+                      <SheetTitle>Add New Review</SheetTitle>
+                      <SheetDescription>Fill in review details and save.</SheetDescription>
+                  </SheetHeader>
+                  <div className="flex-1 overflow-y-auto p-6">
+                    <div className="space-y-4">
                       <div className="space-y-2">
                           <Label>Rating</Label>
                           <div className="flex gap-1">
@@ -110,11 +110,12 @@ export function UserReviews({ reviews, onSave }: UserReviewsProps) {
                                onChange={e => setNewReview(prev => ({ ...prev, reviewer: e.target.value }))}
                           />
                       </div>
+                    </div>
                   </div>
-                  <DialogFooter>
+                  <SheetFooter className="p-4 border-t bg-muted/30 flex justify-end gap-2">
                       <Button
                         variant="outline"
-                        onClick={() => setIsDialogOpen(false)}
+                        onClick={() => setIsSheetOpen(false)}
                         disabled={saving}
                       >
                         Cancel
@@ -126,9 +127,9 @@ export function UserReviews({ reviews, onSave }: UserReviewsProps) {
                         {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                         {saving ? "Saving..." : "Save Review"}
                       </Button>
-                  </DialogFooter>
-              </DialogContent>
-          </Dialog>
+                  </SheetFooter>
+              </SheetContent>
+          </Sheet>
       </div>
 
       {reviews.length === 0 && (

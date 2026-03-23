@@ -50,7 +50,7 @@ export function SettingsDisplay() {
               handleTableDensityChange(value as "comfortable" | "compact" | "spacious")
             }
           >
-            <SelectTrigger className="w-64">
+            <SelectTrigger className="w-full">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>

@@ -241,7 +241,7 @@ export default function EmailBuilderListPage() {
                         Blank Email
                     </Button> */}
                 {permissions.canCreate && (
-                    <Button onClick={() => setIsTemplateDialogOpen(true)} className="w-full sm:w-auto bg-zinc-900 hover:bg-zinc-800 text-white">
+                    <Button onClick={() => setIsTemplateDialogOpen(true)} className="w-full sm:w-auto bg-primary hover:bg-primary/90  text-secondary">
                         <Mail className="mr-2 h-4 w-4" />
                         Add Email
                     </Button>
@@ -370,13 +370,13 @@ export default function EmailBuilderListPage() {
                         <Button
                             variant="ghost"
                             onClick={() => setIsTemplateDialogOpen(false)}
-                            className="bg-[#6c757d] hover:bg-[#5a6268] text-white px-6 rounded-md h-10 font-medium"
+                            className="bg-secondary hover:bg-secondary/90 text-primary px-6 rounded-md h-10 font-medium"
                         >
                             Cancel
                         </Button>
                         <Button
                             onClick={handleConfirmTemplate}
-                            className="bg-[#dc3545] hover:bg-[#c82333] text-white px-6 rounded-md h-10 font-medium"
+                            className="bg-primary hover:bg-primary/90 text-secondary px-6 rounded-md h-10 font-medium"
                         >
                             Confirm
                         </Button>

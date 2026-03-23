@@ -42,7 +42,7 @@ export function CompanyPreferences({ formData, setFormData, saving, handleSubmit
                                     })
                                 }
                             >
-                                <SelectTrigger>
+                                <SelectTrigger className="w-full">
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -80,7 +80,7 @@ export function CompanyPreferences({ formData, setFormData, saving, handleSubmit
                                     })
                                 }
                             >
-                                <SelectTrigger>
+                                <SelectTrigger className="w-full">
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>

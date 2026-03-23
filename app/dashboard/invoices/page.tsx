@@ -102,6 +102,7 @@ export default function InvoicesPage() {
   const [actionLoadingType, setActionLoadingType] = useState<string | null>(null);
   const [deleteDialogInvoiceId, setDeleteDialogInvoiceId] = useState<string | null>(null);
   const [downloadingPdf, setDownloadingPdf] = useState(false);
+  const [sendingInvoiceEmail, setSendingInvoiceEmail] = useState(false);
   const [company, setCompany] = useState<{ name?: string; logo?: string; email?: string; phone?: string } | null>(
     null
   );
@@ -323,157 +324,134 @@ export default function InvoicesPage() {
     return <Badge variant={variants[status] || "default"}>{status}</Badge>;
   };
 
-  const handleDownloadPdf = async () => {
+  const buildInvoicePdf = async (mode: "download" | "email" = "download") => {
     if (!viewInvoice || !invoicePreviewRef.current) return;
     let wrapper: HTMLDivElement | null = null;
     try {
-      setDownloadingPdf(true);
-      const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
-        import("html2canvas"),
+      const [{ toPng, toJpeg }, { jsPDF }] = await Promise.all([
+        import("html-to-image"),
         import("jspdf"),
       ]);
+      // Render a clone off-screen at full height so PDF matches the invoice screenshot view.
+      const source = invoicePreviewRef.current;
+      const clone = source.cloneNode(true) as HTMLDivElement;
+      wrapper = document.createElement("div");
+      wrapper.classList.add("dark");
+      wrapper.style.position = "fixed";
+      wrapper.style.left = "-99999px";
+      wrapper.style.top = "0";
+      wrapper.style.width = `${source.clientWidth}px`;
+      wrapper.style.background = "#0b0b0b";
+      wrapper.style.colorScheme = "dark";
+      wrapper.style.padding = "0";
+      wrapper.style.zIndex = "-1";
+      clone.classList.add("dark");
+      clone.style.maxHeight = "none";
+      clone.style.height = "auto";
+      clone.style.overflow = "visible";
+      wrapper.appendChild(clone);
+      document.body.appendChild(wrapper);
 
-      const saveFallbackPdf = () => {
-        const pdf = new jsPDF("p", "mm", "a4");
-        const margin = 12;
-        let y = 14;
-        const line = (label: string, value: string = "") => {
-          pdf.setFont("helvetica", "bold");
-          pdf.text(label, margin, y);
-          pdf.setFont("helvetica", "normal");
-          if (value) pdf.text(value, margin + 45, y);
-          y += 6;
-          if (y > 282) {
-            pdf.addPage();
-            y = 14;
-          }
-        };
+      const isEmailMode = mode === "email";
+      const dataUrl = isEmailMode
+        ? await toJpeg(clone, {
+            pixelRatio: 1.25,
+            quality: 0.82,
+            cacheBust: true,
+            backgroundColor: "#0b0b0b",
+            canvasWidth: source.scrollWidth,
+            canvasHeight: source.scrollHeight,
+          })
+        : await toPng(clone, {
+            pixelRatio: 2,
+            cacheBust: true,
+            backgroundColor: "#0b0b0b",
+            canvasWidth: source.scrollWidth,
+            canvasHeight: source.scrollHeight,
+          });
 
-        const customerName =
-          [viewInvoice.contactId?.firstName, viewInvoice.contactId?.lastName].filter(Boolean).join(" ") ||
-          (viewInvoice.contactId as any)?.name ||
-          "N/A";
+      const pdf = new jsPDF("p", "mm", "a4");
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      const imgWidth = pageWidth;
+      const imgProps = pdf.getImageProperties(dataUrl);
+      const imgHeight = (imgProps.height * imgWidth) / imgProps.width;
 
-        pdf.setFont("helvetica", "bold");
-        pdf.setFontSize(16);
-        pdf.text(`Invoice #${viewInvoice.invoiceNumber}`, margin, y);
-        y += 8;
-        pdf.setFontSize(11);
-        line("Date", new Date(viewInvoice.issueDate).toLocaleDateString());
-        line("Due Date", new Date(viewInvoice.dueDate).toLocaleDateString());
-        line("Status", viewInvoice.status);
-        line("Customer", customerName);
-        line("Customer Email", viewInvoice.contactId?.email || "-");
-        line("Company", company?.name || "Company");
-        line("Company Email", company?.email || "-");
-        line("Company Phone", company?.phone || "-");
-        if (viewBooking?.serviceId?.name) line("Main Service", viewBooking.serviceId.name);
-        y += 2;
+      let heightLeft = imgHeight;
+      let position = 0;
 
-        pdf.setFont("helvetica", "bold");
-        pdf.text("Items", margin, y);
-        y += 6;
-        pdf.setFont("helvetica", "normal");
-        (viewInvoice.items || []).forEach((item) => {
-          const txt = `${item.description} | Qty: ${item.quantity} | Rate: ${formatCurrency(
-            Number(item.unitPrice) || 0,
-            viewInvoice.currency
-          )} | Total: ${formatCurrency(Number(item.total) || 0, viewInvoice.currency)}`;
-          const lines = pdf.splitTextToSize(txt, 180);
-          pdf.text(lines, margin, y);
-          y += 6 * lines.length;
-          if (y > 282) {
-            pdf.addPage();
-            y = 14;
-          }
-        });
+      const imageType = isEmailMode ? "JPEG" : "PNG";
+      pdf.addImage(dataUrl, imageType, 0, position, imgWidth, imgHeight, undefined, "FAST");
+      heightLeft -= pageHeight;
 
-        const tax = Number(viewInvoice.taxAmount) || 0;
-        const discount = Math.abs(
-          (viewInvoice.items || []).reduce((sum, i) => {
-            const t = Number((i as any).total) || 0;
-            const desc = String((i as any).description || "").toLowerCase();
-            return sum + (t < 0 || desc.startsWith("discount") ? t : 0);
-          }, 0)
-        );
-        const grossSubtotal = (viewInvoice.items || []).reduce((sum, i) => {
-          const t = Number((i as any).total) || 0;
-          const desc = String((i as any).description || "").toLowerCase();
-          const isDiscount = t < 0 || desc.startsWith("discount");
-          return sum + (isDiscount ? 0 : Math.max(0, t));
-        }, 0);
-        const subtotal = Math.max(0, grossSubtotal - discount);
-        const total = Math.max(0, subtotal + tax);
-
-        y += 4;
-        line("Subtotal", formatCurrency(subtotal, viewInvoice.currency));
-        line("Tax", formatCurrency(tax, viewInvoice.currency));
-        line("Total Discount", `-${formatCurrency(discount, viewInvoice.currency)}`);
-        line("Total", formatCurrency(total, viewInvoice.currency));
-
-        pdf.save(`invoice-${viewInvoice.invoiceNumber}.pdf`);
-      };
-
-      try {
-        // Render a clone off-screen at full height so PDF matches the invoice screenshot view.
-        const source = invoicePreviewRef.current;
-        const clone = source.cloneNode(true) as HTMLDivElement;
-        wrapper = document.createElement("div");
-        wrapper.style.position = "fixed";
-        wrapper.style.left = "-99999px";
-        wrapper.style.top = "0";
-        wrapper.style.width = `${source.clientWidth}px`;
-        wrapper.style.background = "#0b0b0b";
-        wrapper.style.padding = "0";
-        wrapper.style.zIndex = "-1";
-        clone.style.maxHeight = "none";
-        clone.style.height = "auto";
-        clone.style.overflow = "visible";
-        wrapper.appendChild(clone);
-        document.body.appendChild(wrapper);
-
-        const canvas = await html2canvas(clone, {
-          scale: 2,
-          useCORS: true,
-          backgroundColor: "#0b0b0b",
-          windowWidth: source.scrollWidth,
-          windowHeight: source.scrollHeight,
-        });
-
-        const imgData = canvas.toDataURL("image/png");
-        const pdf = new jsPDF("p", "mm", "a4");
-        const pageWidth = pdf.internal.pageSize.getWidth();
-        const pageHeight = pdf.internal.pageSize.getHeight();
-        const imgWidth = pageWidth;
-        const imgHeight = (canvas.height * imgWidth) / canvas.width;
-
-        let heightLeft = imgHeight;
-        let position = 0;
-
-        pdf.addImage(imgData, "PNG", 0, position, imgWidth, imgHeight);
+      while (heightLeft > 0) {
+        position = heightLeft - imgHeight;
+        pdf.addPage();
+        pdf.addImage(dataUrl, imageType, 0, position, imgWidth, imgHeight, undefined, "FAST");
         heightLeft -= pageHeight;
-
-        while (heightLeft > 0) {
-          position = heightLeft - imgHeight;
-          pdf.addPage();
-          pdf.addImage(imgData, "PNG", 0, position, imgWidth, imgHeight);
-          heightLeft -= pageHeight;
-        }
-
-        pdf.save(`invoice-${viewInvoice.invoiceNumber}.pdf`);
-      } catch (captureError) {
-        // html2canvas can fail on unsupported CSS color functions like lab()/oklch()
-        console.warn("Screenshot export failed, using data-driven PDF fallback.", captureError);
-        saveFallbackPdf();
       }
+
+      return {
+        pdf,
+        fileName: `invoice-${viewInvoice.invoiceNumber}.pdf`,
+      };
     } catch (error) {
-      console.error("Failed to download invoice PDF:", error);
-      toast.error("Failed to download invoice PDF");
+      console.error("Failed to render styled invoice PDF:", error);
+      throw error;
     } finally {
       if (wrapper && wrapper.parentNode) {
         wrapper.parentNode.removeChild(wrapper);
       }
+    }
+  };
+
+  const handleDownloadPdf = async () => {
+    if (!viewInvoice || !invoicePreviewRef.current) return;
+    try {
+      setDownloadingPdf(true);
+      const result = await buildInvoicePdf("download");
+      if (!result) return;
+      result.pdf.save(result.fileName);
+    } catch (error) {
+      console.error("Failed to download invoice PDF:", error);
+      toast.error("Failed to download styled invoice PDF");
+    } finally {
       setDownloadingPdf(false);
+    }
+  };
+
+  const handleSendInvoiceEmail = async () => {
+    if (!viewInvoice || !invoicePreviewRef.current) return;
+    try {
+      setSendingInvoiceEmail(true);
+      const result = await buildInvoicePdf("email");
+      if (!result) return;
+
+      const pdfDataUri = result.pdf.output("datauristring");
+      const response = await fetch(`/api/invoices/${viewInvoice._id}/send`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          pdfBase64: pdfDataUri,
+          pdfFileName: result.fileName,
+        }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data?.error || "Failed to send invoice email");
+      }
+
+      toast.success("Invoice sent to client successfully");
+      if (data?.invoice) {
+        setViewInvoice(data.invoice);
+      }
+      fetchInvoices();
+    } catch (error: any) {
+      console.error("Failed to send invoice email:", error);
+      toast.error(error?.message || "Failed to send invoice email");
+    } finally {
+      setSendingInvoiceEmail(false);
     }
   };
 
@@ -732,15 +710,8 @@ export default function InvoicesPage() {
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                onClick={() =>
-                                  handleStatusChange(invoice._id, "sent")
-                                }
-                                disabled={actionLoadingId === invoice._id}
+                                onClick={() => setViewInvoice(invoice)}
                               >
-                                {actionLoadingId === invoice._id &&
-                                  actionLoadingType === "sent" && (
-                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                  )}
                                 Send
                               </Button>
                             )}
@@ -1019,9 +990,9 @@ export default function InvoicesPage() {
                             return (
                               <>
                                 <div className="flex justify-between text-muted-foreground">
-                                  <span>Subtotal</span>
+                                  <span>Gross Subtotal</span>
                                   <span className="text-foreground">
-                                    {formatCurrency(subtotal, viewInvoice.currency)}
+                                    {formatCurrency(grossSubtotal, viewInvoice.currency)}
                                   </span>
                                 </div>
                                 <div className="flex justify-between text-muted-foreground">
@@ -1114,13 +1085,15 @@ export default function InvoicesPage() {
             <SheetFooter className="p-4 border-t bg-muted/30 flex justify-end gap-2">
               {permissions.canEdit && viewInvoice.status === "draft" && (
                 <Button
-                  onClick={async () => {
-                    await handleStatusChange(viewInvoice._id, "sent");
-                    setViewInvoice({ ...viewInvoice, status: "sent" });
-                  }}
+                  onClick={handleSendInvoiceEmail}
+                  disabled={sendingInvoiceEmail || downloadingPdf}
                 >
-                  <Send className="mr-2 h-4 w-4" />
-                  Send
+                  {sendingInvoiceEmail ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Send className="mr-2 h-4 w-4" />
+                  )}
+                  {sendingInvoiceEmail ? "Sending..." : "Send"}
                 </Button>
               )}
               {permissions.canEdit && viewInvoice.status === "sent" && (

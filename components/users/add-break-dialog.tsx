@@ -1,14 +1,21 @@
 "use client";
 
 import { useState } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import {
+    Sheet,
+    SheetContent,
+    SheetDescription,
+    SheetFooter,
+    SheetHeader,
+    SheetTitle,
+} from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DateTimePicker } from "@/components/ui/date-time-picker";
 import { format } from "date-fns";
-import { X, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 
 interface AddBreakDialogProps {
     open: boolean;
@@ -52,16 +59,16 @@ export function AddBreakDialog({ open, onOpenChange, onSave, loading }: AddBreak
     };
 
     return (
-        <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-[500px] p-0 gap-0 overflow-hidden">
-                <DialogHeader className=" p-4 text-white flex flex-row items-center justify-between space-y-0">
-                    <DialogTitle className="text-lg font-semibold">
+        <Sheet open={open} onOpenChange={onOpenChange}>
+            <SheetContent side="right" className="sm:max-w-2xl w-full p-0 flex flex-col">
+                <SheetHeader className="p-4 border-b gap-0">
+                    <SheetTitle className="text-lg font-semibold">
                         Add Break
-                    </DialogTitle>
-                    
-                </DialogHeader>
+                    </SheetTitle>
+                    <SheetDescription>Add technician off-time details and save.</SheetDescription>
+                </SheetHeader>
 
-                <div className="p-6 grid gap-4">
+                <div className="flex-1 overflow-y-auto p-6 flex flex-col gap-6">
                     {/* Date & Time Selection */}
                      <div className="flex flex-col gap-2">
                         <Label className=" font-semibold">Select Date & Time</Label>
@@ -87,7 +94,7 @@ export function AddBreakDialog({ open, onOpenChange, onSave, loading }: AddBreak
                     <div className="flex flex-col gap-2">
                         <Label className="text-muted-foreground">Select Off Time Request</Label>
                         <Select onValueChange={setReason} value={reason}>
-                            <SelectTrigger>
+                            <SelectTrigger className="w-full">
                                 <SelectValue placeholder="Select Off Time Request" />
                             </SelectTrigger>
                             <SelectContent className="z-[100]" position="popper">
@@ -111,24 +118,24 @@ export function AddBreakDialog({ open, onOpenChange, onSave, loading }: AddBreak
                     </div>
                 </div>
 
-                <DialogFooter className="flex justify-center sm:justify-center gap-2 p-6 pt-0">
+                <SheetFooter className="p-4 border-t bg-muted/30 flex justify-end gap-2">
                     <Button 
-                        // variant="destructive" 
+                        type="button"
+                        variant="outline"
                         onClick={() => onOpenChange(false)} 
-                        className="min-w-[100px] bg-zinc-900 hover:bg-zinc-800 border text-white"
                     >
                         Cancel
                     </Button>
                     <Button 
+                        type="button"
                         onClick={handleSave} 
-                        className=" hover:bg-zinc-300 text-black min-w-[100px]"
                         disabled={loading}
                     >
                         {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                         {loading ? "Saving..." : "Save"}
                     </Button>
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
+                </SheetFooter>
+            </SheetContent>
+        </Sheet>
     );
 }
