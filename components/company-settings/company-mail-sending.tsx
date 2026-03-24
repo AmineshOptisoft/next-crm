@@ -390,7 +390,7 @@ export function CompanyMailSending({ company }: CompanyMailSendingProps) {
                                 </div>
                             ) : (
                                 <div className="text-center">
-                                    <h3 className="text-lg font-medium text-primary">Connect your Google Account</h3>
+                                    <button className="text-lg font-medium text-primary">Connect your Google Account</button>
                                     <p className="text-sm text-zinc-500 mb-4">Allow CRM to send emails on your behalf</p>
                                     
                                 </div>

@@ -102,6 +102,9 @@ interface AppointmentDetailsSheetProps {
   onUpdate?: () => void;
   /** When true, shows booking data only with no action buttons or editing */
   readOnly?: boolean;
+  /** Optional top-right manage action, useful in read-only contexts */
+  onManageBooking?: () => void;
+  manageBookingLabel?: string;
 }
 
 export function AppointmentDetailsSheet({
@@ -110,6 +113,8 @@ export function AppointmentDetailsSheet({
   onOpenChange,
   onUpdate,
   readOnly = false,
+  onManageBooking,
+  manageBookingLabel = "Manage Booking",
 }: AppointmentDetailsSheetProps) {
   if (!appointment) return null;
 
@@ -190,16 +195,22 @@ export function AppointmentDetailsSheet({
         </SheetHeader>
 
         <div className="flex-1 overflow-y-auto p-4 space-y-6 custom-scrollbar">
-          {!readOnly && (
+          {(!readOnly || onManageBooking) && (
             <div className="flex justify-end">
-              <Button
-                variant="default"
-                className="w-fit"
-                onClick={() => setEditBookingOpen(true)}
-              >
-                <Pencil className="h-4 w-4 mr-2" />
-                Edit Booking Detail
-              </Button>
+              {onManageBooking ? (
+                <Button variant="default" className="w-fit" onClick={onManageBooking}>
+                  {manageBookingLabel}
+                </Button>
+              ) : (
+                <Button
+                  variant="default"
+                  className="w-fit"
+                  onClick={() => setEditBookingOpen(true)}
+                >
+                  <Pencil className="h-4 w-4 mr-2" />
+                  Edit Booking Detail
+                </Button>
+              )}
             </div>
           )}
 

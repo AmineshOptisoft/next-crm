@@ -70,6 +70,7 @@ import { Separator } from "@/components/ui/separator";
 import { DataTable } from "@/components/data-table";
 import { ColumnDef } from "@tanstack/react-table";
 import { cn } from "@/lib/utils";
+import { usePermissions } from "@/hooks/usePermissions";
 
 // ─── Lazy-load country-state-city + VirtualGeoSelect (same as bookings) ──────
 let geoCache: any = null;
@@ -240,6 +241,14 @@ interface ContactType {
 
 export default function ContactsPage() {
   const router = useRouter();
+  const {
+    canView,
+    canCreate,
+    canEdit,
+    canDelete,
+    canExport,
+    isLoading: permissionsLoading,
+  } = usePermissions("contacts");
   const [contacts, setContacts] = useState<ContactType[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState<any>(null);
@@ -321,9 +330,14 @@ export default function ContactsPage() {
   const [usersList, setUsersList] = useState<any[]>([]);
 
   useEffect(() => {
+    if (permissionsLoading) return;
+    if (!canView) {
+      setLoading(false);
+      return;
+    }
     // Fetch in parallel to reduce waterfall.
     Promise.all([fetchContacts(), fetchCurrentUser(), fetchZones(), fetchUsers()]).finally(() => setLoading(false));
-  }, []);
+  }, [permissionsLoading, canView]);
 
   async function fetchUsers() {
     try {
@@ -712,6 +726,14 @@ export default function ContactsPage() {
     return <Badge className={map[status] || "bg-gray-100"} variant="outline">{status}</Badge>;
   };
 
+  if (permissionsLoading || loading) {
+    return <div className="p-8 text-center">Loading contacts...</div>;
+  }
+
+  if (!canView) {
+    return <div className="p-8 text-center text-muted-foreground">You do not have permission to view contacts.</div>;
+  }
+
   return (
     <div className="space-y-6 ">
       <div>
@@ -768,22 +790,26 @@ export default function ContactsPage() {
         }
         rightSlot={
           <>
-            <Button
-              variant="outline"
-              onClick={exportCSV}
-              className="hidden md:inline-flex"
-            >
-              <Download className="mr-2 h-4 w-4" /> Export CSV
-            </Button>
-            <Button
-              onClick={() => {
-                resetForm();
-                setIsSheetOpen(true);
-              }}
-              className="hidden md:inline-flex"
-            >
-              <Plus className="mr-2 h-4 w-4" /> Add New Client
-            </Button>
+            {canExport && (
+              <Button
+                variant="outline"
+                onClick={exportCSV}
+                className="hidden md:inline-flex"
+              >
+                <Download className="mr-2 h-4 w-4" /> Export CSV
+              </Button>
+            )}
+            {canCreate && (
+              <Button
+                onClick={() => {
+                  resetForm();
+                  setIsSheetOpen(true);
+                }}
+                className="hidden md:inline-flex"
+              >
+                <Plus className="mr-2 h-4 w-4" /> Add New Client
+              </Button>
+            )}
           </>
         }
         columns={[
@@ -881,23 +907,27 @@ export default function ContactsPage() {
               const contact = row.original;
               return (
                 <div className="flex items-center gap-2">
-                  <Button size="icon" variant="ghost" onClick={() => router.push(`/dashboard/contacts/${contact._id}`)}>
-                    <Pencil className="h-4 w-4" />
-                  </Button>
-                  <Button size="icon" variant="ghost" className="text-destructive hover:text-destructive" onClick={() => openDeleteDialog(contact._id)} disabled={deletingId === contact._id}>
-                    {deletingId === contact._id ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Trash2 className="h-4 w-4" />
-                    )}
-                  </Button>
+                  {(canView || canEdit) && (
+                    <Button size="icon" variant="ghost" onClick={() => router.push(`/dashboard/contacts/${contact._id}`)}>
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                  )}
+                  {canDelete && (
+                    <Button size="icon" variant="ghost" className="text-destructive hover:text-destructive" onClick={() => openDeleteDialog(contact._id)} disabled={deletingId === contact._id}>
+                      {deletingId === contact._id ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Trash2 className="h-4 w-4" />
+                      )}
+                    </Button>
+                  )}
                 </div>
               );
             },
           },
         ].filter(col => {
           if (col.accessorKey) return (visibleColumns as any)[col.accessorKey];
-          if (col.id === 'actions') return visibleColumns.action;
+          if (col.id === 'actions') return visibleColumns.action && (canView || canEdit || canDelete);
           return true;
         }) as ColumnDef<ContactType>[]}
         data={filteredContacts}
@@ -1303,16 +1333,18 @@ export default function ContactsPage() {
 
           <SheetFooter className="p-4 border-t gap-2 flex flex-row justify-end ">
             <Button variant="outline" onClick={() => setIsSheetOpen(false)}>Cancel</Button>
-            <Button onClick={handleSubmit} disabled={isSaving}>
-              {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Save Changes
-            </Button>
+            {((editingContact && canEdit) || (!editingContact && canCreate)) && (
+              <Button onClick={handleSubmit} disabled={isSaving}>
+                {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Save Changes
+              </Button>
+            )}
           </SheetFooter>
         </SheetContent>
       </Sheet>
 
       {/* Delete Confirmation Dialog */}
-      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+      <Dialog open={isDeleteDialogOpen && canDelete} onOpenChange={setIsDeleteDialogOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Delete Contact</DialogTitle>

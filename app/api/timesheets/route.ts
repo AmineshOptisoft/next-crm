@@ -168,6 +168,18 @@ export async function GET(req: NextRequest) {
 
       const manualMembers: string[] = Array.isArray(b.timesheet?.teamMembers) ? b.timesheet.teamMembers : [];
       const teamMembers = Array.from(new Set([...otherTechs, ...manualMembers])).filter(Boolean);
+      const cleaningTime = Number(b.timesheet?.cleaningTime) || 0;
+      const drivingTime = Number(b.timesheet?.drivingTime) || 0;
+      const billedHoursFromPricing = Number(b.pricing?.billedHours);
+      const fallbackBilledHours = Number(((cleaningTime + drivingTime) / 60).toFixed(2));
+      const hasTimesForCalculation = cleaningTime > 0 || drivingTime > 0;
+      const billedHours =
+        Number.isFinite(billedHoursFromPricing) &&
+        billedHoursFromPricing > 0
+          ? billedHoursFromPricing
+          : hasTimesForCalculation
+            ? fallbackBilledHours
+            : 0;
 
       return {
         bookingId: b._id?.toString?.() ?? String(b._id),
@@ -176,13 +188,13 @@ export async function GET(req: NextRequest) {
         endDateTime: b.endDateTime,
         clientName: clientName || "-",
         technicianName: technicianName || "-",
-        cleaningTime: b.timesheet?.cleaningTime ?? 0,
+        cleaningTime,
         totalTeamTime: b.timesheet?.totalTeamTime ?? 0,
         generalTime: b.timesheet?.generalTime ?? 0,
-        drivingTime: b.timesheet?.drivingTime ?? 0,
+        drivingTime,
         trainingTime: b.timesheet?.trainingTime ?? 0,
         teamMembers,
-        billedHours: b.pricing?.billedHours ?? 0,
+        billedHours,
         timesheetNotes: b.timesheet?.notes ?? "",
       };
     });

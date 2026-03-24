@@ -27,6 +27,7 @@ import {
     TableRow,
 } from "@/components/ui/table";
 import { AppointmentDetailsSheet, type AppointmentDetails } from "@/components/appointments/appointment-details-sheet";
+import { usePermissions } from "@/hooks/usePermissions";
 
 // ─── Lazy-load country-state-city once — never blocks the JS bundle ───────────
 let geoCache: any = null;
@@ -171,6 +172,13 @@ const VirtualGeoSelect = memo(function VirtualGeoSelect({
 
 export default function ContactDetailPage({ params }: { params: Promise<{ id: string }> }) {
     const router = useRouter();
+    const {
+        canView,
+        canCreate,
+        canEdit,
+        canDelete,
+        isLoading: permissionsLoading,
+    } = usePermissions("contacts");
     const resolvedParams = use(params);
     const id = resolvedParams.id;
 
@@ -259,11 +267,16 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
     };
 
     useEffect(() => {
+        if (permissionsLoading) return;
+        if (!canView) {
+            setLoading(false);
+            return;
+        }
         if (id) {
             fetchContact();
             fetchContactBookings();
         }
-    }, [id]);
+    }, [id, permissionsLoading, canView]);
 
     async function fetchContact() {
         try {
@@ -496,7 +509,8 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
         );
     };
 
-    if (loading) return <div className="p-8 text-center">Loading...</div>;
+    if (permissionsLoading || loading) return <div className="p-8 text-center">Loading...</div>;
+    if (!canView) return <div className="p-8 text-center text-muted-foreground">You do not have permission to view contacts.</div>;
     if (!data) return <div className="p-8 text-center">Contact not found</div>;
 
     return (
@@ -622,29 +636,33 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
 
                     {/* Action Buttons */}
                     <div className="p-4 border-t flex gap-2">
-                        <Button
-                            className="flex-1"
-                            onClick={() => handleUpdate("summary")}
-                            disabled={updatingSection === "summary"}
-                        >
-                            {updatingSection === "summary" && (
-                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            )}
-                            Update
-                        </Button>
-                        <Button
-                            variant="destructive"
-                            size="icon"
-                            onClick={() => setDeleteDialogOpen(true)}
-                        >
-                            <Trash2 className="h-4 w-4" />
-                        </Button>
+                        {canEdit && (
+                            <Button
+                                className="flex-1"
+                                onClick={() => handleUpdate("summary")}
+                                disabled={updatingSection === "summary"}
+                            >
+                                {updatingSection === "summary" && (
+                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                )}
+                                Update
+                            </Button>
+                        )}
+                        {canDelete && (
+                            <Button
+                                variant="destructive"
+                                size="icon"
+                                onClick={() => setDeleteDialogOpen(true)}
+                            >
+                                <Trash2 className="h-4 w-4" />
+                            </Button>
+                        )}
                         <Button variant="outline" onClick={() => router.push('/dashboard/contacts')}>Cancel</Button>
                     </div>
                 </div>
 
                 {/* Delete Contact Confirmation */}
-                <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+                <Dialog open={deleteDialogOpen && canDelete} onOpenChange={setDeleteDialogOpen}>
                     <DialogContent>
                         <DialogHeader>
                             <DialogTitle>Delete contact</DialogTitle>
@@ -659,15 +677,17 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
                             >
                                 Cancel
                             </Button>
-                            <Button
-                                variant="destructive"
-                                onClick={async () => {
-                                    setDeleteDialogOpen(false);
-                                    await handleDelete();
-                                }}
-                            >
-                                Delete
-                            </Button>
+                                {canDelete && (
+                                    <Button
+                                        variant="destructive"
+                                        onClick={async () => {
+                                            setDeleteDialogOpen(false);
+                                            await handleDelete();
+                                        }}
+                                    >
+                                        Delete
+                                    </Button>
+                                )}
                         </DialogFooter>
                     </DialogContent>
                 </Dialog>
@@ -699,7 +719,23 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
                         {/* ── Billing Details Tab ── */}
                         <TabsContent value="billing" className="flex-1 overflow-y-auto p-6 mt-0">
                             <div className="space-y-4">
-                                <h3 className=" text-foreground ">Billing Address</h3>
+                                <div className="flex items-center justify-between">
+                                    <h3 className=" text-foreground ">Billing Address</h3>
+                                {canEdit && (
+                                    <div className="flex item-center justify-end">
+                                        <Button
+                                            className="max-w-40"
+                                            onClick={() => handleUpdate("billing")}
+                                            disabled={updatingSection === "billing"}
+                                        >
+                                            {updatingSection === "billing" && (
+                                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                            )}
+                                            Update
+                                        </Button>
+                                    </div>
+                                )}
+                                </div>
                                 <div className="grid grid-cols-1 gap-4">
                                     <div className="space-y-1">
                                         
@@ -746,19 +782,6 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
                                     </div>
                                 </div>
 
-                                
-                                <div className="flex item-center justify-end">
-                                    <Button
-                                        className="flex-1"
-                                        onClick={() => handleUpdate("billing")}
-                                        disabled={updatingSection === "billing"}
-                                    >
-                                        {updatingSection === "billing" && (
-                                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                        )}
-                                        Update
-                                    </Button>
-                                </div>
 
                                 <Separator />
 
@@ -769,6 +792,24 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
                         {/* ── Booking Data Tab ── */}
                         <TabsContent value="booking" className="flex-1 overflow-y-auto p-6 mt-0">
                             <div className="space-y-4 ">
+
+                            <div className="flex items-center justify-between">
+                                    <h3 className=" text-foreground ">Personal Details</h3>
+                                    {canEdit && (
+                                <div className="flex item-center justify-end">
+                                    <Button
+                                        className="max-w-40"
+                                        onClick={() => handleUpdate("booking")}
+                                        disabled={updatingSection === "booking"}
+                                    >
+                                        {updatingSection === "booking" && (
+                                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                        )}
+                                        Update
+                                    </Button>
+                                </div>
+                            )}
+                                </div>
                                 
                                 <div className="grid grid-cols-2 gap-4">
                                     <div className="space-y-1">
@@ -890,18 +931,7 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
                                      <Label>FSR Assigned</Label>
                                      <Input value={data.fsrAssigned || ""} readOnly className="bg-muted" />
                                  </div>
-                            <div className="flex item-center justify-end">
-                                <Button
-                                    className="flex-1"
-                                    onClick={() => handleUpdate("booking")}
-                                    disabled={updatingSection === "booking"}
-                                >
-                                    {updatingSection === "booking" && (
-                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                    )}
-                                    Update
-                                </Button>
-                            </div>
+                            
                             </div>
                         </TabsContent>
 
@@ -922,9 +952,11 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
                                 <div className="flex items-center justify-between">
                                     <h3 className="font-semibold text-foreground">Shipping Address List</h3>
                                     <Sheet>
-                                        <SheetTrigger asChild>
-                                            <Button className="bg-black hover:bg-gray-800 text-white">Add Address</Button>
-                                        </SheetTrigger>
+                                        {canCreate && (
+                                            <SheetTrigger asChild>
+                                                <Button className="bg-black hover:bg-gray-800 text-white">Add Address</Button>
+                                            </SheetTrigger>
+                                        )}
                                         <SheetContent side="right" className="sm:max-w-2xl w-full p-0 flex flex-col">
                                             <SheetHeader className="p-4 border-b">
                                                 <SheetTitle>Shipping Address</SheetTitle>
@@ -972,9 +1004,11 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
                                                     </div>
                                                 </div>
                                                 <SheetFooter className="p-4 border-t gap-2">
-                                                    <SheetClose asChild>
-                                                        <Button type="submit">Save Changes</Button>
-                                                    </SheetClose>
+                                                    {canCreate && (
+                                                        <SheetClose asChild>
+                                                            <Button type="submit">Save Changes</Button>
+                                                        </SheetClose>
+                                                    )}
                                                     <SheetClose asChild>
                                                         <Button type="button" variant="outline">Cancel</Button>
                                                     </SheetClose>
@@ -997,7 +1031,7 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
                                                 </p>
                                             </div>
                                             <div className="flex items-center gap-2">
-                                                {!isDefaultShippingAddress(addr) && (
+                                                {canEdit && !isDefaultShippingAddress(addr) && (
                                                     <Button
                                                         variant="outline"
                                                         size="sm"
@@ -1010,19 +1044,21 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
                                                         Set Default
                                                     </Button>
                                                 )}
-                                                <Button size="icon" variant="ghost" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={() => {
-                                                    const newAddrs = [...data.shippingAddresses];
-                                                    const deletingDefault = isDefaultShippingAddress(addr);
-                                                    newAddrs.splice(index, 1);
-                                                    setData({
-                                                        ...data,
-                                                        shippingAddresses: newAddrs,
-                                                        shippingAddress: deletingDefault ? (newAddrs[0] ? { ...newAddrs[0] } : {}) : data.shippingAddress,
-                                                        defaultShippingAddress: deletingDefault ? (newAddrs[0] ? { ...newAddrs[0] } : {}) : (data.defaultShippingAddress || data.shippingAddress),
-                                                    });
-                                                }}>
-                                                    <Trash2 className="h-4 w-4" />
-                                                </Button>
+                                                {canDelete && (
+                                                    <Button size="icon" variant="ghost" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={() => {
+                                                        const newAddrs = [...data.shippingAddresses];
+                                                        const deletingDefault = isDefaultShippingAddress(addr);
+                                                        newAddrs.splice(index, 1);
+                                                        setData({
+                                                            ...data,
+                                                            shippingAddresses: newAddrs,
+                                                            shippingAddress: deletingDefault ? (newAddrs[0] ? { ...newAddrs[0] } : {}) : data.shippingAddress,
+                                                            defaultShippingAddress: deletingDefault ? (newAddrs[0] ? { ...newAddrs[0] } : {}) : (data.defaultShippingAddress || data.shippingAddress),
+                                                        });
+                                                    }}>
+                                                        <Trash2 className="h-4 w-4" />
+                                                    </Button>
+                                                )}
                                             </div>
                                         </div>
                                     ))}

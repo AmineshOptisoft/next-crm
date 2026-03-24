@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { connectDB } from "@/lib/db";
 import { Booking } from "@/app/models/Booking";
+import { Service } from "@/app/models/Service";
+import { log } from "console";
 
 // ─── Helper ───────────────────────────────────────────────────────────────────
 // Fields that should be SYNCED to every co-technician document that shares
@@ -20,12 +22,61 @@ const SHARED_FIELDS = [
     "promocode",
     "shippingAddress",
     "pricing",
-    "timesheet",
 ] as const;
 
 // Fields that are only personal to this specific booking document
 // (e.g. reassigning one tech while keeping others)
-const PERSONAL_FIELDS = ["technicianId", "technicianIds"] as const;
+const PERSONAL_FIELDS = ["technicianId", "technicianIds", "timesheet"] as const;
+
+async function calculateGeneralTimeMinutes(booking: any): Promise<number> {
+    const serviceIds = new Set<string>();
+
+    if (booking?.serviceId) {
+        serviceIds.add(String(booking.serviceId));
+    }
+
+    for (const item of booking?.subServices || []) {
+        if (item?.serviceId) serviceIds.add(String(item.serviceId));
+    }
+
+    for (const item of booking?.addons || []) {
+        if (item?.serviceId) serviceIds.add(String(item.serviceId));
+    }
+
+    if (serviceIds.size === 0) return 0;
+
+    const services = await Service.find(
+        { _id: { $in: Array.from(serviceIds) } },
+        { estimatedTime: 1 }
+    ).lean();
+
+    const estimatedTimeById = new Map<string, number>();
+    for (const svc of services as any[]) {
+        estimatedTimeById.set(String(svc._id), Number(svc.estimatedTime) || 0);
+    }
+
+    let total = 0;
+
+    // Main service is treated as 1 unit.
+    if (booking?.serviceId) {
+        total += estimatedTimeById.get(String(booking.serviceId)) || 0;
+    }
+
+    // Sub-services and addons use selected quantity as units.
+    for (const item of booking?.subServices || []) {
+        const perUnit = estimatedTimeById.get(String(item?.serviceId)) || 0;
+        const qty = Math.max(0, Number(item?.quantity) || 0);
+        total += perUnit * qty;
+    }
+
+    for (const item of booking?.addons || []) {
+        const perUnit = estimatedTimeById.get(String(item?.serviceId)) || 0;
+        const qty = Math.max(0, Number(item?.quantity) || 0);
+        total += perUnit * qty;
+    }
+
+    return total;
+}
 
 // ─── GET — Fetch single booking ───────────────────────────────────────────────
 export async function GET(
@@ -93,9 +144,28 @@ export async function PATCH(
         // ── 2. Apply shared + personal fields to THIS document ──
         [...SHARED_FIELDS, ...PERSONAL_FIELDS].forEach((field) => {
             if (body[field] !== undefined) {
-                (booking as any)[field] = body[field];
+                // Timesheet is technician-specific; merge so partial updates don't wipe existing values.
+                if (field === "timesheet") {
+                    (booking as any).timesheet = {
+                        ...((booking as any).timesheet || {}),
+                        ...(body.timesheet || {}),
+                    };
+                } else {
+                    (booking as any)[field] = body[field];
+                }
             }
         });
+
+        // ── 2.1 Recalculate billed hours for this technician ──
+        // billedHours = (cleaningTime + drivingTime) / 60
+        const cleaningTime = Number((booking as any)?.timesheet?.cleaningTime) || 0;
+        const drivingTime = Number((booking as any)?.timesheet?.drivingTime) || 0;
+        const billedHours = Number(((cleaningTime + drivingTime) / 60).toFixed(2));
+        (booking as any).pricing = {
+            ...((booking as any).pricing || {}),
+            billedHours,
+        };
+        console.log("billedHours", billedHours);
 
         await booking.save();
 
@@ -128,7 +198,61 @@ export async function PATCH(
             }
         }
 
-        return NextResponse.json(booking);
+        // ── 4. Recalculate general time from selected service units ──
+        // generalTime = sum(estimatedTime(service) * selectedUnits)
+        const generalTime = await calculateGeneralTimeMinutes(booking);
+        if (booking.recurringGroupId) {
+            await Booking.updateMany(
+                {
+                    recurringGroupId: booking.recurringGroupId,
+                    startDateTime: booking.startDateTime,
+                    companyId: user.companyId,
+                },
+                { $set: { "timesheet.generalTime": generalTime } }
+            );
+        } else {
+            await Booking.updateOne(
+                { _id: booking._id, companyId: user.companyId },
+                { $set: { "timesheet.generalTime": generalTime } }
+            );
+        }
+
+        // ── 5. Recalculate total team time for this booking slot ──
+        // Team time = sum of technician-specific cleaningTime for all docs
+        // that belong to the same recurring slot.
+        if (booking.recurringGroupId) {
+            const slotBookings = await Booking.find(
+                {
+                    recurringGroupId: booking.recurringGroupId,
+                    startDateTime: booking.startDateTime,
+                    companyId: user.companyId,
+                },
+                { "timesheet.cleaningTime": 1 }
+            ).lean();
+
+            const totalTeamTime = slotBookings.reduce(
+                (sum: number, b: any) => sum + (Number(b?.timesheet?.cleaningTime) || 0),
+                0
+            );
+
+            await Booking.updateMany(
+                {
+                    recurringGroupId: booking.recurringGroupId,
+                    startDateTime: booking.startDateTime,
+                    companyId: user.companyId,
+                },
+                { $set: { "timesheet.totalTeamTime": totalTeamTime } }
+            );
+        } else {
+            const ownCleaningTime = Number((booking as any)?.timesheet?.cleaningTime) || 0;
+            await Booking.updateOne(
+                { _id: booking._id, companyId: user.companyId },
+                { $set: { "timesheet.totalTeamTime": ownCleaningTime } }
+            );
+        }
+
+        const refreshedBooking = await Booking.findOne({ _id: booking._id, companyId: user.companyId });
+        return NextResponse.json(refreshedBooking);
     } catch (error: any) {
         console.error("Error updating booking:", error);
         return NextResponse.json(

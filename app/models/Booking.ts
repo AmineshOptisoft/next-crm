@@ -58,6 +58,8 @@ export interface IBooking extends Document {
     };
 
     timesheet?: {
+        arrivalTime?: Date;
+        departureTime?: Date;
         cleaningTime?: number;
         totalTeamTime?: number;
         generalTime?: number;
@@ -212,6 +214,8 @@ const BookingSchema = new Schema({
     },
 
     timesheet: {
+        arrivalTime: { type: Date },
+        departureTime: { type: Date },
         cleaningTime: { type: Number, default: 0 },
         totalTeamTime: { type: Number, default: 0 },
         generalTime: { type: Number, default: 0 },

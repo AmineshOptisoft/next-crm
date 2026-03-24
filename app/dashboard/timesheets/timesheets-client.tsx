@@ -125,6 +125,14 @@ export function TimesheetsClient() {
     [mutate]
   );
 
+  // Display in HH.MM style (base-100 minutes), e.g. 55 min -> 0.55, 85 min -> 1.25
+  const minutesToTimeHourForm = useCallback((minutes: number) => {
+    const safeMinutes = Math.max(0, Math.round(Number(minutes) || 0));
+    const hoursPart = Math.floor(safeMinutes / 60);
+    const minutesPart = safeMinutes % 60;
+    return `${hoursPart}.${String(minutesPart).padStart(2, "0")}`;
+  }, []);
+
   const columns = useMemo<ColumnDef<TimesheetRow>[]>(() => {
     const dt = (iso: string) => {
       try {
@@ -140,13 +148,20 @@ export function TimesheetsClient() {
       { accessorKey: "clientName", header: "Client Name" },
       { accessorKey: "orderId", header: "Appointment #" },
       { accessorKey: "technicianName", header: "Technician Name" },
-      { accessorKey: "cleaningTime", header: "Cleaning Time" },
-      { accessorKey: "totalTeamTime", header: "Total Team Time" },
-      { accessorKey: "generalTime", header: "General Time" },
-      { accessorKey: "drivingTime", header: "Driving Time" },
-      { accessorKey: "trainingTime", header: "Training Time" },
+      { accessorKey: "cleaningTime", header: "Cleaning Time", cell: ({ row }) => `${minutesToTimeHourForm(Number(row.original.cleaningTime) || 0)} hrs` },
+      { accessorKey: "totalTeamTime", header: "Total Team Time", cell: ({ row }) => `${minutesToTimeHourForm(Number(row.original.totalTeamTime) || 0)} hrs` },
+      { accessorKey: "generalTime", header: "General Time", cell: ({ row }) => `${minutesToTimeHourForm(Number(row.original.generalTime) || 0)} hrs` },
+      { accessorKey: "drivingTime", header: "Driving Time", cell: ({ row }) => `${minutesToTimeHourForm(Number(row.original.drivingTime) || 0)} hrs` },
+      { accessorKey: "trainingTime", header: "Training Time", cell: ({ row }) => `${minutesToTimeHourForm(Number(row.original.trainingTime) || 0)} hrs` },
       { accessorKey: "teamMembers", header: "Team Members", cell: ({ row }) => row.original.teamMembers?.join(", ") || "-" },
-      { accessorKey: "billedHours", header: "Billed Hours" },
+      {
+        accessorKey: "billedHours",
+        header: "Billed Hours",
+        cell: ({ row }) =>
+          `${minutesToTimeHourForm(
+            (Number(row.original.cleaningTime) || 0) + (Number(row.original.drivingTime) || 0)
+          )} hrs`,
+      },
       { accessorKey: "timesheetNotes", header: "Time Sheet Notes", cell: ({ row }) => row.original.timesheetNotes || "-" },
       {
         id: "action",
@@ -162,7 +177,7 @@ export function TimesheetsClient() {
         ),
       },
     ];
-  }, []);
+  }, [minutesToTimeHourForm]);
 
   const handleExportCsv = useCallback(() => {
     try {
@@ -302,12 +317,12 @@ export function TimesheetsClient() {
       {totals && (
         <Card className="p-3 text-sm">
           <div className="flex flex-wrap gap-x-6 gap-y-2">
-            <div><span className="text-muted-foreground">Total Cleaning:</span> <span className="font-medium">{totals.cleaningTime}</span></div>
-            <div><span className="text-muted-foreground">Total Team:</span> <span className="font-medium">{totals.totalTeamTime}</span></div>
-            <div><span className="text-muted-foreground">General:</span> <span className="font-medium">{totals.generalTime}</span></div>
-            <div><span className="text-muted-foreground">Driving:</span> <span className="font-medium">{totals.drivingTime}</span></div>
-            <div><span className="text-muted-foreground">Training:</span> <span className="font-medium">{totals.trainingTime}</span></div>
-            <div><span className="text-muted-foreground">Billed Hours:</span> <span className="font-medium">{totals.billedHours}</span></div>
+            <div><span className="text-muted-foreground">Total Cleaning:</span> <span className="font-medium">{minutesToTimeHourForm(Number(totals.cleaningTime) || 0)} hrs</span></div>
+            <div><span className="text-muted-foreground">Total Team:</span> <span className="font-medium">{minutesToTimeHourForm(Number(totals.totalTeamTime) || 0)} hrs</span></div>
+            <div><span className="text-muted-foreground">General:</span> <span className="font-medium">{minutesToTimeHourForm(Number(totals.generalTime) || 0)} hrs</span></div>
+            <div><span className="text-muted-foreground">Driving:</span> <span className="font-medium">{minutesToTimeHourForm(Number(totals.drivingTime) || 0)} hrs</span></div>
+            <div><span className="text-muted-foreground">Training:</span> <span className="font-medium">{minutesToTimeHourForm(Number(totals.trainingTime) || 0)} hrs</span></div>
+            <div><span className="text-muted-foreground">Billed Hours:</span> <span className="font-medium">{minutesToTimeHourForm((Number(totals.cleaningTime) || 0) + (Number(totals.drivingTime) || 0))} hrs</span></div>
           </div>
           <div className="mt-1 text-xs text-muted-foreground">Totals are for the current page.</div>
         </Card>

@@ -142,6 +142,18 @@ export function EditBookingDetailsDialog({
   const [timesheetNotes, setTimesheetNotes] = useState<string>("");
   const [teamMembers, setTeamMembers] = useState<string>("");
 
+  const minutesToHoursInput = (minutesValue: any) => {
+    const minutes = Number(minutesValue);
+    if (!Number.isFinite(minutes) || minutes <= 0) return "0";
+    return String(Number((minutes / 60).toFixed(2)));
+  };
+
+  const hoursInputToMinutes = (hoursValue: string) => {
+    const hours = Number(hoursValue);
+    if (!Number.isFinite(hours) || hours <= 0) return 0;
+    return Math.round(hours * 60);
+  };
+
   // Derive total technician count from co-technicians already in the prop
   // coTechnicians = OTHER techs on the same booking, so total = them + the primary tech
   const technicianCount = Math.max(1, (appointment?.coTechnicians?.length ?? 0) + 1);
@@ -228,12 +240,12 @@ export function EditBookingDetailsDialog({
         setAppointmentNotes(bookingData.notes || "");
 
         // Timesheet fields (stored on Booking.timesheet)
-        setCleaningTime(String(bookingData?.timesheet?.cleaningTime ?? 0));
-        setTotalTeamTime(String(bookingData?.timesheet?.totalTeamTime ?? 0));
-        setGeneralTime(String(bookingData?.timesheet?.generalTime ?? 0));
-        setDrivingTime(String(bookingData?.timesheet?.drivingTime ?? 0));
-        setTrainingTime(String(bookingData?.timesheet?.trainingTime ?? 0));
-        setTechnicianTime(String(bookingData?.timesheet?.technicianTime ?? 0));
+        setCleaningTime(minutesToHoursInput(bookingData?.timesheet?.cleaningTime));
+        setTotalTeamTime(minutesToHoursInput(bookingData?.timesheet?.totalTeamTime));
+        setGeneralTime(minutesToHoursInput(bookingData?.timesheet?.generalTime));
+        setDrivingTime(minutesToHoursInput(bookingData?.timesheet?.drivingTime));
+        setTrainingTime(minutesToHoursInput(bookingData?.timesheet?.trainingTime));
+        setTechnicianTime(minutesToHoursInput(bookingData?.timesheet?.technicianTime));
         setTimesheetNotes(String(bookingData?.timesheet?.notes ?? ""));
         setTeamMembers(Array.isArray(bookingData?.timesheet?.teamMembers) ? bookingData.timesheet.teamMembers.join(", ") : "");
 
@@ -410,12 +422,12 @@ export function EditBookingDetailsDialog({
           billedHours: Number(billedHours)
         },
         timesheet: {
-          cleaningTime: Math.max(0, Number(cleaningTime) || 0),
-          totalTeamTime: Math.max(0, Number(totalTeamTime) || 0),
-          generalTime: Math.max(0, Number(generalTime) || 0),
-          drivingTime: Math.max(0, Number(drivingTime) || 0),
-          trainingTime: Math.max(0, Number(trainingTime) || 0),
-          technicianTime: Math.max(0, Number(technicianTime) || 0),
+          cleaningTime: hoursInputToMinutes(cleaningTime),
+          totalTeamTime: hoursInputToMinutes(totalTeamTime),
+          generalTime: hoursInputToMinutes(generalTime),
+          drivingTime: hoursInputToMinutes(drivingTime),
+          trainingTime: hoursInputToMinutes(trainingTime),
+          technicianTime: hoursInputToMinutes(technicianTime),
           teamMembers: teamMembers
             .split(",")
             .map((s) => s.trim())

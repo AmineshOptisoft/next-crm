@@ -452,7 +452,13 @@ export async function GET(req: NextRequest) {
 
         const filter: any = { companyId: user.companyId };
         if (contactId) filter.contactId = contactId;
-        if (technicianId) filter.technicianId = technicianId;
+        const isAdmin = user.role === "super_admin" || user.role === "company_admin";
+        if (isAdmin) {
+            if (technicianId) filter.technicianId = technicianId;
+        } else {
+            // Non-admin users can only access their own technician bookings.
+            filter.technicianId = user.userId;
+        }
 
         let query = Booking.find(filter)
             .populate('contactId', 'firstName lastName email')

@@ -328,8 +328,9 @@ export default function InvoicesPage() {
     if (!viewInvoice || !invoicePreviewRef.current) return;
     let wrapper: HTMLDivElement | null = null;
     try {
-      const [{ toPng, toJpeg }, { jsPDF }] = await Promise.all([
+      const [{ toPng, toJpeg }, { default: html2canvas }, { jsPDF }] = await Promise.all([
         import("html-to-image"),
+        import("html2canvas"),
         import("jspdf"),
       ]);
       // Render a clone off-screen at full height so PDF matches the invoice screenshot view.
@@ -353,22 +354,43 @@ export default function InvoicesPage() {
       document.body.appendChild(wrapper);
 
       const isEmailMode = mode === "email";
-      const dataUrl = isEmailMode
-        ? await toJpeg(clone, {
-            pixelRatio: 1.25,
-            quality: 0.82,
-            cacheBust: true,
-            backgroundColor: "#0b0b0b",
-            canvasWidth: source.scrollWidth,
-            canvasHeight: source.scrollHeight,
-          })
-        : await toPng(clone, {
-            pixelRatio: 2,
-            cacheBust: true,
-            backgroundColor: "#0b0b0b",
-            canvasWidth: source.scrollWidth,
-            canvasHeight: source.scrollHeight,
-          });
+      let dataUrl: string;
+      try {
+        dataUrl = isEmailMode
+          ? await toJpeg(clone, {
+              pixelRatio: 1.25,
+              quality: 0.82,
+              cacheBust: true,
+              backgroundColor: "#0b0b0b",
+              canvasWidth: source.scrollWidth,
+              canvasHeight: source.scrollHeight,
+            })
+          : await toPng(clone, {
+              pixelRatio: 2,
+              cacheBust: true,
+              backgroundColor: "#0b0b0b",
+              canvasWidth: source.scrollWidth,
+              canvasHeight: source.scrollHeight,
+            });
+      } catch (renderError) {
+        // Some browsers block reading cssRules from cross-origin stylesheets.
+        // Fallback to html2canvas so invoice export still succeeds.
+        const canvas = await html2canvas(clone, {
+          backgroundColor: "#0b0b0b",
+          scale: isEmailMode ? 1.25 : 2,
+          useCORS: true,
+          allowTaint: true,
+          logging: false,
+          width: source.scrollWidth,
+          height: source.scrollHeight,
+          windowWidth: source.scrollWidth,
+          windowHeight: source.scrollHeight,
+        });
+        dataUrl = isEmailMode
+          ? canvas.toDataURL("image/jpeg", 0.82)
+          : canvas.toDataURL("image/png");
+        console.warn("html-to-image failed, used html2canvas fallback:", renderError);
+      }
 
       const pdf = new jsPDF("p", "mm", "a4");
       const pageWidth = pdf.internal.pageSize.getWidth();

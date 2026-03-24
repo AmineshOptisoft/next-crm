@@ -13,6 +13,8 @@ const PermissionSchema = new Schema(
         "deals",
         "products",
         "appointments",
+        "bookings",
+        "timesheet",
         "invoices",
         "meetings",
         "activities",

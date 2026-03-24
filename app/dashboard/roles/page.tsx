@@ -45,6 +45,32 @@ import useSWR from "swr";
 
 const fetcher = (url: string) => fetch(url, { credentials: "include" }).then((res) => res.json());
 
+async function getErrorMessageFromResponse(response: Response, fallback: string) {
+  const contentType = response.headers.get("content-type") || "";
+
+  if (contentType.includes("application/json")) {
+    try {
+      const error = await response.json();
+      if (error?.error && typeof error.error === "string") {
+        return error.error;
+      }
+    } catch {
+      // fall through to text/fallback
+    }
+  } else {
+    try {
+      const text = await response.text();
+      if (text) {
+        return text.slice(0, 200);
+      }
+    } catch {
+      // fall through to fallback
+    }
+  }
+
+  return fallback;
+}
+
 interface Permission {
   module: string;
   canView: boolean;
@@ -85,6 +111,8 @@ const MODULES = [
   "tasks",
   "products",
   "appointments",
+  "bookings",
+  "timesheet",
   "invoices",
   "email-builder",
 ];
@@ -153,9 +181,12 @@ export default function RolesPage() {
         resetForm();
         toast.success(editingRole ? "Role updated successfully" : "Role created successfully");
       } else {
-        const error = await response.json();
-        console.error("API Error:", error);
-        toast.error(error.error || `Failed to ${editingRole ? "update" : "create"} role`);
+        const errorMessage = await getErrorMessageFromResponse(
+          response,
+          `Failed to ${editingRole ? "update" : "create"} role`
+        );
+        console.error("API Error:", errorMessage);
+        toast.error(errorMessage);
       }
     } catch (error) {
       console.error("Error saving role:", error);
@@ -184,8 +215,8 @@ export default function RolesPage() {
         toast.success("Role deleted successfully");
         setIsDeleteDialogOpen(false);
       } else {
-        const error = await response.json();
-        toast.error(error.error || "Failed to delete role");
+        const errorMessage = await getErrorMessageFromResponse(response, "Failed to delete role");
+        toast.error(errorMessage);
       }
     } catch (error) {
       console.error("Error deleting role:", error);

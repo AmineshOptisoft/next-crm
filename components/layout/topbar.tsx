@@ -42,6 +42,7 @@ import { Kbd } from "@/components/ui/kbd";
 
 const titleMap: Record<string, string> = {
   "/dashboard": "Dashboard",
+  "/dashboard/bookings": "Bookings",
   "/dashboard/contacts": "Contacts",
   "/dashboard/deals": "Deals",
   "/dashboard/employees": "Employees",
