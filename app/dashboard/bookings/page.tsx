@@ -538,10 +538,10 @@ export default function BookingsPage() {
           </div>
 
           <SheetFooter className="flex flex-row justify-end items-center gap-3">
-            <Button variant="outline" onClick={() => setManageSheetOpen(false)} disabled={saving}>
+            <Button className="min-w-[100px]" variant="outline" onClick={() => setManageSheetOpen(false)} disabled={saving}>
               Close
             </Button>
-            <Button onClick={handleSave} disabled={saving}>
+            <Button className="min-w-[100px]" onClick={handleSave} disabled={saving}>
               {saving ? "Saving..." : "Save"}
             </Button>
           </SheetFooter>

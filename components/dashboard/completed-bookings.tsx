@@ -23,17 +23,17 @@ interface BookingItem {
   status: string;
 }
 
-interface UpcomingBookingsProps {
+interface CompletedBookingsProps {
   bookings: BookingItem[];
   readOnly?: boolean;
   manageFromDashboard?: boolean;
 }
 
-export function UpcomingBookings({
+export function CompletedBookings({
   bookings,
   readOnly = false,
   manageFromDashboard = false,
-}: UpcomingBookingsProps) {
+}: CompletedBookingsProps) {
   const router = useRouter();
   const [selectedAppointment, setSelectedAppointment] =
     useState<AppointmentDetails | null>(null);
@@ -64,15 +64,15 @@ export function UpcomingBookings({
           <div className="flex items-center justify-between">
             <div className="flex flex-col justify-center gap-2">
               <CardTitle className="text-base font-medium">
-                Upcoming Bookings
+                Completed Bookings
               </CardTitle>
               <p className="text-xs text-muted-foreground">
-                Most recent 10 bookings from today onwards.
+                Showing your most recent 10 completed bookings.
               </p>
             </div>
             <div className="mt-4 flex justify-end">
               <Button asChild variant="outline" size="sm">
-                <a href="/dashboard/appointments">Load more</a>
+                <a href="/dashboard/appointments">Show more</a>
               </Button>
             </div>
           </div>
@@ -80,7 +80,7 @@ export function UpcomingBookings({
         <CardContent>
           {bookings.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-4">
-              No upcoming bookings.
+              No completed bookings yet.
             </p>
           ) : (
             <div className="space-y-3">
@@ -94,7 +94,7 @@ export function UpcomingBookings({
                   <div>
                     <p className="font-medium">#{booking.orderId}</p>
                     <p className="text-xs text-muted-foreground">
-                      {new Date(booking.startDateTime).toLocaleString()}
+                      {new Date(booking.endDateTime).toLocaleString()}
                     </p>
                   </div>
                   <span className="text-xs capitalize px-2 py-1 rounded-full bg-muted">
@@ -124,3 +124,4 @@ export function UpcomingBookings({
     </>
   );
 }
+

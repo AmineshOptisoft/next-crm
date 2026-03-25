@@ -286,7 +286,7 @@ export function TimesheetsClient() {
         columns={columns}
         data={rows}
         searchPlaceholder="Search in table..."
-        tableContainerClassName="max-h-full overflow-y-auto min-w-0 w-full max-w-full"
+        tableContainerClassName="max-h-full overflow-y-auto min-w-0 w-full max-w-full scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100"
         showFooterPagination={false}
         rightSlot={
           <div className="flex items-center gap-2">

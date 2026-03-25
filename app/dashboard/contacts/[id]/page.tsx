@@ -28,6 +28,7 @@ import {
 } from "@/components/ui/table";
 import { AppointmentDetailsSheet, type AppointmentDetails } from "@/components/appointments/appointment-details-sheet";
 import { usePermissions } from "@/hooks/usePermissions";
+import { EmailEditor } from "@/components/email-builder/EmailEditor";
 
 // ─── Lazy-load country-state-city once — never blocks the JS bundle ───────────
 let geoCache: any = null;
@@ -1124,15 +1125,6 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
                                                         </p>
                                                     )}
                                                     <div className="flex gap-2">
-                                                        {!selectedCampaign.isDefault && (
-                                                            <Button
-                                                                variant="outline"
-                                                                size="sm"
-                                                                onClick={() => router.push(`/dashboard/email-builder/${selectedCampaign._id}/edit`)}
-                                                            >
-                                                                Edit Campaign
-                                                            </Button>
-                                                        )}
                                                         <Button
                                                             size="sm"
                                                             onClick={handleSendSelectedCampaign}
@@ -1149,18 +1141,25 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
                                                     Loading email preview...
                                                 </div>
                                             ) : (
-                                                <div className="flex-1 min-h-[400px] border rounded-lg bg-background overflow-auto p-4">
-                                                    {selectedCampaign.html ? (
-                                                        <div
-                                                            className="prose max-w-none"
-                                                            // eslint-disable-next-line react/no-danger
-                                                            dangerouslySetInnerHTML={{ __html: selectedCampaign.html }}
-                                                        />
-                                                    ) : (
-                                                        <div className="text-sm text-muted-foreground">
-                                                            This campaign does not have any HTML content yet.
-                                                        </div>
-                                                    )}
+                                                <div className="flex-1 min-h-[400px]">
+                                                    <EmailEditor
+                                                        key={selectedCampaign._id}
+                                                        mode="edit"
+                                                        layout="embedded"
+                                                        initialData={selectedCampaign}
+                                                        readOnly={!!selectedCampaign.isDefault}
+                                                        showBackButton={false}
+                                                        onSaveSuccess={(savedCampaign: any) => {
+                                                            setSelectedCampaign(savedCampaign);
+                                                            setEmailCampaigns((prev) =>
+                                                                prev.map((campaign) =>
+                                                                    campaign._id === savedCampaign._id
+                                                                        ? { ...campaign, ...savedCampaign }
+                                                                        : campaign
+                                                                )
+                                                            );
+                                                        }}
+                                                    />
                                                 </div>
                                             )}
                                         </div>

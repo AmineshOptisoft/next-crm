@@ -15,8 +15,10 @@ import { StatsCards } from "@/components/dashboard/stats-cards";
 import { ProductivityChart } from "@/components/dashboard/productivity-chart";
 import { EmployeeList } from "@/components/dashboard/employee-list";
 import { UpcomingBookings } from "@/components/dashboard/upcoming-bookings";
+import { TechnicianStatsCards } from "../../components/dashboard/technician-stats-cards";
+import { CompletedBookings } from "../../components/dashboard/completed-bookings";
 
-async function getStats(companyId: string) {
+async function getCompanyStats(companyId: string) {
   await connectDB();
 
   const now = new Date();
@@ -172,6 +174,64 @@ async function getStats(companyId: string) {
   };
 }
 
+async function getTechnicianStats(companyId: string, technicianId: string) {
+  await connectDB();
+
+  const now = new Date();
+  const companyObjectId = new Types.ObjectId(companyId);
+  const technicianObjectId = new Types.ObjectId(technicianId);
+
+  const [totalBookings, totalCompletedBookings, completedBookings, upcomingBookings] =
+    await Promise.all([
+      Booking.countDocuments({
+        companyId: companyObjectId,
+        technicianId: technicianObjectId,
+      }),
+      Booking.countDocuments({
+        companyId: companyObjectId,
+        technicianId: technicianObjectId,
+        status: "completed",
+      }),
+      Booking.find({
+        companyId: companyObjectId,
+        technicianId: technicianObjectId,
+        status: "completed",
+      })
+        .sort({ endDateTime: -1 })
+        .limit(10)
+        .lean(),
+      Booking.find({
+        companyId: companyObjectId,
+        technicianId: technicianObjectId,
+        startDateTime: { $gte: now },
+      })
+        .sort({ startDateTime: 1 })
+        .limit(10)
+        .lean(),
+    ]);
+
+  return {
+    technician: {
+      totalBookings,
+      totalCompletedBookings,
+    },
+    completedBookings: completedBookings.map((b: any) => ({
+      _id: b._id.toString(),
+      orderId: b.orderId,
+      startDateTime: b.startDateTime,
+      endDateTime: b.endDateTime,
+      status: b.status,
+    })),
+    bookings: upcomingBookings.map((b: any) => ({
+      _id: b._id.toString(),
+      orderId: b.orderId,
+      startDateTime: b.startDateTime,
+      endDateTime: b.endDateTime,
+      status: b.status,
+    })),
+  };
+}
+
 
 
 export default async function DashboardPage() {
@@ -189,7 +249,11 @@ export default async function DashboardPage() {
     );
   }
 
-  const stats = await getStats(user.companyId);
+  const isTechnician = user.role === "company_user";
+  const companyStats: Awaited<ReturnType<typeof getCompanyStats>> | null =
+    isTechnician ? null : await getCompanyStats(user.companyId);
+  const technicianStats: Awaited<ReturnType<typeof getTechnicianStats>> | null =
+    isTechnician ? await getTechnicianStats(user.companyId, user.userId) : null;
 
   const fullName =
     user.firstName && user.lastName
@@ -220,17 +284,42 @@ export default async function DashboardPage() {
           </div>
 
           <TabsContent value="overview" className="space-y-4">
-            <StatsCards
-              employeeStats={stats.employees}
-              leavesStats={stats.leaves}
-            />
+            {isTechnician && technicianStats ? (
+              <TechnicianStatsCards
+                totalBookings={technicianStats.technician.totalBookings}
+                totalCompletedBookings={technicianStats.technician.totalCompletedBookings}
+              />
+            ) : companyStats ? (
+              <StatsCards
+                employeeStats={companyStats.employees}
+                leavesStats={companyStats.leaves}
+              />
+            ) : null}
 
             <div className="grid gap-4 grid-cols-1 md:grid-cols-4">
               <div className="col-span-1 md:col-span-2">
-                <EmployeeList employees={stats.employees.recent} />
+                {isTechnician && technicianStats ? (
+                  <CompletedBookings
+                    bookings={technicianStats.completedBookings}
+                    readOnly
+                    manageFromDashboard
+                  />
+                ) : companyStats ? (
+                  <EmployeeList employees={companyStats.employees.recent} />
+                ) : null}
               </div>
               <div className="col-span-1 md:col-span-2">
-                <UpcomingBookings bookings={stats.bookings} />
+                <UpcomingBookings
+                  bookings={
+                    isTechnician && technicianStats
+                      ? technicianStats.bookings
+                      : companyStats
+                      ? companyStats.bookings
+                      : []
+                  }
+                  readOnly={isTechnician}
+                  manageFromDashboard={isTechnician}
+                />
               </div>
             </div>
           </TabsContent>

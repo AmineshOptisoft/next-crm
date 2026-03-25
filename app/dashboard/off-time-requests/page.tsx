@@ -18,12 +18,12 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import {
-    Dialog,
-    DialogContent,
-    DialogHeader,
-    DialogTitle,
-    DialogFooter,
-} from "@/components/ui/dialog";
+    Sheet,
+    SheetContent,
+    SheetHeader,
+    SheetTitle,
+    SheetFooter,
+} from "@/components/ui/sheet";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
@@ -90,7 +90,7 @@ export default function OffTimeRequestPage() {
     const [currentPage, setCurrentPage] = useState(1);
     const itemsPerPage = 10;
 
-    // Edit dialog state
+    // Edit sheet state
     const [editDialogOpen, setEditDialogOpen] = useState(false);
     const [editingRequest, setEditingRequest] = useState<TimeOffRequest | null>(null);
     const [editForm, setEditForm] = useState({
@@ -413,12 +413,12 @@ export default function OffTimeRequestPage() {
                 </div>
             )}
 
-            {/* Edit Time Sheet Dialog */}
-            <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen} >
-                <DialogContent className="sm:max-w-[500px] p-0 gap-0 overflow-hidden ">
-                    <DialogHeader className="p-4 text-primary">
-                        <DialogTitle className="text-lg font-semibold">Edit Time Sheet</DialogTitle>
-                    </DialogHeader>
+            {/* Edit Time Sheet Sheet */}
+            <Sheet open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+                <SheetContent side="right" className="w-full sm:max-w-5xl p-0 gap-0 overflow-hidden">
+                    <SheetHeader className="p-4 text-primary">
+                        <SheetTitle className="text-lg font-semibold">Edit Time Sheet</SheetTitle>
+                    </SheetHeader>
 
                     <div className="p-6 grid gap-5">
                         {/* Start Time */}
@@ -506,7 +506,7 @@ export default function OffTimeRequestPage() {
                         </div>
                     </div>
 
-                    <DialogFooter className="flex justify-end gap-2 p-6 pt-0">
+                    <SheetFooter className="flex flex-row justify-end items-center gap-2 p-6 pt-0 sm:space-x-0">
                         <Button
                             id="edit-update-btn"
                             onClick={handleSaveEdit}
@@ -530,9 +530,9 @@ export default function OffTimeRequestPage() {
                         >
                             Cancel
                         </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
+                    </SheetFooter>
+                </SheetContent>
+            </Sheet>
         </div>
     );
 }

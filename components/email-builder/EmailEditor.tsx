@@ -28,9 +28,24 @@ interface EmailEditorComponentProps {
      * Layout style: "full" for standalone pages, "embedded" for nested views.
      */
     layout?: "full" | "embedded";
+    /**
+     * Hide top-bar back button when embedded in other pages.
+     */
+    showBackButton?: boolean;
+    /**
+     * Optional callback after a successful save.
+     */
+    onSaveSuccess?: (campaign: any) => void;
 }
 
-function EmailEditorInner({ initialData, mode = "add", readOnly = false, layout = "full" }: EmailEditorComponentProps) {
+function EmailEditorInner({
+    initialData,
+    mode = "add",
+    readOnly = false,
+    layout = "full",
+    showBackButton = true,
+    onSaveSuccess,
+}: EmailEditorComponentProps) {
     const router = useRouter();
     const searchParams = useSearchParams();
     const { resolvedTheme } = useTheme();
@@ -146,7 +161,11 @@ function EmailEditorInner({ initialData, mode = "add", readOnly = false, layout 
                 }
 
                 toast.success("Template saved successfully!");
-                router.push("/dashboard/email-builder");
+                if (onSaveSuccess) {
+                    onSaveSuccess(result?.data);
+                } else {
+                    router.push("/dashboard/email-builder");
+                }
             } catch (error: any) {
                 console.error("Save error:", error);
                 toast.error(error.message || "Failed to save template");
@@ -166,11 +185,15 @@ function EmailEditorInner({ initialData, mode = "add", readOnly = false, layout 
             {/* Builder Top Bar */}
             <div className="border-b border-border bg-background px-6 py-3 flex items-center justify-between shadow-sm z-10">
                 <div className="flex items-center gap-4">
-                    <Button variant="ghost" size="sm" onClick={() => router.push("/dashboard/email-builder")}>
-                        <ChevronRight className="h-4 w-4 rotate-180 mr-2" />
-                        Back
-                    </Button>
-                    <Separator orientation="vertical" className="h-6" />
+                    {showBackButton && (
+                        <>
+                            <Button variant="ghost" size="sm" onClick={() => router.push("/dashboard/email-builder")}>
+                                <ChevronRight className="h-4 w-4 rotate-180 mr-2" />
+                                Back
+                            </Button>
+                            <Separator orientation="vertical" className="h-6" />
+                        </>
+                    )}
                     <h2 className="text-lg font-bold tracking-tight">
                         {mode === "add" ? "Create New Email" : "Edit Email"}
                     </h2>
@@ -218,6 +241,11 @@ function EmailEditorInner({ initialData, mode = "add", readOnly = false, layout 
                         {emailSubjectError && <p className="text-[10px] text-red-500 absolute mt-1">Email subject is required</p>}
                     </div>
                 </div>
+                {readOnly && (
+                    <p className="text-xs text-amber-600 whitespace-nowrap">
+                        Default campaign (read-only)
+                    </p>
+                )}
 
                 <div className="flex items-center gap-3">
                     <Button variant="outline" size="sm" onClick={() => {
@@ -283,6 +311,13 @@ function EmailEditorInner({ initialData, mode = "add", readOnly = false, layout 
                         }
                     }}
                 />
+                {readOnly && (
+                    <div
+                        className="absolute inset-0 z-20 cursor-not-allowed"
+                        title="Default campaigns are read-only."
+                        aria-label="Default campaigns are read-only"
+                    />
+                )}
                 <style>
                     {`
                         .blockbuilder-branding {
