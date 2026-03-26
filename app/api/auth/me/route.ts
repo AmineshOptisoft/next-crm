@@ -27,8 +27,16 @@ export async function GET(req: NextRequest) {
       .populate("customRoleId", "permissions")
       .lean();
 
-    if (!user || !user.isActive) {
-      return NextResponse.json({ user: null }, { status: 200 });
+    if (!user || !user.isActive || user.isTechnicianActive === false) {
+      const res = NextResponse.json({ user: null }, { status: 200 });
+      res.cookies.set("crm_token", "", {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        path: "/",
+        maxAge: 0,
+      });
+      return res;
     }
 
     const company = user.companyId as any;

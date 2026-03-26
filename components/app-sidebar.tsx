@@ -173,10 +173,34 @@ const menuItems = {
         </svg>
       ),
     },
+    // {
+    //   title: "Bookings",
+    //   href: "/dashboard/bookings",
+    //   module: "appointments",
+    //   icon: (
+    //     <svg
+    //       xmlns="http://www.w3.org/2000/svg"
+    //       width="16"
+    //       height="16"
+    //       viewBox="0 0 24 24"
+    //       fill="none"
+    //       stroke="currentColor"
+    //       strokeWidth="2"
+    //       strokeLinecap="round"
+    //       strokeLinejoin="round"
+    //     >
+    //       <rect x="3" y="5" width="18" height="16" rx="2" />
+    //       <path d="M8 3v4" />
+    //       <path d="M16 3v4" />
+    //       <path d="M3 11h18" />
+    //       <path d="m9 16 2 2 4-4" />
+    //     </svg>
+    //   ),
+    // },
     {
-      title: "Bookings",
-      href: "/dashboard/bookings",
-      module: "appointments",
+      title: "Time Sheet",
+      href: "/dashboard/timesheets",
+      module: "timesheets",
       icon: (
         <svg
           xmlns="http://www.w3.org/2000/svg"
@@ -189,18 +213,15 @@ const menuItems = {
           strokeLinecap="round"
           strokeLinejoin="round"
         >
-          <rect x="3" y="5" width="18" height="16" rx="2" />
-          <path d="M8 3v4" />
-          <path d="M16 3v4" />
-          <path d="M3 11h18" />
-          <path d="m9 16 2 2 4-4" />
+          <circle cx="12" cy="12" r="10" />
+          <polyline points="12 6 12 12 16 14" />
         </svg>
       ),
     },
     {
-      title: "Time Sheet",
-      href: "/dashboard/timesheets",
-      module: "timesheets",
+      title: "Off Time",
+      href: "/dashboard/off-time-requests",
+      module: "dashboard",
       icon: (
         <svg
           xmlns="http://www.w3.org/2000/svg"

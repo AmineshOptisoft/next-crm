@@ -39,6 +39,7 @@ import {
   CommandSeparator,
 } from "@/components/ui/command";
 import { Kbd } from "@/components/ui/kbd";
+import { toast } from "sonner";
 
 const titleMap: Record<string, string> = {
   "/dashboard": "Dashboard",
@@ -68,6 +69,7 @@ export function Topbar() {
   const [userEmail, setUserEmail] = useState<string | undefined>();
   const [avatarUrl, setAvatarUrl] = useState<string | undefined>();
   const [openCmd, setOpenCmd] = useState(false);
+  const [savingTheme, setSavingTheme] = useState(false);
 
   const title =
     Object.entries(titleMap).find(([key]) => pathname.startsWith(key))?.[1] ||
@@ -123,6 +125,31 @@ export function Topbar() {
       window.location.href = "/login";
     } catch {
       // optional toast
+    }
+  }
+
+  async function handleThemeChange(nextTheme: "light" | "dark" | "system") {
+    const previousTheme = (theme as "light" | "dark" | "system" | undefined) || "system";
+    setTheme(nextTheme);
+    setSavingTheme(true);
+
+    try {
+      const res = await fetch("/api/settings/appearance", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ theme: nextTheme }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setTheme(previousTheme);
+        toast.error(data.error || "Failed to save theme");
+      }
+    } catch {
+      setTheme(previousTheme);
+      toast.error("Failed to save theme");
+    } finally {
+      setSavingTheme(false);
     }
   }
 
@@ -191,15 +218,24 @@ export function Topbar() {
             <DropdownMenuContent align="end" className="w-36">
               <DropdownMenuLabel>Theme</DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => setTheme("light")}>
+              <DropdownMenuItem
+                disabled={savingTheme}
+                onClick={() => handleThemeChange("light")}
+              >
                 <SunMedium className="mr-2 h-4 w-4" />
                 <span>Light</span>
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setTheme("dark")}>
+              <DropdownMenuItem
+                disabled={savingTheme}
+                onClick={() => handleThemeChange("dark")}
+              >
                 <Moon className="mr-2 h-4 w-4" />
                 <span>Dark</span>
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setTheme("system")}>
+              <DropdownMenuItem
+                disabled={savingTheme}
+                onClick={() => handleThemeChange("system")}
+              >
                 <Laptop2 className="mr-2 h-4 w-4" />
                 <span>System</span>
               </DropdownMenuItem>

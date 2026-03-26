@@ -461,21 +461,25 @@ export async function sendOffTimeRequestEmail(
 
     const mongoose = await import("mongoose");
     const companyObjectId = new mongoose.default.Types.ObjectId(companyId);
+    const templateNameRegex = new RegExp(`^${templateName}$`, "i");
 
-    // Prefer a campaign for this company with this name
+    // Prefer company-specific campaign, then default campaign.
     let campaign = await EmailCampaign.findOne({
       status: "active",
-      name: templateName,
-      companyId: companyObjectId,
+      name: templateNameRegex,
+      $or: [
+        { companyId: companyObjectId },
+        { isDefault: true },
+      ],
     })
-      .sort({ updatedAt: -1 })
+      .sort({ isDefault: 1, updatedAt: -1 })
       .lean();
 
     // Fallback: any active campaign with this name
     if (!campaign) {
       campaign = await EmailCampaign.findOne({
         status: "active",
-        name: templateName,
+        name: templateNameRegex,
       })
         .sort({ updatedAt: -1 })
         .lean();

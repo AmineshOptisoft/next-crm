@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { ThemeProvider as NextThemesProvider } from "next-themes";
+import { useTheme } from "next-themes";
 
 type TableDensity = "comfortable" | "compact" | "spacious";
 
@@ -51,6 +52,43 @@ type LayoutPreferences = {
 
 const LayoutContext = React.createContext<LayoutPreferences | null>(null);
 
+function ThemeSyncFromServer() {
+  const { setTheme } = useTheme();
+  const hasSyncedRef = React.useRef(false);
+
+  React.useEffect(() => {
+    if (hasSyncedRef.current) return;
+    hasSyncedRef.current = true;
+
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const res = await fetch("/api/settings/appearance", {
+          credentials: "include",
+        });
+        if (!res.ok) return;
+
+        const data = await res.json();
+        const theme = data?.theme;
+        if (cancelled) return;
+
+        if (theme === "light" || theme === "dark" || theme === "system") {
+          setTheme(theme);
+        }
+      } catch {
+        // ignore sync failures; local fallback still works
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [setTheme]);
+
+  return null;
+}
+
 export function ThemeProvider({
   children,
   defaultTheme = "system",
@@ -91,6 +129,7 @@ export function ThemeProvider({
       enableSystem
       disableTransitionOnChange
     >
+      <ThemeSyncFromServer />
       <LayoutContext.Provider
         value={{
           compact,

@@ -52,7 +52,7 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
     // Inke liye custom role permissions DB se laanai padti hain.
     await connectDB();
     const user = await User.findById(payload.userId).lean();
-    if (!user || !user.isActive) return null;
+    if (!user || !user.isActive || user.isTechnicianActive === false) return null;
 
     let permissions: any[] = [];
     let companyName = user.companyName;

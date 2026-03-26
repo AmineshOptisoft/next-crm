@@ -30,13 +30,6 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
-type MeResponse = {
-  user: {
-    id: string;
-    role: string;
-  } | null;
-};
-
 type BookingRow = {
   _id: string;
   orderId?: string;
@@ -80,7 +73,6 @@ type BookingRow = {
 
 export default function BookingsPage() {
   const permissions = usePermissions("appointments");
-  const [me, setMe] = useState<MeResponse["user"]>(null);
   const [bookings, setBookings] = useState<BookingRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<"previous" | "today" | "upcoming">(
@@ -98,39 +90,46 @@ export default function BookingsPage() {
     trainingTime: "",
   });
 
+  const activeRange = useMemo(() => {
+    const now = new Date();
+    const startOfToday = new Date(now);
+    startOfToday.setHours(0, 0, 0, 0);
+
+    const endOfToday = new Date(startOfToday);
+    endOfToday.setDate(endOfToday.getDate() + 1);
+
+    const previousStart = new Date(startOfToday);
+    previousStart.setDate(previousStart.getDate() - 7);
+
+    const upcomingEnd = new Date(endOfToday);
+    upcomingEnd.setDate(upcomingEnd.getDate() + 7);
+
+    if (activeTab === "previous") {
+      return { start: previousStart, end: startOfToday };
+    }
+    if (activeTab === "today") {
+      return { start: startOfToday, end: endOfToday };
+    }
+    return { start: endOfToday, end: upcomingEnd };
+  }, [activeTab]);
+
   useEffect(() => {
     let cancelled = false;
 
-    async function loadMeAndBookings() {
+    async function loadBookings() {
       setLoading(true);
       try {
-        const meRes = await fetch("/api/auth/me", { credentials: "include" });
-        const meJson: MeResponse = await meRes.json();
-        if (!meRes.ok || !meJson?.user) {
-          if (!cancelled) {
-            setMe(null);
-            setBookings([]);
-          }
-          return;
-        }
-
-        if (!cancelled) {
-          setMe(meJson.user);
-        }
-
-        const isAdmin =
-          meJson.user.role === "super_admin" ||
-          meJson.user.role === "company_admin";
-
-        const query = isAdmin
-          ? "/api/bookings?sortBy=startDateTime&sortOrder=asc&limit=1000"
-          : `/api/bookings?technicianId=${encodeURIComponent(
-              meJson.user.id
-            )}&sortBy=startDateTime&sortOrder=asc&limit=1000`;
-
-        const bookingsRes = await fetch(query, { credentials: "include" });
+        const params = new URLSearchParams({
+          sortBy: "startDateTime",
+          sortOrder: "asc",
+          limit: "300",
+          startDate: activeRange.start.toISOString(),
+          endDate: activeRange.end.toISOString(),
+        });
+        const bookingsRes = await fetch(`/api/bookings?${params.toString()}`, {
+          credentials: "include",
+        });
         const bookingsJson = await bookingsRes.json();
-
         if (!cancelled) {
           setBookings(Array.isArray(bookingsJson) ? bookingsJson : []);
         }
@@ -145,45 +144,11 @@ export default function BookingsPage() {
       }
     }
 
-    loadMeAndBookings();
+    loadBookings();
     return () => {
       cancelled = true;
     };
-  }, []);
-
-  const heading = useMemo(() => {
-    if (!me?.role) return "Bookings";
-    if (me.role === "super_admin" || me.role === "company_admin") {
-      return "All Bookings";
-    }
-    return "My Bookings";
-  }, [me?.role]);
-
-  const filteredBookings = useMemo(() => {
-    const now = new Date();
-    const startOfToday = new Date(now);
-    startOfToday.setHours(0, 0, 0, 0);
-
-    const endOfToday = new Date(startOfToday);
-    endOfToday.setDate(endOfToday.getDate() + 1);
-
-    const previousStart = new Date(startOfToday);
-    previousStart.setDate(previousStart.getDate() - 7);
-
-    const upcomingEnd = new Date(endOfToday);
-    upcomingEnd.setDate(upcomingEnd.getDate() + 7);
-
-    return bookings.filter((booking) => {
-      const bookingDate = new Date(booking.startDateTime);
-      if (activeTab === "previous") {
-        return bookingDate >= previousStart && bookingDate < startOfToday;
-      }
-      if (activeTab === "today") {
-        return bookingDate >= startOfToday && bookingDate < endOfToday;
-      }
-      return bookingDate >= endOfToday && bookingDate < upcomingEnd;
-    });
-  }, [bookings, activeTab]);
+  }, [activeRange.start, activeRange.end]);
 
   const openBookingDetailSheet = async (bookingId: string) => {
     setDetailSheetOpen(true);
@@ -373,12 +338,8 @@ export default function BookingsPage() {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">{heading}</h1>
-        <p className="text-sm text-muted-foreground">
-          {me?.role === "super_admin" || me?.role === "company_admin"
-            ? "Showing bookings for every technician in your company."
-            : "Showing bookings assigned to your technician account."}
-        </p>
+        <h1 className="text-3xl font-bold tracking-tight">Bookings</h1>
+        <p className="text-sm text-muted-foreground">Showing bookings for the selected time range.</p>
       </div>
 
       <Tabs
@@ -409,14 +370,14 @@ export default function BookingsPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredBookings.length === 0 ? (
+                {bookings.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={7} className="h-24 text-center">
                       No bookings found.
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredBookings.map((booking) => {
+                  bookings.map((booking) => {
                     const start = new Date(booking.startDateTime);
                     const clientName = [
                       booking.contactId?.firstName,

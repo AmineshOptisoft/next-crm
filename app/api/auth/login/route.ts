@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
 
   const user = await User.findOne({ email })
     .select(
-      "_id passwordHash email role companyId firstName lastName companyName leadSource isVerified"
+      "_id passwordHash email role companyId firstName lastName companyName leadSource isVerified isActive isTechnicianActive"
     )
     .lean();
   if (!user) {
@@ -42,6 +42,18 @@ export async function POST(req: NextRequest) {
 
   if (!isMatch) {
     return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
+  }
+
+  if (!user.isActive) {
+    return NextResponse.json({ error: "Your account is inactive." }, { status: 403 });
+  }
+
+  // Inactive technicians are not allowed to sign in.
+  if (user.isTechnicianActive === false) {
+    return NextResponse.json(
+      { error: "Your technician account is Blocked. Please contact admin." },
+      { status: 403 }
+    );
   }
 
   // Block login for users who haven't verified their email yet,

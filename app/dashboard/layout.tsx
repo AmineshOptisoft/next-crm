@@ -49,12 +49,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   // Guard: redirect to company-settings if profile not done
   useEffect(() => {
     if (isLoading) return;
+    if (!meData?.user) {
+      router.replace("/login");
+      return;
+    }
     if (isSuperAdmin) return;              // super admins are never blocked
     if (isOnSettingsPage) return;          // already on the page they need to be on
     if (isProfileIncomplete) {
       router.replace("/dashboard/company-settings");
     }
-  }, [isLoading, isSuperAdmin, isOnSettingsPage, isProfileIncomplete, router]);
+  }, [isLoading, meData?.user, isSuperAdmin, isOnSettingsPage, isProfileIncomplete, router]);
 
   // Show loading spinner only for first load and only if NOT on settings page
   if (isLoading && !isOnSettingsPage) {

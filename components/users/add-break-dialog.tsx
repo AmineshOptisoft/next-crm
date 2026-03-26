@@ -60,7 +60,7 @@ export function AddBreakDialog({ open, onOpenChange, onSave, loading }: AddBreak
 
     return (
         <Sheet open={open} onOpenChange={onOpenChange}>
-            <SheetContent side="right" className="sm:max-w-2xl w-full p-0 flex flex-col">
+            <SheetContent side="right" className="sm:max-w-5xl w-full p-0 flex flex-col">
                 <SheetHeader className="p-4 border-b gap-0">
                     <SheetTitle className="text-lg font-semibold">
                         Add Break
@@ -118,8 +118,8 @@ export function AddBreakDialog({ open, onOpenChange, onSave, loading }: AddBreak
                     </div>
                 </div>
 
-                <SheetFooter className="p-4 border-t bg-muted/30 flex justify-end gap-2">
-                    <Button 
+                <SheetFooter className="p-4 border-t bg-muted/30 flex items-center flex-row justify-end gap-2">
+                    <Button className="min-w-[100px]"
                         type="button"
                         variant="outline"
                         onClick={() => onOpenChange(false)} 
@@ -127,6 +127,7 @@ export function AddBreakDialog({ open, onOpenChange, onSave, loading }: AddBreak
                         Cancel
                     </Button>
                     <Button 
+                        className="min-w-[100px]"
                         type="button"
                         onClick={handleSave} 
                         disabled={loading}

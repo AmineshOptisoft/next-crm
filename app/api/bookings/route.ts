@@ -449,6 +449,8 @@ export async function GET(req: NextRequest) {
         const sortOrder = (sp.get("sortOrder") || "asc").toLowerCase() === "desc" ? -1 : 1;
         const limitRaw = Number(sp.get("limit"));
         const limit = Number.isFinite(limitRaw) && limitRaw > 0 ? Math.min(limitRaw, 1000) : undefined;
+        const startDate = sp.get("startDate");
+        const endDate = sp.get("endDate");
 
         const filter: any = { companyId: user.companyId };
         if (contactId) filter.contactId = contactId;
@@ -458,6 +460,24 @@ export async function GET(req: NextRequest) {
         } else {
             // Non-admin users can only access their own technician bookings.
             filter.technicianId = user.userId;
+        }
+        if (startDate || endDate) {
+            filter.startDateTime = {};
+            if (startDate) {
+                const parsedStart = new Date(startDate);
+                if (!Number.isNaN(parsedStart.getTime())) {
+                    filter.startDateTime.$gte = parsedStart;
+                }
+            }
+            if (endDate) {
+                const parsedEnd = new Date(endDate);
+                if (!Number.isNaN(parsedEnd.getTime())) {
+                    filter.startDateTime.$lt = parsedEnd;
+                }
+            }
+            if (Object.keys(filter.startDateTime).length === 0) {
+                delete filter.startDateTime;
+            }
         }
 
         let query = Booking.find(filter)

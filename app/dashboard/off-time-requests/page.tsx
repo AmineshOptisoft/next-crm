@@ -26,10 +26,11 @@ import {
 } from "@/components/ui/sheet";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
 import { Pencil, Loader2, Clock } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
+import { AddBreakDialog } from "@/components/users/add-break-dialog";
+import { DateTimePicker } from "@/components/ui/date-time-picker";
 
 interface Technician {
     _id: string;
@@ -84,30 +85,39 @@ function StatusBadge({ status }: { status: string }) {
 export default function OffTimeRequestPage() {
     const [requests, setRequests] = useState<TimeOffRequest[]>([]);
     const [technicians, setTechnicians] = useState<Technician[]>([]);
+    const [me, setMe] = useState<{ _id?: string; id?: string; role?: string } | null>(null);
     const [loading, setLoading] = useState(true);
     const [selectedTechnician, setSelectedTechnician] = useState("all");
     const [selectedStatus, setSelectedStatus] = useState("all");
     const [currentPage, setCurrentPage] = useState(1);
     const itemsPerPage = 10;
+    const [addDialogOpen, setAddDialogOpen] = useState(false);
+    const [isAdding, setIsAdding] = useState(false);
 
     // Edit sheet state
     const [editDialogOpen, setEditDialogOpen] = useState(false);
     const [editingRequest, setEditingRequest] = useState<TimeOffRequest | null>(null);
     const [editForm, setEditForm] = useState({
-        startDate: "",
-        endDate: "",
+        startDate: undefined as Date | undefined,
+        endDate: undefined as Date | undefined,
         reason: "",
         status: "PENDING",
         notes: "",
     });
     const [isSaving, setIsSaving] = useState(false);
+    const canManageStatus = me?.role === "super_admin" || me?.role === "company_admin";
+    const currentUserId = me?._id || me?.id;
 
     const fetchRequests = useCallback(async () => {
         setLoading(true);
         try {
             const params = new URLSearchParams();
             if (selectedStatus !== "all") params.set("status", selectedStatus);
-            if (selectedTechnician !== "all") params.set("technicianId", selectedTechnician);
+            if (canManageStatus) {
+                if (selectedTechnician !== "all") params.set("technicianId", selectedTechnician);
+            } else if (currentUserId) {
+                params.set("technicianId", currentUserId);
+            }
 
             const res = await fetch(`/api/time-off?${params.toString()}`);
             if (res.ok) {
@@ -128,7 +138,7 @@ export default function OffTimeRequestPage() {
         } finally {
             setLoading(false);
         }
-    }, [selectedStatus, selectedTechnician]);
+    }, [selectedStatus, selectedTechnician, canManageStatus, currentUserId]);
 
     // Fetch all technicians for filter dropdown
     useEffect(() => {
@@ -147,8 +157,23 @@ export default function OffTimeRequestPage() {
     }, []);
 
     useEffect(() => {
+        (async () => {
+            try {
+                const res = await fetch("/api/auth/me");
+                if (res.ok) {
+                    const data = await res.json();
+                    setMe(data?.user ?? null);
+                }
+            } catch {
+                // ignore
+            }
+        })();
+    }, []);
+
+    useEffect(() => {
+        if (!me) return;
         fetchRequests();
-    }, []); // initial load without filters
+    }, [me, fetchRequests]);
 
     const handleFilter = () => {
         setCurrentPage(1);
@@ -158,12 +183,8 @@ export default function OffTimeRequestPage() {
     const handleEdit = (request: TimeOffRequest) => {
         setEditingRequest(request);
         setEditForm({
-            startDate: request.startDate
-                ? format(new Date(request.startDate), "yyyy-MM-dd'T'HH:mm")
-                : "",
-            endDate: request.endDate
-                ? format(new Date(request.endDate), "yyyy-MM-dd'T'HH:mm")
-                : "",
+            startDate: request.startDate ? new Date(request.startDate) : undefined,
+            endDate: request.endDate ? new Date(request.endDate) : undefined,
             reason: request.reason,
             status: request.status,
             notes: request.notes ?? "",
@@ -175,8 +196,12 @@ export default function OffTimeRequestPage() {
         if (!editingRequest) return;
         setIsSaving(true);
         try {
-            const startDateObj = new Date(editForm.startDate);
-            const endDateObj = new Date(editForm.endDate);
+            if (!editForm.startDate || !editForm.endDate) {
+                toast.error("Start time and end time are required");
+                return;
+            }
+            const startDateObj = editForm.startDate;
+            const endDateObj = editForm.endDate;
 
             const payload: any = {
                 startDate: startDateObj.toISOString(),
@@ -188,7 +213,7 @@ export default function OffTimeRequestPage() {
             };
 
             // Only send status if it changed to trigger emails correctly
-            if (editForm.status !== editingRequest.status) {
+            if (canManageStatus && editForm.status !== editingRequest.status) {
                 payload.status = editForm.status;
             }
 
@@ -216,6 +241,39 @@ export default function OffTimeRequestPage() {
         }
     };
 
+    const handleAddOffTime = async (data: any) => {
+        if (!currentUserId) {
+            toast.error("Unable to identify current user");
+            return;
+        }
+        setIsAdding(true);
+        try {
+            const payload = {
+                ...data,
+                startDate: data.startDate?.toISOString?.() ?? data.startDate,
+                endDate: data.endDate?.toISOString?.() ?? data.endDate,
+                status: "PENDING",
+            };
+            const res = await fetch(`/api/users/${currentUserId}/time-off`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload),
+            });
+            if (!res.ok) {
+                const err = await res.json();
+                toast.error(err.error ?? "Failed to add off time");
+                return;
+            }
+            toast.success("Off time request created");
+            setAddDialogOpen(false);
+            fetchRequests();
+        } catch {
+            toast.error("Failed to add off time");
+        } finally {
+            setIsAdding(false);
+        }
+    };
+
     // Pagination
     const totalPages = Math.ceil(requests.length / itemsPerPage);
     const startIndex = (currentPage - 1) * itemsPerPage;
@@ -227,31 +285,40 @@ export default function OffTimeRequestPage() {
     return (
         <div className="space-y-6">
             {/* Header */}
-            <div>
-                <h1 className="text-3xl font-bold tracking-tight">Off Time Requests</h1>
-                <p className="text-muted-foreground">
-                    Review and manage all technician off-time requests
-                </p>
+            <div className="flex items-start justify-between gap-3">
+                <div>
+                    <h1 className="text-3xl font-bold tracking-tight">Off Time Requests</h1>
+                    <p className="text-muted-foreground">
+                        {canManageStatus
+                            ? "Review and manage all technician off-time requests"
+                            : "View and manage your off-time requests"}
+                    </p>
+                </div>
+                {me && !canManageStatus && (
+                    <Button onClick={() => setAddDialogOpen(true)}>Add Off Time</Button>
+                )}
             </div>
 
             {/* Filters */}
             <div className="flex flex-wrap gap-4 items-end">
-                <div className="flex flex-col gap-1">
-                    <label className="text-sm font-medium">Technician</label>
-                    <Select value={selectedTechnician} onValueChange={setSelectedTechnician}>
-                        <SelectTrigger className="w-[220px]" id="filter-technician">
-                            <SelectValue placeholder="Select Technician" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="all">All Technicians</SelectItem>
-                            {technicians.map((t) => (
-                                <SelectItem key={t._id} value={t._id}>
-                                    {getTechnicianName(t)}
-                                </SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
-                </div>
+                {canManageStatus && (
+                    <div className="flex flex-col gap-1">
+                        <label className="text-sm font-medium">Technician</label>
+                        <Select value={selectedTechnician} onValueChange={setSelectedTechnician}>
+                            <SelectTrigger className="w-[220px]" id="filter-technician">
+                                <SelectValue placeholder="Select Technician" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">All Technicians</SelectItem>
+                                {technicians.map((t) => (
+                                    <SelectItem key={t._id} value={t._id}>
+                                        {getTechnicianName(t)}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+                )}
                 <div className="flex flex-col gap-1">
                     <label className="text-sm font-medium">Request Status</label>
                     <Select value={selectedStatus} onValueChange={setSelectedStatus}>
@@ -281,7 +348,7 @@ export default function OffTimeRequestPage() {
                     <TableHeader>
                         <TableRow>
                             <TableHead className="w-[80px]">#</TableHead>
-                            <TableHead>TECHNICIAN NAME</TableHead>
+                            {canManageStatus && <TableHead>TECHNICIAN NAME</TableHead>}
                             <TableHead>START DATE</TableHead>
                             <TableHead>START TIME</TableHead>
                             <TableHead>END DATE</TableHead>
@@ -295,7 +362,7 @@ export default function OffTimeRequestPage() {
                     <TableBody>
                         {loading ? (
                             <TableRow>
-                                <TableCell colSpan={10} className="h-32 text-center">
+                                <TableCell colSpan={canManageStatus ? 10 : 9} className="h-32 text-center">
                                     <div className="flex items-center justify-center gap-2">
                                         <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
                                         <span className="text-muted-foreground">Loading requests...</span>
@@ -304,7 +371,7 @@ export default function OffTimeRequestPage() {
                             </TableRow>
                         ) : paginatedRequests.length === 0 ? (
                             <TableRow>
-                                <TableCell colSpan={10} className="h-32 text-center">
+                                <TableCell colSpan={canManageStatus ? 10 : 9} className="h-32 text-center">
                                     <div className="flex flex-col items-center gap-2">
                                         <Clock className="h-10 w-10 text-muted-foreground" />
                                         <p className="text-muted-foreground">No off-time requests found.</p>
@@ -317,15 +384,17 @@ export default function OffTimeRequestPage() {
                                     <TableCell className="font-medium text-xs text-muted-foreground">
                                         {String(req._id).slice(-6).toUpperCase()}
                                     </TableCell>
-                                    <TableCell>
-                                        {req.technicianId ? (
-                                            <span className="text-primary font-medium">
-                                                {getTechnicianName(req.technicianId)}
-                                            </span>
-                                        ) : (
-                                            <span className="text-muted-foreground">—</span>
-                                        )}
-                                    </TableCell>
+                                    {canManageStatus && (
+                                        <TableCell>
+                                            {req.technicianId ? (
+                                                <span className="text-primary font-medium">
+                                                    {getTechnicianName(req.technicianId)}
+                                                </span>
+                                            ) : (
+                                                <span className="text-muted-foreground">—</span>
+                                            )}
+                                        </TableCell>
+                                    )}
                                     <TableCell>
                                         {req.startDate
                                             ? format(new Date(req.startDate), "MMM-dd-yyyy")
@@ -424,13 +493,10 @@ export default function OffTimeRequestPage() {
                         {/* Start Time */}
                         <div className="flex flex-col gap-2">
                             <Label htmlFor="edit-start-time">Start Time</Label>
-                            <input
-                                id="edit-start-time"
-                                type="datetime-local"
-                                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                                value={editForm.startDate}
-                                onChange={(e) =>
-                                    setEditForm((prev) => ({ ...prev, startDate: e.target.value }))
+                            <DateTimePicker
+                                date={editForm.startDate}
+                                setDate={(date) =>
+                                    setEditForm((prev) => ({ ...prev, startDate: date }))
                                 }
                             />
                         </div>
@@ -438,13 +504,10 @@ export default function OffTimeRequestPage() {
                         {/* Stop Time */}
                         <div className="flex flex-col gap-2">
                             <Label htmlFor="edit-end-time">Stop Time</Label>
-                            <input
-                                id="edit-end-time"
-                                type="datetime-local"
-                                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                                value={editForm.endDate}
-                                onChange={(e) =>
-                                    setEditForm((prev) => ({ ...prev, endDate: e.target.value }))
+                            <DateTimePicker
+                                date={editForm.endDate}
+                                setDate={(date) =>
+                                    setEditForm((prev) => ({ ...prev, endDate: date }))
                                 }
                             />
                         </div>
@@ -471,25 +534,26 @@ export default function OffTimeRequestPage() {
                             </Select>
                         </div>
 
-                        {/* Request Status */}
-                        <div className="flex flex-col gap-2">
-                            <Label htmlFor="edit-status">Request Status</Label>
-                            <Select
-                                value={editForm.status}
-                                onValueChange={(val) =>
-                                    setEditForm((prev) => ({ ...prev, status: val }))
-                                }
-                            >
-                                <SelectTrigger id="edit-status" className="w-full">
-                                    <SelectValue placeholder="Select status" />
-                                </SelectTrigger>
-                                <SelectContent position="popper" className="z-[200]" sideOffset={5}>
-                                    <SelectItem value="PENDING">Pending</SelectItem>
-                                    <SelectItem value="APPROVED">Approved</SelectItem>
-                                    <SelectItem value="REJECTED">Rejected</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
+                        {canManageStatus && (
+                            <div className="flex flex-col gap-2">
+                                <Label htmlFor="edit-status">Request Status</Label>
+                                <Select
+                                    value={editForm.status}
+                                    onValueChange={(val) =>
+                                        setEditForm((prev) => ({ ...prev, status: val }))
+                                    }
+                                >
+                                    <SelectTrigger id="edit-status" className="w-full">
+                                        <SelectValue placeholder="Select status" />
+                                    </SelectTrigger>
+                                    <SelectContent position="popper" className="z-[200]" sideOffset={5}>
+                                        <SelectItem value="PENDING">Pending</SelectItem>
+                                        <SelectItem value="APPROVED">Approved</SelectItem>
+                                        <SelectItem value="REJECTED">Rejected</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        )}
 
                         {/* Notes */}
                         <div className="flex flex-col gap-2">
@@ -533,6 +597,14 @@ export default function OffTimeRequestPage() {
                     </SheetFooter>
                 </SheetContent>
             </Sheet>
+            {!canManageStatus && (
+                <AddBreakDialog
+                    open={addDialogOpen}
+                    onOpenChange={setAddDialogOpen}
+                    onSave={handleAddOffTime}
+                    loading={isAdding}
+                />
+            )}
         </div>
     );
 }
