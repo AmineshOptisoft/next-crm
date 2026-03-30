@@ -21,6 +21,25 @@ interface BookingItem {
   startDateTime: string | Date;
   endDateTime: string | Date;
   status: string;
+  serviceName?: string;
+  notes?: string;
+  units?: number;
+  addons?: string;
+  bookingPrice?: number;
+  bookingDiscountPrice?: number;
+  bookingDiscount?: number;
+  billedHours?: number;
+  customerName?: string;
+  customerEmail?: string;
+  customerPhone?: string;
+  customerAddress?: string;
+  assignedStaff?: string;
+  preferredTechnician?: string;
+  teamCleaningTime?: number;
+  technicianTime?: number;
+  timesheetNotes?: string;
+  gpsArrivalTime?: string | Date;
+  gpsDepartureTime?: string | Date;
 }
 
 interface UpcomingBookingsProps {
@@ -51,6 +70,29 @@ export function UpcomingBookings({
       end,
       status: booking.status as any,
       bookingStatus: booking.status,
+      service: booking.serviceName,
+      units: booking.units,
+      addons: booking.addons,
+      notes: booking.notes,
+      bookingPrice: booking.bookingPrice,
+      bookingDiscountPrice: booking.bookingDiscountPrice,
+      bookingDiscount: booking.bookingDiscount,
+      billedHours: booking.billedHours,
+      customerName: booking.customerName,
+      customerEmail: booking.customerEmail,
+      customerPhone: booking.customerPhone,
+      customerAddress: booking.customerAddress,
+      assignedStaff: booking.assignedStaff,
+      preferredTechnician: booking.preferredTechnician,
+      teamCleaningTime: booking.teamCleaningTime,
+      technicianTime: booking.technicianTime,
+      timesheetNotes: booking.timesheetNotes,
+      gpsArrivalTime: booking.gpsArrivalTime
+        ? new Date(booking.gpsArrivalTime).toLocaleString()
+        : undefined,
+      gpsDepartureTime: booking.gpsDepartureTime
+        ? new Date(booking.gpsDepartureTime).toLocaleString()
+        : undefined,
     };
 
     setSelectedAppointment(appointment);

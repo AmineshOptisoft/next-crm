@@ -1,7 +1,7 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { AppointmentDetailsSheet, type AppointmentDetails } from "@/components/appointments/appointment-details-sheet";
 import {
   Table,
   TableBody,
@@ -13,6 +13,7 @@ import {
 import { ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 import { useState, useEffect, useCallback } from "react";
 import { format } from "date-fns";
+import Link from "next/link";
 
 interface UserBookingsProps {
     technicianId: string;
@@ -24,6 +25,8 @@ export function UserBookings({ technicianId }: UserBookingsProps) {
     const [page, setPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
     const [totalDocs, setTotalDocs] = useState(0);
+    const [selectedBooking, setSelectedBooking] = useState<any | null>(null);
+    const [isSheetOpen, setIsSheetOpen] = useState(false);
 
     const fetchBookings = useCallback(async () => {
         setLoading(true);
@@ -66,6 +69,31 @@ export function UserBookings({ technicianId }: UserBookingsProps) {
         if (page < totalPages) setPage(p => p + 1);
     };
 
+    const handleBookingClick = (booking: any) => {
+        setSelectedBooking(booking);
+        setIsSheetOpen(true);
+    };
+
+    const selectedAppointment: AppointmentDetails | undefined = selectedBooking
+        ? {
+            id: selectedBooking._id || selectedBooking.id || "",
+            bookingId: selectedBooking._id || selectedBooking.id,
+            title: selectedBooking.serviceId?.name || "Booking",
+            start: selectedBooking.startDateTime ? new Date(selectedBooking.startDateTime) : new Date(),
+            end: selectedBooking.endDateTime ? new Date(selectedBooking.endDateTime) : new Date(),
+            bookingStatus: selectedBooking.status || "scheduled",
+            service: selectedBooking.serviceId?.name,
+            notes: selectedBooking.notes || selectedBooking.description,
+            bookingPrice: selectedBooking.price,
+            customerName: `${selectedBooking.contactId?.firstName || ""} ${selectedBooking.contactId?.lastName || ""}`.trim() || "-",
+            customerEmail: selectedBooking.contactId?.email,
+            customerPhone: selectedBooking.contactId?.phone,
+            customerAddress: selectedBooking.contactId?.address,
+            assignedStaff: `${selectedBooking.technicianId?.firstName || ""} ${selectedBooking.technicianId?.lastName || ""}`.trim() || "-",
+            preferredTechnician: `${selectedBooking.technicianId?.firstName || ""} ${selectedBooking.technicianId?.lastName || ""}`.trim() || "-",
+        }
+        : undefined;
+
     return (
         <div className="space-y-4">
             {/* 
@@ -107,9 +135,25 @@ export function UserBookings({ technicianId }: UserBookingsProps) {
                             bookings.map((booking) => {
                                 const start = new Date(booking.startDateTime);
                                 return (
-                                    <TableRow key={booking._id || booking.id}>
+                                    <TableRow
+                                        key={booking._id || booking.id}
+                                        className="cursor-pointer"
+                                        onClick={() => handleBookingClick(booking)}
+                                    >
                                         <TableCell>
-                                            {booking.contactId?.firstName} {booking.contactId?.lastName}
+                                            {booking.contactId?._id || booking.contactId?.id ? (
+                                                <Link
+                                                    href={`/dashboard/contacts/${booking.contactId?._id || booking.contactId?.id}`}
+                                                    className="font-medium hover:underline"
+                                                    onClick={(e) => e.stopPropagation()}
+                                                >
+                                                    {booking.contactId?.firstName} {booking.contactId?.lastName}
+                                                </Link>
+                                            ) : (
+                                                <span className="font-medium">
+                                                    {booking.contactId?.firstName} {booking.contactId?.lastName}
+                                                </span>
+                                            )}
                                             <div className="text-xs text-muted-foreground">{booking.contactId?.email}</div>
                                         </TableCell>
                                         <TableCell>
@@ -157,6 +201,16 @@ export function UserBookings({ technicianId }: UserBookingsProps) {
                     </Button>
                 </div>
             </div>
+
+            <AppointmentDetailsSheet
+                appointment={selectedAppointment}
+                open={isSheetOpen}
+                onOpenChange={(open) => {
+                    setIsSheetOpen(open);
+                    if (!open) setSelectedBooking(null);
+                }}
+                readOnly
+            />
         </div>
     );
 }

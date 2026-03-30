@@ -15,8 +15,46 @@ import { StatsCards } from "@/components/dashboard/stats-cards";
 import { ProductivityChart } from "@/components/dashboard/productivity-chart";
 import { EmployeeList } from "@/components/dashboard/employee-list";
 import { UpcomingBookings } from "@/components/dashboard/upcoming-bookings";
+import { TodaysBookings } from "@/components/dashboard/todays-bookings";
 import { TechnicianStatsCards } from "../../components/dashboard/technician-stats-cards";
 import { CompletedBookings } from "../../components/dashboard/completed-bookings";
+
+function mapBookingForDetails(b: any) {
+  return {
+    _id: b._id.toString(),
+    orderId: b.orderId,
+    startDateTime: b.startDateTime,
+    endDateTime: b.endDateTime,
+    status: b.status,
+    serviceName: b.serviceId?.name,
+    notes: b.notes,
+    units: b.subServices?.length ?? 0,
+    addons:
+      Array.isArray(b.addons) && b.addons.length > 0
+        ? b.addons
+            .map((addon: any) => `${addon.quantity ?? 1}x ${(addon.serviceId as any)?.name ?? "Addon"}`)
+            .join(", ")
+        : undefined,
+    bookingPrice: b.pricing?.totalAmount,
+    bookingDiscountPrice: b.pricing?.finalAmount,
+    bookingDiscount: b.pricing?.discount,
+    billedHours: b.pricing?.billedHours,
+    customerName: `${b.contactId?.firstName ?? ""} ${b.contactId?.lastName ?? ""}`.trim() || "-",
+    customerEmail: b.contactId?.email,
+    customerPhone: b.contactId?.phoneNumber,
+    customerAddress:
+      b.shippingAddress?.street && b.shippingAddress?.city
+        ? `${b.shippingAddress.street}, ${b.shippingAddress.city}, ${b.shippingAddress.state ?? ""} ${b.shippingAddress.zipCode ?? ""}`.trim()
+        : b.contactId?.address,
+    assignedStaff: `${b.technicianId?.firstName ?? ""} ${b.technicianId?.lastName ?? ""}`.trim() || "-",
+    preferredTechnician: `${b.technicianId?.firstName ?? ""} ${b.technicianId?.lastName ?? ""}`.trim() || "-",
+    teamCleaningTime: b.timesheet?.cleaningTime,
+    technicianTime: b.timesheet?.technicianTime,
+    timesheetNotes: b.timesheet?.notes,
+    gpsArrivalTime: b.timesheet?.arrivalTime,
+    gpsDepartureTime: b.timesheet?.departureTime,
+  };
+}
 
 async function getCompanyStats(companyId: string) {
   await connectDB();
@@ -111,6 +149,10 @@ async function getCompanyStats(companyId: string) {
       companyId: companyObjectId,
       startDateTime: { $gte: now },
     })
+      .populate("contactId", "firstName lastName email phoneNumber address city state zipCode")
+      .populate("technicianId", "firstName lastName")
+      .populate("serviceId", "name")
+      .populate("addons.serviceId", "name")
       .sort({ startDateTime: 1 })
       .limit(10)
       .lean(),
@@ -164,13 +206,7 @@ async function getCompanyStats(companyId: string) {
       thisMonth: leavesThisMonth,
     },
     productivity,
-    bookings: upcomingBookings.map((b: any) => ({
-      _id: b._id.toString(),
-      orderId: b.orderId,
-      startDateTime: b.startDateTime,
-      endDateTime: b.endDateTime,
-      status: b.status,
-    })),
+    bookings: upcomingBookings.map(mapBookingForDetails),
   };
 }
 
@@ -178,10 +214,20 @@ async function getTechnicianStats(companyId: string, technicianId: string) {
   await connectDB();
 
   const now = new Date();
+  const startOfToday = new Date(now);
+  startOfToday.setHours(0, 0, 0, 0);
+  const endOfToday = new Date(now);
+  endOfToday.setHours(23, 59, 59, 999);
   const companyObjectId = new Types.ObjectId(companyId);
   const technicianObjectId = new Types.ObjectId(technicianId);
 
-  const [totalBookings, totalCompletedBookings, completedBookings, upcomingBookings] =
+  const [
+    totalBookings,
+    totalCompletedBookings,
+    completedBookings,
+    upcomingBookings,
+    todayBookings,
+  ] =
     await Promise.all([
       Booking.countDocuments({
         companyId: companyObjectId,
@@ -197,6 +243,10 @@ async function getTechnicianStats(companyId: string, technicianId: string) {
         technicianId: technicianObjectId,
         status: "completed",
       })
+        .populate("contactId", "firstName lastName email phoneNumber address city state zipCode")
+        .populate("technicianId", "firstName lastName")
+        .populate("serviceId", "name")
+        .populate("addons.serviceId", "name")
         .sort({ endDateTime: -1 })
         .limit(10)
         .lean(),
@@ -205,8 +255,23 @@ async function getTechnicianStats(companyId: string, technicianId: string) {
         technicianId: technicianObjectId,
         startDateTime: { $gte: now },
       })
+        .populate("contactId", "firstName lastName email phoneNumber address city state zipCode")
+        .populate("technicianId", "firstName lastName")
+        .populate("serviceId", "name")
+        .populate("addons.serviceId", "name")
         .sort({ startDateTime: 1 })
         .limit(10)
+        .lean(),
+      Booking.find({
+        companyId: companyObjectId,
+        technicianId: technicianObjectId,
+        startDateTime: { $gte: startOfToday, $lte: endOfToday },
+      })
+        .populate("contactId", "firstName lastName email phoneNumber address city state zipCode")
+        .populate("technicianId", "firstName lastName")
+        .populate("serviceId", "name")
+        .populate("addons.serviceId", "name")
+        .sort({ startDateTime: 1 })
         .lean(),
     ]);
 
@@ -215,20 +280,9 @@ async function getTechnicianStats(companyId: string, technicianId: string) {
       totalBookings,
       totalCompletedBookings,
     },
-    completedBookings: completedBookings.map((b: any) => ({
-      _id: b._id.toString(),
-      orderId: b.orderId,
-      startDateTime: b.startDateTime,
-      endDateTime: b.endDateTime,
-      status: b.status,
-    })),
-    bookings: upcomingBookings.map((b: any) => ({
-      _id: b._id.toString(),
-      orderId: b.orderId,
-      startDateTime: b.startDateTime,
-      endDateTime: b.endDateTime,
-      status: b.status,
-    })),
+    completedBookings: completedBookings.map(mapBookingForDetails),
+    bookings: upcomingBookings.map(mapBookingForDetails),
+    todayBookings: todayBookings.map(mapBookingForDetails),
   };
 }
 
@@ -262,6 +316,8 @@ export default async function DashboardPage() {
 
   return (
     <div className="flex flex-col space-y-6">
+     
+
       {/* Top header with user info and search */}
 
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -282,6 +338,9 @@ export default async function DashboardPage() {
               <TabsTrigger value="notifications">Notifications</TabsTrigger>
             </TabsList>
           </div>
+          {isTechnician && technicianStats && technicianStats.todayBookings.length > 0 ? (
+        <TodaysBookings bookings={technicianStats.todayBookings} />
+      ) : null}
 
           <TabsContent value="overview" className="space-y-4">
             {isTechnician && technicianStats ? (

@@ -334,9 +334,9 @@ export default function OffTimeRequestPage() {
                         </SelectContent>
                     </Select>
                 </div>
-                <Button id="filter-btn" onClick={handleFilter} className="self-end">
+                {/* <Button id="filter-btn" onClick={handleFilter} className="self-end">
                     Filter
-                </Button>
+                </Button> */}
             </div>
 
             {/* Table title */}
