@@ -335,6 +335,10 @@ export default function SignupPage() {
             <span className="text-xl font-semibold tracking-tight text-foreground">Greenfrog.</span>
           </div>
 
+          <Button asChild variant="outline" className="mt-4 h-11 w-full rounded-lg">
+                <Link href="/">Go To Website</Link>
+              </Button>
+
           <Card className="border-none shadow-none bg-transparent p-0">
             <CardHeader className="px-0 pb-6 pt-0">
               <CardTitle className="text-3xl font-semibold text-foreground">
@@ -569,6 +573,8 @@ export default function SignupPage() {
                   Login
                 </Link>
               </p>
+
+              
             </CardContent>
           </Card>
         </div>

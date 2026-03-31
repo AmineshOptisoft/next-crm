@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
 import { Booking } from "@/app/models/Booking";
+import { TechnicianTimeOff } from "@/app/models/TechnicianTimeOff";
 import mongoose from "mongoose";
 
 function generateOrderId() {
@@ -24,6 +25,8 @@ export async function POST(req: NextRequest) {
       startDateTime,
       endDateTime,
       notes,
+      hasPets,
+      pets = [],
       pricing,
       zipCode,
     } = body || {};
@@ -50,11 +53,58 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       );
     }
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const bookingDayStart = new Date(start);
+    bookingDayStart.setHours(0, 0, 0, 0);
+    if (bookingDayStart < todayStart) {
+      return NextResponse.json(
+        { error: "Booking date cannot be before today" },
+        { status: 400 }
+      );
+    }
+    const technicianObjId = new mongoose.Types.ObjectId(technicianId);
+    const companyObjId = new mongoose.Types.ObjectId(companyId);
+
+    // Prevent overlap with existing technician bookings.
+    const overlappingBooking = await Booking.findOne({
+      companyId: companyObjId,
+      technicianId: technicianObjId,
+      status: {
+        $nin: ["cancelled", "rejected", "deleted", "no_show"],
+      },
+      startDateTime: { $lt: end },
+      endDateTime: { $gt: start },
+    })
+      .select("_id")
+      .lean();
+    if (overlappingBooking) {
+      return NextResponse.json(
+        { error: "Technician is not available at this time. Select different time." },
+        { status: 400 }
+      );
+    }
+
+    // Prevent booking if an approved time-off overlaps the selected slot.
+    const overlappingTimeOff = await TechnicianTimeOff.findOne({
+      technicianId: technicianObjId,
+      status: "APPROVED",
+      startDate: { $lte: end },
+      endDate: { $gte: start },
+    })
+      .select("_id")
+      .lean();
+    if (overlappingTimeOff) {
+      return NextResponse.json(
+        { error: "Technician is not available at this time. Select different time." },
+        { status: 400 }
+      );
+    }
 
     const booking = await Booking.create({
       orderId: generateOrderId(),
       contactId: new mongoose.Types.ObjectId(contactId),
-      technicianId: new mongoose.Types.ObjectId(technicianId),
+      technicianId: technicianObjId,
       serviceId: new mongoose.Types.ObjectId(serviceId),
       subServices,
       addons,
@@ -63,8 +113,10 @@ export async function POST(req: NextRequest) {
       endDateTime: end,
       shippingAddress: zipCode ? { zipCode } : undefined,
       notes,
+      hasPets: typeof hasPets === "boolean" ? hasPets : undefined,
+      pets: Array.isArray(pets) ? pets.filter((p: any) => typeof p === "string") : [],
       pricing,
-      companyId: new mongoose.Types.ObjectId(companyId),
+      companyId: companyObjId,
       status: "unconfirmed",
     });
 

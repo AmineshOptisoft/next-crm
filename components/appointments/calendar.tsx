@@ -106,7 +106,13 @@ export default function Calendar() {
     { revalidateOnFocus: false, dedupingInterval: 10000 }
   );
 
-  const resources = data?.resources || [];
+  const resources = useMemo(() => {
+    const rawResources = data?.resources || [];
+    return rawResources.filter(
+      (resource: any) =>
+        resource?.isActive !== false && resource?.isTechnicianActive !== false
+    );
+  }, [data?.resources]);
   const events = data?.events || [];
 
   // Filter events per view with useMemo to prevent unnecessary React re-renders 

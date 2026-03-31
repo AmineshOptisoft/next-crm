@@ -635,7 +635,7 @@ export function UserForm({ user, onSave, loading }: UserFormProps) {
                                 {/* Address */}
                                 <div className="space-y-2 mt-4">
                                     <Label htmlFor="address">Address</Label>
-                                    <Input
+                                    <Textarea
                                         id="address"
                                         value={formData.address || ""}
                                         onChange={(e) => handleChange("address", e.target.value)}
@@ -841,8 +841,20 @@ export function UserForm({ user, onSave, loading }: UserFormProps) {
                                                 value={formData.zone || ""}
                                                 onValueChange={(val) => {
                                                     handleChange("zone", val);
-                                                    // Clear selected zip codes when zone changes
-                                                    handleChange("workingZipCodes", []);
+                                                    const selectedZone = serviceAreas.find((area) => area.name === val);
+                                                    const selectedZoneId = selectedZone?._id;
+                                                    const zoneZipCodeIds = selectedZoneId
+                                                        ? availableZipCodes
+                                                            .filter((zipCode) => {
+                                                                const serviceAreaId = typeof zipCode.serviceAreaId === "object"
+                                                                    ? zipCode.serviceAreaId._id
+                                                                    : zipCode.serviceAreaId;
+                                                                return serviceAreaId === selectedZoneId;
+                                                            })
+                                                            .map((zipCode) => zipCode._id)
+                                                        : [];
+                                                    // Auto-select all zip codes in the selected zone.
+                                                    handleChange("workingZipCodes", zoneZipCodeIds);
                                                 }}
                                             >
                                                 <SelectTrigger className="w-full">

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { format } from "date-fns";
 import { Mail, MapPin, Phone } from "lucide-react";
 import { Calendar } from "@/components/ui/calendar";
@@ -60,6 +60,9 @@ export function PublicTemplateA({ company, subdomain, services }: PublicTemplate
   const [appointmentDate, setAppointmentDate] = useState("");
   const [appointmentDateObj, setAppointmentDateObj] = useState<Date | undefined>(undefined);
   const [appointmentTime, setAppointmentTime] = useState("");
+  const [selectedShift, setSelectedShift] = useState<"morning" | "afternoon" | null>(null);
+  const [hasPets, setHasPets] = useState<boolean | null>(null);
+  const [selectedPets, setSelectedPets] = useState<string[]>([]);
 
   const [appointmentNotes, setAppointmentNotes] = useState("");
   const [newUserFormStep, setNewUserFormStep] = useState<"form" | "notes">("form");
@@ -95,11 +98,28 @@ export function PublicTemplateA({ company, subdomain, services }: PublicTemplate
   const [promocodes, setPromocodes] = useState<any[]>([]);
   const [promocodeInput, setPromocodeInput] = useState("");
   const [discount, setDiscount] = useState(0);
+  const [appliedPromocode, setAppliedPromocode] = useState<string | null>(null);
+  const [promocodeError, setPromocodeError] = useState("");
   const [technicians, setTechnicians] = useState<any[]>([]);
   const [calendarEvents, setCalendarEvents] = useState<any[]>([]);
   const [geoLib, setGeoLib] = useState<any>(null);
   const [searchZip, setSearchZip] = useState("");
   const [showThankYou, setShowThankYou] = useState(false);
+  const lastLoadedCardsContactId = useRef<string | null>(null);
+  const todayStart = useMemo(() => {
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+    return now;
+  }, []);
+
+  const activeTechnicians = useMemo(
+    () =>
+      technicians.filter(
+        (tech: any) =>
+          tech?.isActive !== false && tech?.isTechnicianActive !== false
+      ),
+    [technicians]
+  );
 
   const steps = [
     { id: 1, label: "Choose a Service" },
@@ -114,7 +134,7 @@ export function PublicTemplateA({ company, subdomain, services }: PublicTemplate
     const normalized = raw.toLowerCase();
     const ids = new Set<string>();
 
-    technicians.forEach((tech: any) => {
+    activeTechnicians.forEach((tech: any) => {
       const zips: string[] = tech.workingZipCodes || [];
       const matchesZip = zips.some(
         (z) => z && z.replace(/\s+/g, "").toLowerCase() === normalized
@@ -128,7 +148,7 @@ export function PublicTemplateA({ company, subdomain, services }: PublicTemplate
     });
 
     return ids;
-  }, [technicians, searchZip]);
+  }, [activeTechnicians, searchZip]);
 
   const filteredMainServices = useMemo(() => {
     if (!userType) return [];
@@ -151,6 +171,8 @@ export function PublicTemplateA({ company, subdomain, services }: PublicTemplate
 
   useEffect(() => {
     if (!contactId) return;
+    if (lastLoadedCardsContactId.current === contactId) return;
+    lastLoadedCardsContactId.current = contactId;
     (async () => {
       try {
         const res = await fetch(`/api/public/cards?userId=${encodeURIComponent(contactId)}`);
@@ -166,9 +188,7 @@ export function PublicTemplateA({ company, subdomain, services }: PublicTemplate
             name: c.nameOnCard || c.name,
           }));
           setCards(mapped);
-          if (mapped.length && !savedCard) {
-            setSavedCard(mapped[0].id);
-          }
+          setSavedCard((prev) => prev || mapped[0]?.id || null);
         }
       } catch (err) {
         console.error("Failed to load saved cards", err);
@@ -231,6 +251,27 @@ export function PublicTemplateA({ company, subdomain, services }: PublicTemplate
   }, [selectedServiceConfig, userType]);
 
   const selectedServiceName = selectedServiceConfig?.name ?? null;
+  const petOptions = useMemo(() => ["Cats", "Dogs", "Birds", "Other"], []);
+  const shiftTimeOptions = useMemo(() => {
+    if (selectedShift === "morning") {
+      return [
+        { label: "9:00 AM", value: "09:00" },
+        { label: "10:00 AM", value: "10:00" },
+        { label: "11:00 AM", value: "11:00" },
+      ];
+    }
+    if (selectedShift === "afternoon") {
+      return [
+        { label: "12:00 PM", value: "12:00" },
+        { label: "1:00 PM", value: "13:00" },
+        { label: "2:00 PM", value: "14:00" },
+        { label: "3:00 PM", value: "15:00" },
+        { label: "4:00 PM", value: "16:00" },
+        { label: "5:00 PM", value: "17:00" },
+      ];
+    }
+    return [];
+  }, [selectedShift]);
 
   const { subTotal, addonsTotal, total } = useMemo(() => {
     if (!selectedServiceConfig) {
@@ -274,6 +315,20 @@ export function PublicTemplateA({ company, subdomain, services }: PublicTemplate
   }, [selectedServiceConfig, visibleSubServices, visibleAddons, subServiceCounts, addonCounts]);
 
   const finalAmount = Math.max(0, total - discount);
+  const estimatedBookingMinutes = useMemo(() => {
+    let totalMinutes = 0;
+    visibleSubServices.forEach((sub: any) => {
+      const qty = subServiceCounts[sub._id] || 0;
+      const minutes = Number(sub.estimatedTime) || 0;
+      totalMinutes += minutes * qty;
+    });
+    visibleAddons.forEach((addon: any) => {
+      const qty = addonCounts[addon._id] || 0;
+      const minutes = Number(addon.estimatedTime) || 0;
+      totalMinutes += minutes * qty;
+    });
+    return totalMinutes > 0 ? totalMinutes : 120;
+  }, [visibleSubServices, visibleAddons, subServiceCounts, addonCounts]);
 
   const isStepComplete = (currentStep: number) => {
     if (currentStep === 1) {
@@ -317,6 +372,12 @@ export function PublicTemplateA({ company, subdomain, services }: PublicTemplate
   };
 
   const canGoNext = isStepComplete(step);
+  const togglePet = (pet: string) => {
+    setHasPets(true);
+    setSelectedPets((prev) =>
+      prev.includes(pet) ? prev.filter((p) => p !== pet) : [...prev, pet]
+    );
+  };
 
   const handleNext = async () => {
     if (step === 3 && userType === "new" && newUserFormStep === "form") {
@@ -379,14 +440,6 @@ export function PublicTemplateA({ company, subdomain, services }: PublicTemplate
           toast.error("Please select a service.");
           return;
         }
-        const techId =
-          technicianMode === "manual"
-            ? selectedTechnician
-            : availableTechnicians[0]?.id || null;
-        if (!techId) {
-          toast.error("Please select a technician or time where a technician is available.");
-          return;
-        }
         if (!appointmentDate || !appointmentTime) {
           toast.error("Please select a date and time.");
           return;
@@ -397,21 +450,34 @@ export function PublicTemplateA({ company, subdomain, services }: PublicTemplate
           toast.error("Invalid booking time.");
           return;
         }
-
-        let totalMinutes = 0;
-        visibleSubServices.forEach((sub: any) => {
-          const qty = subServiceCounts[sub._id] || 0;
-          const m = Number(sub.estimatedTime) || 0;
-          totalMinutes += m * qty;
-        });
-        visibleAddons.forEach((addon: any) => {
-          const qty = addonCounts[addon._id] || 0;
-          const m = Number(addon.estimatedTime) || 0;
-          totalMinutes += m * qty;
-        });
-        if (!totalMinutes) {
-          totalMinutes = 120;
+        const bookingDayStart = new Date(start);
+        bookingDayStart.setHours(0, 0, 0, 0);
+        if (bookingDayStart < todayStart) {
+          toast.error("Booking date cannot be before today.");
+          return;
         }
+
+        const availableTechIds = availableTechnicians
+          .map((tech: any) => tech.id || tech._id?.toString?.())
+          .filter(Boolean);
+
+        let techId: string | null = null;
+        if (technicianMode === "manual") {
+          if (!selectedTechnician || !availableTechIds.includes(selectedTechnician)) {
+            toast.error("Technician is not available at this time. Select different time.");
+            return;
+          }
+          techId = selectedTechnician;
+        } else {
+          if (availableTechIds.length === 0) {
+            toast.error("Technician is not available at this time. Select different time.");
+            return;
+          }
+          const randomIndex = Math.floor(Math.random() * availableTechIds.length);
+          techId = availableTechIds[randomIndex];
+        }
+
+        const totalMinutes = estimatedBookingMinutes;
         const end = new Date(start.getTime() + totalMinutes * 60 * 1000);
 
         const allowedSubIds = new Set(
@@ -454,7 +520,9 @@ export function PublicTemplateA({ company, subdomain, services }: PublicTemplate
             addons,
             startDateTime: start.toISOString(),
             endDateTime: end.toISOString(),
-            notes: appointmentNotes || undefined,
+            notes: appointmentNotes.trim() || undefined,
+            hasPets: hasPets === null ? undefined : hasPets,
+            pets: hasPets ? selectedPets : [],
             pricing,
             zipCode: searchZip.trim() || undefined,
           }),
@@ -498,13 +566,13 @@ export function PublicTemplateA({ company, subdomain, services }: PublicTemplate
   }, []);
 
   const availableTechnicians = useMemo(() => {
-    if (!technicians || technicians.length === 0) return [];
+    if (!activeTechnicians || activeTechnicians.length === 0) return [];
 
     const normalizedZip = searchZip.replace(/\s+/g, "").toLowerCase();
     if (!normalizedZip) return [];
 
     // First filter by zipcode coverage
-    const techsByZip = technicians.filter((tech: any) => {
+    const techsByZip = activeTechnicians.filter((tech: any) => {
       const zips: string[] = tech.workingZipCodes || [];
       if (!zips.length) return false;
       return zips.some(
@@ -527,7 +595,7 @@ export function PublicTemplateA({ company, subdomain, services }: PublicTemplate
 
     const start = new Date(`${appointmentDate}T${appointmentTime}:00`);
     if (Number.isNaN(start.getTime())) return techsByService;
-    const end = new Date(start.getTime() + 2 * 60 * 60 * 1000); // 2‑hour window
+    const end = new Date(start.getTime() + estimatedBookingMinutes * 60 * 1000);
 
     return techsByService.filter((tech: any) => {
       const techId = tech.id || tech._id?.toString?.();
@@ -547,7 +615,17 @@ export function PublicTemplateA({ company, subdomain, services }: PublicTemplate
 
       return !hasBlockingOverlap;
     });
-  }, [technicians, calendarEvents, selectedServiceId, appointmentDate, appointmentTime, searchZip]);
+  }, [activeTechnicians, calendarEvents, selectedServiceId, appointmentDate, appointmentTime, searchZip, estimatedBookingMinutes]);
+
+  useEffect(() => {
+    if (technicianMode !== "manual" || !selectedTechnician) return;
+    const stillAvailable = availableTechnicians.some(
+      (tech: any) => (tech.id || tech._id?.toString?.()) === selectedTechnician
+    );
+    if (!stillAvailable) {
+      setSelectedTechnician(null);
+    }
+  }, [technicianMode, selectedTechnician, availableTechnicians]);
 
   useEffect(() => {
     // Try to load active promocodes for this company; if unauthorized, just ignore.
@@ -563,39 +641,69 @@ export function PublicTemplateA({ company, subdomain, services }: PublicTemplate
     })();
   }, []);
 
-  useEffect(() => {
-    if (!promocodeInput.trim() || total <= 0 || promocodes.length === 0) {
-      setDiscount(0);
-      return;
-    }
-
-    const code = promocodeInput.trim().toUpperCase();
+  const calculateDiscountForCode = (code: string) => {
     const promo = promocodes.find((p: any) => p.code?.toUpperCase() === code);
-    if (!promo) {
-      setDiscount(0);
-      return;
-    }
-
-    if (promo.limit === 0) {
-      setDiscount(0);
-      return;
-    }
-
+    if (!promo) return { discountAmount: 0, error: "Invalid promocode." };
+    if (promo.limit === 0) return { discountAmount: 0, error: "This promocode has reached its usage limit." };
     const valueNum = Number(promo.value) || 0;
-    if (!valueNum) {
+    if (!valueNum) return { discountAmount: 0, error: "This promocode is not valid." };
+
+    let appliedAmount = 0;
+    if (promo.type === "percentage") {
+      appliedAmount = total * (valueNum / 100);
+    } else {
+      appliedAmount = valueNum;
+    }
+    return {
+      discountAmount: Number(Math.min(appliedAmount, total).toFixed(2)),
+      error: "",
+    };
+  };
+
+  const handleApplyPromocode = () => {
+    const code = promocodeInput.trim().toUpperCase();
+    if (!code) {
+      setPromocodeError("Please enter a promocode.");
       setDiscount(0);
+      setAppliedPromocode(null);
+      return;
+    }
+    if (total <= 0) {
+      setPromocodeError("Select services before applying a promocode.");
+      setDiscount(0);
+      setAppliedPromocode(null);
       return;
     }
 
-    let applied = 0;
-    if (promo.type === "percentage") {
-      applied = total * (valueNum / 100);
-    } else {
-      applied = valueNum;
+    const { discountAmount, error } = calculateDiscountForCode(code);
+    if (error) {
+      setPromocodeError(error);
+      setDiscount(0);
+      setAppliedPromocode(null);
+      return;
     }
 
-    setDiscount(Number(Math.min(applied, total).toFixed(2)));
-  }, [promocodeInput, total, promocodes]);
+    setPromocodeInput(code);
+    setDiscount(discountAmount);
+    setAppliedPromocode(code);
+    setPromocodeError("");
+  };
+
+  useEffect(() => {
+    if (!appliedPromocode) return;
+    if (total <= 0) {
+      setDiscount(0);
+      return;
+    }
+    const { discountAmount, error } = calculateDiscountForCode(appliedPromocode);
+    if (error) {
+      setDiscount(0);
+      setAppliedPromocode(null);
+      setPromocodeError(error);
+      return;
+    }
+    setDiscount(discountAmount);
+  }, [appliedPromocode, total, promocodes]);
 
   return (
     <div className="min-h-screen bg-muted text-foreground">
@@ -1107,10 +1215,13 @@ export function PublicTemplateA({ company, subdomain, services }: PublicTemplate
                   <div className="flex gap-3">
                     <button
                       type="button"
-                      onClick={() => setAppointmentTime("09:00")}
+                      onClick={() => {
+                        setSelectedShift("morning");
+                        setAppointmentTime("");
+                      }}
                       className={[
                         "flex-1 rounded-lg border px-4 py-2 text-xs font-medium",
-                        appointmentTime && appointmentTime < "12:00"
+                        selectedShift === "morning"
                           ? "border-primary bg-primary/10 text-primary"
                           : "border-border bg-background text-foreground hover:border-primary/60",
                       ].join(" ")}
@@ -1119,10 +1230,13 @@ export function PublicTemplateA({ company, subdomain, services }: PublicTemplate
                     </button>
                     <button
                       type="button"
-                      onClick={() => setAppointmentTime("14:00")}
+                      onClick={() => {
+                        setSelectedShift("afternoon");
+                        setAppointmentTime("");
+                      }}
                       className={[
                         "flex-1 rounded-lg border px-4 py-2 text-xs font-medium",
-                        appointmentTime && appointmentTime >= "12:00"
+                        selectedShift === "afternoon"
                           ? "border-primary bg-primary/10 text-primary"
                           : "border-border bg-background text-foreground hover:border-primary/60",
                       ].join(" ")}
@@ -1140,7 +1254,20 @@ export function PublicTemplateA({ company, subdomain, services }: PublicTemplate
                         <Calendar
                           mode="single"
                           selected={appointmentDateObj}
+                          disabled={(date) => {
+                            const day = new Date(date);
+                            day.setHours(0, 0, 0, 0);
+                            return day < todayStart;
+                          }}
                           onSelect={(date) => {
+                            if (date) {
+                              const day = new Date(date);
+                              day.setHours(0, 0, 0, 0);
+                              if (day < todayStart) {
+                                toast.error("Booking date cannot be before today.");
+                                return;
+                              }
+                            }
                             setAppointmentDateObj(date || undefined);
                             setAppointmentDate(date ? format(date, "yyyy-MM-dd") : "");
                           }}
@@ -1153,14 +1280,23 @@ export function PublicTemplateA({ company, subdomain, services }: PublicTemplate
                         <div className="text-[11px] font-medium uppercase tracking-[0.15em] text-muted-foreground">
                           Booking time
                         </div>
-                        <input
-                          type="time"
+                        <select
                           value={appointmentTime}
                           onChange={(e) => setAppointmentTime(e.target.value)}
-                          className="mt-1 w-full rounded-lg border border-input bg-background px-3 py-2 text-xs text-foreground outline-none ring-0 focus:border-primary focus:ring-2 focus:ring-primary/30"
-                        />
+                          disabled={!selectedShift}
+                          className="mt-1 w-full rounded-lg border border-input bg-background px-3 py-2 text-xs text-foreground outline-none ring-0 focus:border-primary focus:ring-2 focus:ring-primary/30 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          <option value="">
+                            {selectedShift ? "Select time" : "Select a shift first"}
+                          </option>
+                          {shiftTimeOptions.map((timeOption) => (
+                            <option key={timeOption.value} value={timeOption.value}>
+                              {timeOption.label}
+                            </option>
+                          ))}
+                        </select>
                         <p className="mt-1 text-[11px] text-muted-foreground">
-                          Select a time within your chosen window.
+                          Select a time based on your chosen shift.
                         </p>
                       </div>
                       <div className="space-y-2">
@@ -1170,17 +1306,51 @@ export function PublicTemplateA({ company, subdomain, services }: PublicTemplate
                         <div className="flex gap-2">
                           <button
                             type="button"
-                            className="flex-1 rounded-full border border-border bg-background px-3 py-1.5 text-xs font-medium text-foreground hover:border-primary hover:text-primary"
+                            onClick={() => setHasPets(true)}
+                            className={[
+                              "flex-1 rounded-full border px-3 py-1.5 text-xs font-medium",
+                              hasPets === true
+                                ? "border-primary bg-primary/10 text-primary"
+                                : "border-border bg-background text-foreground hover:border-primary hover:text-primary",
+                            ].join(" ")}
                           >
-                            Cats
+                            Yes
                           </button>
                           <button
                             type="button"
-                            className="flex-1 rounded-full border border-border bg-background px-3 py-1.5 text-xs font-medium text-foreground hover:border-primary hover:text-primary"
+                            onClick={() => {
+                              setHasPets(false);
+                              setSelectedPets([]);
+                            }}
+                            className={[
+                              "flex-1 rounded-full border px-3 py-1.5 text-xs font-medium",
+                              hasPets === false
+                                ? "border-primary bg-primary/10 text-primary"
+                                : "border-border bg-background text-foreground hover:border-primary hover:text-primary",
+                            ].join(" ")}
                           >
-                            Dogs
+                            No
                           </button>
                         </div>
+                        {hasPets === true && (
+                          <div className="grid grid-cols-2 gap-2">
+                            {petOptions.map((pet) => (
+                              <button
+                                key={pet}
+                                type="button"
+                                onClick={() => togglePet(pet)}
+                                className={[
+                                  "rounded-full border px-3 py-1.5 text-xs font-medium text-left",
+                                  selectedPets.includes(pet)
+                                    ? "border-primary bg-primary/10 text-primary"
+                                    : "border-border bg-background text-foreground hover:border-primary hover:text-primary",
+                                ].join(" ")}
+                              >
+                                {pet}
+                              </button>
+                            ))}
+                          </div>
+                        )}
                       </div>
                       <div className="space-y-2">
                         <div className="text-[11px] font-medium uppercase tracking-[0.15em] text-muted-foreground">
@@ -1681,17 +1851,28 @@ export function PublicTemplateA({ company, subdomain, services }: PublicTemplate
                   type="text"
                   placeholder="Enter promocode"
                   value={promocodeInput}
-                  onChange={(e) => setPromocodeInput(e.target.value)}
+                  onChange={(e) => {
+                    const nextValue = e.target.value;
+                    setPromocodeInput(nextValue);
+                    if (appliedPromocode && nextValue.trim().toUpperCase() !== appliedPromocode) {
+                      setAppliedPromocode(null);
+                      setDiscount(0);
+                    }
+                    setPromocodeError("");
+                  }}
                   className="flex-1 rounded-lg border border-input bg-background px-3 py-1.5 text-xs text-foreground outline-none ring-0 placeholder:text-muted-foreground focus:border-primary"
                 />
                 <button
                   type="button"
                   className="rounded-full border border-border px-3 py-1.5 text-[11px] font-medium text-foreground hover:border-primary hover:text-primary"
-                  onClick={() => setPromocodeInput((prev) => prev.trim().toUpperCase())}
+                  onClick={handleApplyPromocode}
                 >
                   Apply
                 </button>
               </div>
+              {promocodeError && (
+                <p className="text-[11px] text-destructive">{promocodeError}</p>
+              )}
             </div>
 
             <div className="space-y-2">

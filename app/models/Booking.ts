@@ -41,6 +41,8 @@ export interface IBooking extends Document {
     };
 
     notes?: string;
+    hasPets?: boolean;
+    pets?: string[];
     promoCode?: string;
     promocode?: {
         code?: string;
@@ -176,6 +178,8 @@ const BookingSchema = new Schema({
     },
 
     notes: String,
+    hasPets: { type: Boolean },
+    pets: { type: [String], default: [] },
     promoCode: { type: String },
     promocode: {
         code: { type: String },
@@ -251,4 +255,18 @@ BookingSchema.index({ technicianId: 1, startDateTime: 1 });
 BookingSchema.index({ contactId: 1 });
 BookingSchema.index({ recurringGroupId: 1 });
 
-export const Booking = models.Booking || model<IBooking>("Booking", BookingSchema);
+const existingBookingModel = models.Booking as mongoose.Model<IBooking> | undefined;
+
+// In dev/HMR, mongoose can reuse an already-compiled model that does not include
+// newly added paths. Ensure pets fields exist on the reused schema as well.
+if (existingBookingModel) {
+    const existingSchema = existingBookingModel.schema;
+    if (!existingSchema.path("hasPets") || !existingSchema.path("pets")) {
+        existingSchema.add({
+            hasPets: { type: Boolean },
+            pets: { type: [String], default: [] },
+        });
+    }
+}
+
+export const Booking = existingBookingModel || model<IBooking>("Booking", BookingSchema);

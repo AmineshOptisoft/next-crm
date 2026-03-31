@@ -82,6 +82,7 @@ export async function GET(req: NextRequest) {
             User.find({
                 companyId: user.companyId,
                 role: "company_user",
+                isActive: true,
                 isTechnicianActive: true,
             })
                 .select("firstName lastName zone availability services workingZipCodes")
