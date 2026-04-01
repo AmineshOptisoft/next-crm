@@ -81,11 +81,12 @@ export async function GET(req: NextRequest) {
 
             User.find({
                 companyId: user.companyId,
-                role: "company_user",
+                role: { $in: ["company_user", "employee"] },
                 isActive: true,
                 isTechnicianActive: true,
             })
-                .select("firstName lastName zone availability services workingZipCodes")
+                .select("firstName lastName zone availability services workingZipCodes customRoleId defaultRoleName")
+                .populate("customRoleId", "name")
                 .lean()
                 .exec(),
 
@@ -228,9 +229,16 @@ export async function GET(req: NextRequest) {
                 const techId = tech._id.toString();
 
                 const techZipCodes: string[] = (tech.workingZipCodes || [])
-                    .map((id: any) => {
-                        const key = id?.toString?.() ?? "";
-                        return key ? zipMap.get(key) : undefined;
+                    .map((raw: any) => {
+                        const key = raw?.toString?.() ?? "";
+                        if (!key) return undefined;
+
+                        // Prefer mapped ZipCode doc value when workingZipCodes stores ZipCode _id.
+                        const mapped = zipMap.get(key);
+                        if (mapped) return mapped;
+
+                        // Backward-compatible fallback: some users store direct zip strings.
+                        return key;
                     })
                     .filter((v: any) => typeof v === "string") as string[];
 
@@ -240,6 +248,10 @@ export async function GET(req: NextRequest) {
                     group:    area.name,
                     services: tech.services || [],
                     workingZipCodes: techZipCodes,
+                    isSubstituteTechnician:
+                        tech?.defaultRoleName === "Substitute Technician" ||
+                        tech?.customRoleId?.name === "Substitute Technician" ||
+                        `${tech?.firstName || ""} ${tech?.lastName || ""}`.toLowerCase().includes("substitute technician"),
                 });
 
                 // Per-tech numeric availability map (7 entries max)

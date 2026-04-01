@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
 import { Role } from "@/app/models/Role";
+import { User } from "@/app/models/User";
 import { getCurrentUser, requireCompanyAdmin } from "@/lib/auth";
 
 export async function GET(
@@ -62,12 +63,59 @@ export async function PUT(
     return NextResponse.json({ error: "Role not found" }, { status: 404 });
   }
 
-  // Prevent editing system roles
+  // Editing shared Substitute Technician creates a company-specific copy
+  // so global default isn't changed for every company.
   if (role.isSystemRole) {
-    return NextResponse.json(
-      { error: "Cannot edit system roles" },
-      { status: 400 }
+    if (role.name !== "Substitute Technician") {
+      return NextResponse.json(
+        { error: "Cannot edit system roles" },
+        { status: 400 }
+      );
+    }
+
+    const clonedName = (body.name || role.name || "").trim();
+    if (!clonedName) {
+      return NextResponse.json(
+        { error: "Role name is required" },
+        { status: 400 }
+      );
+    }
+
+    const existingName = await Role.findOne({
+      companyId: user.companyId,
+      name: clonedName,
+      isActive: true,
+      isSystemRole: false,
+    })
+      .select("_id")
+      .lean();
+
+    if (existingName) {
+      return NextResponse.json(
+        { error: "Role with this name already exists in your company" },
+        { status: 400 }
+      );
+    }
+
+    const clonedRole = await Role.create({
+      companyId: user.companyId,
+      name: clonedName,
+      description: body.description ?? role.description ?? "",
+      permissions: body.permissions ?? role.permissions ?? [],
+      createdBy: user.userId,
+      isSystemRole: false,
+      isDefaultRole: false,
+      isActive: true,
+    });
+
+    // Re-point this company's users assigned to the shared role,
+    // so this edit behaves like a company-local customization.
+    await User.updateMany(
+      { companyId: user.companyId, customRoleId: role._id },
+      { $set: { customRoleId: clonedRole._id, defaultRoleName: null } }
     );
+
+    return NextResponse.json(clonedRole, { status: 201 });
   }
 
   // Prepare update data

@@ -1,4 +1,5 @@
 import mongoose, { Schema, Document, models, model } from "mongoose";
+import "./Service";
 
 export interface IBooking extends Document {
     contactId: mongoose.Types.ObjectId;

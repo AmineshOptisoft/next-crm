@@ -386,7 +386,7 @@ export default function RolesPage() {
                         >
                           <Eye className="h-4 w-4" />
                         </Button>
-                        {!role.isSystemRole && (
+                        {(!role.isSystemRole || role.name === "Substitute Technician") && (
                           <>
                             <Button
                               variant="ghost"
@@ -399,7 +399,7 @@ export default function RolesPage() {
                               variant="ghost"
                               size="icon"
                               onClick={() => handleDelete(role._id)}
-                              disabled={deletingId === role._id}
+                              disabled={deletingId === role._id || role.isSystemRole}
                             >
                               <Trash2 className="h-4 w-4" />
                             </Button>

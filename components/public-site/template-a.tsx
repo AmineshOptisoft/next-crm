@@ -21,6 +21,68 @@ type PublicTemplateProps = {
 };
 
 type UserType = "new" | "existing";
+const DAY_TO_INDEX: Record<string, number> = {
+  sunday: 0,
+  monday: 1,
+  tuesday: 2,
+  wednesday: 3,
+  thursday: 4,
+  friday: 5,
+  saturday: 6,
+};
+
+function normalizeId(value: any): string {
+  if (!value) return "";
+  if (typeof value === "string") return value;
+  if (typeof value === "object") {
+    if (typeof value.$oid === "string") return value.$oid;
+    if (typeof value._id === "string") return value._id;
+    if (value.id && typeof value.id === "string") return value.id;
+    if (value._id && typeof value._id.$oid === "string") return value._id.$oid;
+    if (value._id && typeof value._id.toString === "function") {
+      const nested = value._id.toString();
+      if (nested && nested !== "[object Object]") return nested;
+    }
+  }
+  const asString = typeof value?.toString === "function" ? value.toString() : "";
+  if (asString && asString !== "[object Object]") return asString;
+  return "";
+}
+
+function isSubstituteTech(tech: any): boolean {
+  if (!tech) return false;
+  if (tech.isSubstituteTechnician === true) return true;
+  const title = String(tech.title || `${tech.firstName || ""} ${tech.lastName || ""}`)
+    .toLowerCase()
+    .trim();
+  return title.includes("substitute technician");
+}
+
+function hasBlockingOverlapForTech(
+  tech: any,
+  calendarEvents: any[],
+  start: Date,
+  end: Date
+): boolean {
+  const techId = tech.id || tech._id?.toString?.();
+  if (!techId) return true;
+
+  const eventsForTech = (calendarEvents || []).filter((ev: any) => ev.resourceId === techId);
+  return eventsForTech.some((ev: any) => {
+    const evStart = new Date(ev.start).getTime();
+    const evEnd = new Date(ev.end).getTime();
+    if (!evStart || !evEnd) return false;
+    const overlaps = start.getTime() < evEnd && end.getTime() > evStart;
+    if (!overlaps) return false;
+
+    const evType = ev?.type || ev?.extendedProps?.type || "";
+    const isBooking = evType === "booking";
+    // Substitute technician can have overlapping bookings,
+    // but still cannot be assigned during unavailability/time-off blocks.
+    if (isBooking && isSubstituteTech(tech)) return false;
+    return true;
+  });
+}
 
 function isServiceAvailableForUserType(
   availability: string | undefined,
@@ -105,12 +167,29 @@ export function PublicTemplateA({ company, subdomain, services }: PublicTemplate
   const [geoLib, setGeoLib] = useState<any>(null);
   const [searchZip, setSearchZip] = useState("");
   const [showThankYou, setShowThankYou] = useState(false);
+
+  const closeThankYouAndRefresh = () => {
+    setShowThankYou(false);
+  };
   const lastLoadedCardsContactId = useRef<string | null>(null);
   const todayStart = useMemo(() => {
     const now = new Date();
     now.setHours(0, 0, 0, 0);
     return now;
   }, []);
+  const closedWeekdays = useMemo(() => {
+    const set = new Set<number>();
+    const availability = Array.isArray(company?.masterAvailability)
+      ? company.masterAvailability
+      : [];
+    availability.forEach((slot: any) => {
+      const dayName = String(slot?.day || "").trim().toLowerCase();
+      const dayIndex = DAY_TO_INDEX[dayName];
+      if (dayIndex === undefined) return;
+      if (slot?.isOpen === false) set.add(dayIndex);
+    });
+    return set;
+  }, [company?.masterAvailability]);
 
   const activeTechnicians = useMemo(
     () =>
@@ -141,8 +220,7 @@ export function PublicTemplateA({ company, subdomain, services }: PublicTemplate
       );
       if (!matchesZip) return;
       (tech.services || []).forEach((sid: any) => {
-        if (!sid) return;
-        const key = typeof sid === "string" ? sid : sid.toString();
+        const key = normalizeId(sid);
         ids.add(key);
       });
     });
@@ -158,7 +236,7 @@ export function PublicTemplateA({ company, subdomain, services }: PublicTemplate
     return (services || []).filter((s: any) => {
       if (s.category !== "main") return false;
       if (!isServiceAvailableForUserType(s.availability, userType)) return false;
-      const id = s._id?.toString?.() ?? "";
+      const id = normalizeId(s?._id);
       return id && zipServiceIds.has(id);
     });
   }, [services, userType, searchZip, zipServiceIds]);
@@ -231,7 +309,7 @@ export function PublicTemplateA({ company, subdomain, services }: PublicTemplate
   }, [geoLib, selectedCountryIso, newUserForm.state, stateOptions]);
 
   const selectedServiceConfig = selectedServiceId
-    ? filteredMainServices.find((s: any) => s._id === selectedServiceId) || null
+    ? filteredMainServices.find((s: any) => normalizeId(s?._id) === normalizeId(selectedServiceId)) || null
     : null;
 
   const visibleSubServices = useMemo(() => {
@@ -457,24 +535,35 @@ export function PublicTemplateA({ company, subdomain, services }: PublicTemplate
           return;
         }
 
-        const availableTechIds = availableTechnicians
+        const availableRegularTechIds = availableRegularTechnicians
+          .map((tech: any) => tech.id || tech._id?.toString?.())
+          .filter(Boolean);
+        const fallbackSubstituteIds = zoneMatchedSubstituteTechnicians
+          .map((tech: any) => tech.id || tech._id?.toString?.())
+          .filter(Boolean);
+        const manualSelectableIds = manualTechnicianOptions
           .map((tech: any) => tech.id || tech._id?.toString?.())
           .filter(Boolean);
 
         let techId: string | null = null;
         if (technicianMode === "manual") {
-          if (!selectedTechnician || !availableTechIds.includes(selectedTechnician)) {
+          if (!selectedTechnician || !manualSelectableIds.includes(selectedTechnician)) {
             toast.error("Technician is not available at this time. Select different time.");
             return;
           }
           techId = selectedTechnician;
         } else {
-          if (availableTechIds.length === 0) {
-            toast.error("Technician is not available at this time. Select different time.");
+          // Prefer normal available technicians. Use substitute only as fallback.
+          if (availableRegularTechIds.length > 0) {
+            const randomIndex = Math.floor(Math.random() * availableRegularTechIds.length);
+            techId = availableRegularTechIds[randomIndex];
+          } else if (fallbackSubstituteIds.length > 0) {
+            const randomIndex = Math.floor(Math.random() * fallbackSubstituteIds.length);
+            techId = fallbackSubstituteIds[randomIndex];
+          } else {
+            toast.error("No technician is available at this time, including substitute technician.");
             return;
           }
-          const randomIndex = Math.floor(Math.random() * availableTechIds.length);
-          techId = availableTechIds[randomIndex];
         }
 
         const totalMinutes = estimatedBookingMinutes;
@@ -534,6 +623,7 @@ export function PublicTemplateA({ company, subdomain, services }: PublicTemplate
           return;
         }
 
+        await loadResources();
         toast.success("Booking submitted successfully");
         setShowThankYou(true);
       } catch (err) {
@@ -550,19 +640,21 @@ export function PublicTemplateA({ company, subdomain, services }: PublicTemplate
     setStep((prev) => Math.max(prev - 1, 1));
   };
 
+  const loadResources = async () => {
+    try {
+      const res = await fetch("/api/appointments/resources", { credentials: "include" });
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data?.resources) setTechnicians(data.resources);
+      if (data?.events) setCalendarEvents(data.events);
+    } catch {
+      // ignore errors on public page
+    }
+  };
+
   useEffect(() => {
     // Load technicians and calendar events for manual selection/availability
-    (async () => {
-      try {
-        const res = await fetch("/api/appointments/resources", { credentials: "include" });
-        if (!res.ok) return;
-        const data = await res.json();
-        if (data?.resources) setTechnicians(data.resources);
-        if (data?.events) setCalendarEvents(data.events);
-      } catch {
-        // ignore errors on public page
-      }
-    })();
+    loadResources();
   }, []);
 
   const availableTechnicians = useMemo(() => {
@@ -585,47 +677,74 @@ export function PublicTemplateA({ company, subdomain, services }: PublicTemplate
     const techsByService = techsByZip.filter((tech: any) => {
       if (!selectedServiceId) return true;
       if (!tech.services || tech.services.length === 0) return true;
+      const selectedServiceKey = normalizeId(selectedServiceId);
       return tech.services.some(
-        (id: any) => id.toString && id.toString() === selectedServiceId.toString()
+        (id: any) => normalizeId(id) === selectedServiceKey
       );
     });
 
-    // If no date or time selected yet, just return service-filtered list
-    if (!appointmentDate || !appointmentTime) return techsByService;
+    // Only show technicians after date and time are selected.
+    if (!appointmentDate || !appointmentTime) return [];
 
     const start = new Date(`${appointmentDate}T${appointmentTime}:00`);
     if (Number.isNaN(start.getTime())) return techsByService;
     const end = new Date(start.getTime() + estimatedBookingMinutes * 60 * 1000);
 
     return techsByService.filter((tech: any) => {
-      const techId = tech.id || tech._id?.toString?.();
-      if (!techId) return false;
-
-      const eventsForTech = (calendarEvents || []).filter(
-        (ev: any) => ev.resourceId === techId
-      );
-
-      // If any blocking event overlaps, technician is not available
-      const hasBlockingOverlap = eventsForTech.some((ev: any) => {
-        const evStart = new Date(ev.start).getTime();
-        const evEnd = new Date(ev.end).getTime();
-        if (!evStart || !evEnd) return false;
-        return start.getTime() < evEnd && end.getTime() > evStart;
-      });
-
-      return !hasBlockingOverlap;
+      return !hasBlockingOverlapForTech(tech, calendarEvents || [], start, end);
     });
   }, [activeTechnicians, calendarEvents, selectedServiceId, appointmentDate, appointmentTime, searchZip, estimatedBookingMinutes]);
 
+  const zoneMatchedSubstituteTechnicians = useMemo(() => {
+    if (!activeTechnicians || activeTechnicians.length === 0) return [];
+
+    const normalizedZip = searchZip.replace(/\s+/g, "").toLowerCase();
+    if (!normalizedZip) return [];
+    const substitutes = activeTechnicians.filter((tech: any) => isSubstituteTech(tech));
+    if (!substitutes.length) return [];
+
+    const substituteCandidates = substitutes.filter((tech: any) => {
+      const zips: string[] = tech.workingZipCodes || [];
+      return zips.some((z) => z && z.replace(/\s+/g, "").toLowerCase() === normalizedZip);
+    });
+    if (!substituteCandidates.length) return [];
+
+    return substituteCandidates;
+  }, [activeTechnicians, searchZip]);
+
+  const availableRegularTechnicians = useMemo(
+    () => availableTechnicians.filter((tech: any) => !isSubstituteTech(tech)),
+    [availableTechnicians]
+  );
+
+  const manualTechnicianOptions = useMemo(() => {
+    // Only decide manual options when slot is fully selected.
+    if (!appointmentDate || !appointmentTime) return [];
+
+    if (availableRegularTechnicians.length > 0) {
+      return availableRegularTechnicians;
+    }
+    const byId = new Map<string, any>();
+    availableRegularTechnicians.forEach((tech: any) => {
+      const id = tech.id || tech._id?.toString?.();
+      if (id) byId.set(id, tech);
+    });
+    zoneMatchedSubstituteTechnicians.forEach((tech: any) => {
+      const id = tech.id || tech._id?.toString?.();
+      if (id) byId.set(id, tech);
+    });
+    return Array.from(byId.values());
+  }, [availableRegularTechnicians, zoneMatchedSubstituteTechnicians, appointmentDate, appointmentTime]);
+
   useEffect(() => {
     if (technicianMode !== "manual" || !selectedTechnician) return;
-    const stillAvailable = availableTechnicians.some(
+    const stillAvailable = manualTechnicianOptions.some(
       (tech: any) => (tech.id || tech._id?.toString?.()) === selectedTechnician
     );
     if (!stillAvailable) {
       setSelectedTechnician(null);
     }
-  }, [technicianMode, selectedTechnician, availableTechnicians]);
+  }, [technicianMode, selectedTechnician, manualTechnicianOptions]);
 
   useEffect(() => {
     // Try to load active promocodes for this company; if unauthorized, just ignore.
@@ -990,9 +1109,9 @@ export function PublicTemplateA({ company, subdomain, services }: PublicTemplate
                                 type="radio"
                                 name="service"
                                 value={service._id}
-                                checked={selectedServiceId === service._id}
+                                checked={normalizeId(selectedServiceId) === normalizeId(service?._id)}
                                 onChange={() => {
-                                  setSelectedServiceId(service._id);
+                                  setSelectedServiceId(normalizeId(service?._id));
                                   setSubServiceCounts({});
                                   setAddonCounts({});
                                 }}
@@ -1168,14 +1287,14 @@ export function PublicTemplateA({ company, subdomain, services }: PublicTemplate
                     <div className="text-[11px] font-medium uppercase tracking-[0.15em] text-muted-foreground">
                       Available technicians
                     </div>
-                    {availableTechnicians.length === 0 ? (
+                    {manualTechnicianOptions.length === 0 ? (
                       <div className="rounded-xl border bg-muted p-3 text-xs text-muted-foreground">
-                        No technicians are available for the selected date and time. Please adjust
-                        your time or choose the random technician option.
+                        No technicians are available for the selected date and time in this area,
+                        including substitute technician. Please adjust your time.
                       </div>
                     ) : (
                       <div className="grid max-h-72 grid-cols-2 gap-3 overflow-y-auto rounded-xl border bg-muted p-3 sm:grid-cols-3">
-                        {availableTechnicians.map((tech: any) => (
+                        {manualTechnicianOptions.map((tech: any) => (
                           <button
                             key={tech.id}
                             type="button"
@@ -1195,6 +1314,11 @@ export function PublicTemplateA({ company, subdomain, services }: PublicTemplate
                                 .toUpperCase() || "T"}
                             </div>
                             <span className="line-clamp-2">{tech.title}</span>
+                            {isSubstituteTech(tech) && (
+                              <span className="text-[10px] font-semibold text-primary">
+                                Substitute Technician
+                              </span>
+                            )}
                             {tech.group && (
                               <span className="text-[10px] text-muted-foreground">
                                 {tech.group}
@@ -1250,14 +1374,16 @@ export function PublicTemplateA({ company, subdomain, services }: PublicTemplate
                       <div className="text-[11px] font-medium uppercase tracking-[0.15em] text-muted-foreground">
                         Date
                       </div>
-                      <div className="rounded-xl border bg-muted p-3">
+                      <div className="rounded-xl border bg-muted p-3 flex items-center justify-center">
                         <Calendar
                           mode="single"
                           selected={appointmentDateObj}
                           disabled={(date) => {
                             const day = new Date(date);
                             day.setHours(0, 0, 0, 0);
-                            return day < todayStart;
+                            if (day < todayStart) return true;
+                            if (closedWeekdays.has(day.getDay())) return true;
+                            return false;
                           }}
                           onSelect={(date) => {
                             if (date) {
@@ -1265,6 +1391,10 @@ export function PublicTemplateA({ company, subdomain, services }: PublicTemplate
                               day.setHours(0, 0, 0, 0);
                               if (day < todayStart) {
                                 toast.error("Booking date cannot be before today.");
+                                return;
+                              }
+                              if (closedWeekdays.has(day.getDay())) {
+                                toast.error("Company is closed on the selected day.");
                                 return;
                               }
                             }
@@ -1975,7 +2105,7 @@ export function PublicTemplateA({ company, subdomain, services }: PublicTemplate
               <h2 className="text-sm font-semibold text-foreground">Thank you for your booking</h2>
               <button
                 type="button"
-                onClick={() => setShowThankYou(false)}
+                onClick={closeThankYouAndRefresh}
                 className="h-6 w-6 rounded-full border border-border text-xs font-bold text-muted-foreground hover:border-primary hover:text-primary"
               >
                 ×
@@ -1988,7 +2118,7 @@ export function PublicTemplateA({ company, subdomain, services }: PublicTemplate
             <div className="mt-4 flex justify-end">
               <button
                 type="button"
-                onClick={() => setShowThankYou(false)}
+                onClick={closeThankYouAndRefresh}
                 className="rounded-md bg-primary px-4 py-1.5 text-xs font-semibold text-primary-foreground hover:bg-primary/90"
               >
                 Close

@@ -3,6 +3,57 @@ import { connectDB } from "@/lib/db";
 import { Role } from "@/app/models/Role";
 import { getCurrentUser, requireCompanyAdmin } from "@/lib/auth";
 import { buildCompanyFilter, validateCompanyAccess } from "@/lib/permissions";
+import mongoose from "mongoose";
+
+const SHARED_SUBSTITUTE_TECHNICIAN_ROLE = {
+  name: "Substitute Technician",
+  description: "If no technician is available, this role can be used as a fallback assignment.",
+  permissions: [
+    { module: "dashboard", canView: true, canCreate: false, canEdit: false, canDelete: false, canExport: false },
+    { module: "contacts", canView: true, canCreate: false, canEdit: false, canDelete: false, canExport: false },
+    { module: "deals", canView: false, canCreate: false, canEdit: false, canDelete: false, canExport: false },
+    { module: "activities", canView: false, canCreate: false, canEdit: false, canDelete: false, canExport: false },
+    { module: "meetings", canView: false, canCreate: false, canEdit: false, canDelete: false, canExport: false },
+    { module: "tasks", canView: false, canCreate: false, canEdit: false, canDelete: false, canExport: false },
+    { module: "products", canView: false, canCreate: false, canEdit: false, canDelete: false, canExport: false },
+    { module: "appointments", canView: true, canCreate: false, canEdit: false, canDelete: false, canExport: false },
+    { module: "bookings", canView: true, canCreate: true, canEdit: true, canDelete: false, canExport: false },
+    { module: "timesheet", canView: true, canCreate: true, canEdit: true, canDelete: false, canExport: false },
+    { module: "invoices", canView: false, canCreate: false, canEdit: false, canDelete: false, canExport: false },
+    { module: "email-builder", canView: false, canCreate: false, canEdit: false, canDelete: false, canExport: false },
+    { module: "roles", canView: false, canCreate: false, canEdit: false, canDelete: false, canExport: false },
+    { module: "users", canView: false, canCreate: false, canEdit: false, canDelete: false, canExport: false },
+    { module: "services", canView: false, canCreate: false, canEdit: false, canDelete: false, canExport: false },
+    { module: "industries", canView: false, canCreate: false, canEdit: false, canDelete: false, canExport: false },
+    { module: "companies", canView: false, canCreate: false, canEdit: false, canDelete: false, canExport: false },
+  ],
+} as const;
+
+async function ensureSharedSubstituteTechnicianRole() {
+  const existing = await Role.findOne({
+    name: SHARED_SUBSTITUTE_TECHNICIAN_ROLE.name,
+    isSystemRole: true,
+    isDefaultRole: true,
+    isActive: true,
+  })
+    .select("_id")
+    .lean();
+
+  if (existing) return;
+
+  // Role schema requires companyId. Use a stable ObjectId value for this global shared role.
+  const sharedCompanyId = new mongoose.Types.ObjectId("000000000000000000000001");
+  await Role.create({
+    companyId: sharedCompanyId,
+    name: SHARED_SUBSTITUTE_TECHNICIAN_ROLE.name,
+    description: SHARED_SUBSTITUTE_TECHNICIAN_ROLE.description,
+    permissions: SHARED_SUBSTITUTE_TECHNICIAN_ROLE.permissions,
+    isSystemRole: true,
+    isDefaultRole: true,
+    isActive: true,
+    createdBy: null,
+  });
+}
 
 export async function GET(req: NextRequest) {
   const user = await getCurrentUser();
@@ -19,6 +70,7 @@ export async function GET(req: NextRequest) {
   }
 
   await connectDB();
+  await ensureSharedSubstituteTechnicianRole();
   const companyFilter = buildCompanyFilter(user);
   const getDefaultRoles = await Role.find({
     isDefaultRole: true,
@@ -41,10 +93,23 @@ export async function GET(req: NextRequest) {
     .sort({ isDefaultRole: -1, createdAt: -1 })
     .lean();
 
-  const defaultIds = new Set((getDefaultRoles as any[]).map((r: any) => r._id.toString()));
+  // Keep one shared copy per system default role name across all companies.
+  const uniqueDefaultRoles = Array.from(
+    (getDefaultRoles as any[]).reduce((acc, role: any) => {
+      if (!acc.has(role.name)) acc.set(role.name, role);
+      return acc;
+    }, new Map<string, any>()).values()
+  );
+
+  const defaultIds = new Set(uniqueDefaultRoles.map((r: any) => r._id.toString()));
   const otherRoles = (dbRoles as any[]).filter((r: any) => !defaultIds.has(r._id.toString()));
 
-  let roles = [...getDefaultRoles, ...otherRoles];
+  // If company has a custom role with the same name as a default role,
+  // hide the shared default for that company (company-specific override).
+  const companyRoleNames = new Set(otherRoles.map((r: any) => r.name));
+  const visibleDefaultRoles = uniqueDefaultRoles.filter((r: any) => !companyRoleNames.has(r.name));
+
+  let roles = [...visibleDefaultRoles, ...otherRoles];
 
   if (user.role === "super_admin") {
     const seenSystemRoles = new Set<string>();
