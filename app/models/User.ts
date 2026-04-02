@@ -151,6 +151,7 @@ const UserSchema = new Schema(
       expMonth: String,
       expYear: String,
       nameOnCard: String,
+      cardHash: String,
       createdAt: { type: Date, default: Date.now },
     }],
     lastContactedAt: { type: Date },

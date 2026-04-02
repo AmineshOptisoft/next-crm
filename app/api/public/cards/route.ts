@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
 import { User } from "@/app/models/User";
+import crypto from "crypto";
 
 export async function GET(req: NextRequest) {
   try {
@@ -47,18 +48,49 @@ export async function POST(req: NextRequest) {
   try {
     await connectDB();
     const body = await req.json();
-    const { userId, brand, last4, expMonth, expYear, nameOnCard } = body || {};
+    const { userId, brand, last4, expMonth, expYear, nameOnCard, cardNumber } = body || {};
 
-    if (!userId || !last4 || !expMonth || !expYear || !nameOnCard) {
+    if (!userId || !last4 || !expMonth || !expYear || !nameOnCard || !cardNumber) {
       return NextResponse.json(
         { error: "Missing required fields" },
         { status: 400 }
       );
     }
 
+    const normalizedNumber = String(cardNumber).replace(/\D/g, "");
+    if (normalizedNumber.length !== 16) {
+      return NextResponse.json(
+        { error: "Card number must be 16 digits." },
+        { status: 400 }
+      );
+    }
+    const cardHash = crypto
+      .createHash("sha256")
+      .update(normalizedNumber)
+      .digest("hex");
+
     const user = await User.findById(userId);
     if (!user) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
+
+    const existingCards = (user as any).cardDetails || [];
+    const isDuplicate = existingCards.some((c: any) => {
+      if (c?.cardHash) return c.cardHash === cardHash;
+      return (
+        c?.last4 === last4 &&
+        c?.expMonth === expMonth &&
+        c?.expYear === expYear &&
+        (c?.nameOnCard || "").trim().toLowerCase() ===
+          String(nameOnCard).trim().toLowerCase()
+      );
+    });
+
+    if (isDuplicate) {
+      return NextResponse.json(
+        { error: "This card already exists." },
+        { status: 409 }
+      );
     }
 
     const card: any = {
@@ -67,6 +99,7 @@ export async function POST(req: NextRequest) {
       expMonth,
       expYear,
       nameOnCard,
+      cardHash,
       createdAt: new Date(),
     };
 

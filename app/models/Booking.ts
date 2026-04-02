@@ -42,6 +42,8 @@ export interface IBooking extends Document {
     };
 
     notes?: string;
+    /** Free-text special requests from the public booking flow (e.g. access, parking). */
+    specialRequestFromClient?: string;
     hasPets?: boolean;
     pets?: string[];
     promoCode?: string;
@@ -179,6 +181,7 @@ const BookingSchema = new Schema({
     },
 
     notes: String,
+    specialRequestFromClient: { type: String },
     hasPets: { type: Boolean },
     pets: { type: [String], default: [] },
     promoCode: { type: String },
@@ -266,6 +269,11 @@ if (existingBookingModel) {
         existingSchema.add({
             hasPets: { type: Boolean },
             pets: { type: [String], default: [] },
+        });
+    }
+    if (!existingSchema.path("specialRequestFromClient")) {
+        existingSchema.add({
+            specialRequestFromClient: { type: String },
         });
     }
 }

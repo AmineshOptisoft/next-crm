@@ -1,12 +1,22 @@
 // app/dashboard/layout.tsx
 "use client"
 import { useEffect } from "react";
+import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import { AlertCircle } from "lucide-react";
 import { AppSidebar } from "@/components/app-sidebar";
 import { Topbar } from "@/components/layout/topbar";
 import useSWR from "swr";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
 const fetcher = (url: string) =>
   fetch(url, { credentials: "include" }).then((res) => res.json());
@@ -32,6 +42,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   const isLoading = loadingMe || loadingSettings;
   const isOnSettingsPage = ALWAYS_ACCESSIBLE.some((p) => pathname.startsWith(p));
+  const isClientBookingsPage = pathname.startsWith("/dashboard/client-bookings");
 
   // Derived values (safe with nullish defaults)
   const userRole = meData?.user?.role ?? "";
@@ -68,6 +79,76 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto mb-4"></div>
           <p className="text-muted-foreground">Loading...</p>
         </div>
+      </div>
+    );
+  }
+
+  const displayName =
+    meData?.user && (meData.user.firstName || meData.user.lastName)
+      ? [meData.user.firstName, meData.user.lastName].filter(Boolean).join(" ")
+      : meData?.user?.email || "User";
+
+  const initials = (displayName || "User")
+    .split(" ")
+    .map((part: string) => part[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+
+  async function handleLogout() {
+    try {
+      const res = await fetch("/api/auth/logout", {
+        method: "POST",
+        credentials: "include",
+      });
+      if (!res.ok) return;
+      window.location.href = "/login";
+    } catch {
+      // ignore
+    }
+  }
+
+  if (isClientBookingsPage) {
+    return (
+      <div className="min-h-screen bg-background">
+        <header className="sticky top-0 z-40 w-full border-b bg-background/95 backdrop-blur">
+          <div className="flex h-16 items-center justify-between px-4 md:px-6">
+            <Link href="/dashboard/client-bookings" className="flex items-center gap-2">
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-sm font-bold text-primary-foreground">
+                GF
+              </div>
+              <div className="leading-tight">
+                <p className="text-sm font-semibold">Green Frog</p>
+                <p className="text-[11px] text-muted-foreground">Cleaning</p>
+              </div>
+            </Link>
+
+            <div className="flex items-center gap-2">
+              <Button size="sm" className="rounded-full px-5">
+                Book Now
+              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" className="h-10 gap-2 px-2">
+                    <Avatar className="h-7 w-7">
+                      <AvatarFallback className="bg-primary text-primary-foreground text-xs">
+                        {initials}
+                      </AvatarFallback>
+                    </Avatar>
+                    <span className="hidden text-sm sm:block">{displayName}</span>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => router.push("/dashboard/client-bookings")}>
+                    Dashboard
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleLogout}>Log out</DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          </div>
+        </header>
+        <main className="w-full max-w-full min-w-0 overflow-x-hidden p-4">{children}</main>
       </div>
     );
   }

@@ -149,6 +149,7 @@ export async function GET(req: NextRequest) {
                         subServices: 1,
                         addons: 1,
                         notes: 1,
+                        specialRequestFromClient: 1,
                         pricing: 1,
                         timesheet: 1,
                         shippingAddress: 1,
@@ -382,6 +383,8 @@ export async function GET(req: NextRequest) {
                     clientNotesFromTech: contact.clientNotesFromTech,
                     specialInstructionsFromClient: contact.specialInstructionsClient,
                     specialInstructionsFromAdmin:  contact.specialInstructionsAdmin,
+                    specialRequestFromClient:
+                        booking.specialRequestFromClient || undefined,
                     billingNotes:   contact.billingNotes,
                     preferences:    contact.preferences,
                     preferredTechnician: contact.preferredTechnician,

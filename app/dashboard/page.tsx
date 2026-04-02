@@ -291,6 +291,7 @@ async function getTechnicianStats(companyId: string, technicianId: string) {
 export default async function DashboardPage() {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
+  if (user.role === "contact") redirect("/dashboard/client-bookings");
 
   if (!user.companyId) {
     return (

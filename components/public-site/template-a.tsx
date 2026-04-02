@@ -127,6 +127,7 @@ export function PublicTemplateA({ company, subdomain, services }: PublicTemplate
   const [selectedPets, setSelectedPets] = useState<string[]>([]);
 
   const [appointmentNotes, setAppointmentNotes] = useState("");
+  const [specialRequestFromClient, setSpecialRequestFromClient] = useState("");
   const [newUserFormStep, setNewUserFormStep] = useState<"form" | "notes">("form");
   const [contactId, setContactId] = useState<string | null>(null);
   const [newUserForm, setNewUserForm] = useState({
@@ -610,6 +611,8 @@ export function PublicTemplateA({ company, subdomain, services }: PublicTemplate
             startDateTime: start.toISOString(),
             endDateTime: end.toISOString(),
             notes: appointmentNotes.trim() || undefined,
+            specialRequestFromClient:
+              specialRequestFromClient.trim() || undefined,
             hasPets: hasPets === null ? undefined : hasPets,
             pets: hasPets ? selectedPets : [],
             pricing,
@@ -1488,6 +1491,8 @@ export function PublicTemplateA({ company, subdomain, services }: PublicTemplate
                         </div>
                         <textarea
                           rows={3}
+                          value={specialRequestFromClient}
+                          onChange={(e) => setSpecialRequestFromClient(e.target.value)}
                           className="w-full rounded-lg border border-input bg-background px-3 py-2 text-xs text-foreground outline-none ring-0 placeholder:text-muted-foreground focus:border-primary"
                           placeholder="Share any access details, parking notes, or other requests."
                         />

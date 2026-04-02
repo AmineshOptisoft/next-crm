@@ -148,6 +148,7 @@ export async function POST(req: NextRequest) {
       startDateTime,
       endDateTime,
       notes,
+      specialRequestFromClient,
       hasPets,
       pets = [],
       pricing,
@@ -301,6 +302,10 @@ export async function POST(req: NextRequest) {
       endDateTime: end,
       shippingAddress: zipCode ? { zipCode } : undefined,
       notes,
+      specialRequestFromClient:
+        typeof specialRequestFromClient === "string" && specialRequestFromClient.trim()
+          ? specialRequestFromClient.trim()
+          : undefined,
       hasPets: typeof hasPets === "boolean" ? hasPets : undefined,
       pets: Array.isArray(pets) ? pets.filter((p: any) => typeof p === "string") : [],
       pricing,
