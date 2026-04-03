@@ -2,9 +2,11 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { format } from "date-fns";
-import { Mail, MapPin, Phone } from "lucide-react";
+import { Loader2, Mail, MapPin, Phone } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { Calendar } from "@/components/ui/calendar";
 import { toast } from "sonner";
+import { ClientBookingTopbar } from "@/components/public-site/client-booking-topbar";
 
 let geoCache: any = null;
 async function loadGeo() {
@@ -18,6 +20,8 @@ type PublicTemplateProps = {
   company: any;
   subdomain?: string;
   services: any[];
+  /** When true (e.g. /site/x?clientBooking=1), logged-in contact skips new/existing choice and fields are prefilled */
+  clientBookingPrefill?: boolean;
 };
 
 type UserType = "new" | "existing";
@@ -96,7 +100,13 @@ function isServiceAvailableForUserType(
   return false;
 }
 
-export function PublicTemplateA({ company, subdomain, services }: PublicTemplateProps) {
+export function PublicTemplateA({
+  company,
+  subdomain,
+  services,
+  clientBookingPrefill = false,
+}: PublicTemplateProps) {
+  const router = useRouter();
   const addressParts = [
     company?.address?.street,
     company?.address?.city,
@@ -109,6 +119,8 @@ export function PublicTemplateA({ company, subdomain, services }: PublicTemplate
   const [existingEmail, setExistingEmail] = useState("");
   const [existingPassword, setExistingPassword] = useState("");
   const [existingVerified, setExistingVerified] = useState(false);
+  const [skipUserTypeStep, setSkipUserTypeStep] = useState(false);
+  const [prefillResolved, setPrefillResolved] = useState(() => !clientBookingPrefill);
 
   const [step, setStep] = useState(1);
 
@@ -171,6 +183,7 @@ export function PublicTemplateA({ company, subdomain, services }: PublicTemplate
 
   const closeThankYouAndRefresh = () => {
     setShowThankYou(false);
+    router.push("/dashboard/client-bookings");
   };
   const lastLoadedCardsContactId = useRef<string | null>(null);
   const todayStart = useMemo(() => {
@@ -249,6 +262,79 @@ export function PublicTemplateA({ company, subdomain, services }: PublicTemplate
   }, []);
 
   useEffect(() => {
+    if (!clientBookingPrefill) {
+      setPrefillResolved(true);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const meRes = await fetch("/api/auth/me", { credentials: "include" });
+        if (!meRes.ok || cancelled) return;
+        const meJson = await meRes.json();
+        const u = meJson?.user;
+        if (!u || u.role !== "contact") {
+          return;
+        }
+        const pageCompanyId = normalizeId(company?._id);
+        const userCompanyId = normalizeId(
+          typeof u.companyId === "object" && u.companyId
+            ? (u.companyId as { _id?: string })._id
+            : u.companyId
+        );
+        if (!pageCompanyId || userCompanyId !== pageCompanyId) {
+          return;
+        }
+
+        const profileRes = await fetch("/api/client/profile", { credentials: "include" });
+        if (!profileRes.ok || cancelled) return;
+        const p = await profileRes.json();
+        if (cancelled) return;
+
+        const rawZip = String(p.zipCode ?? "").trim();
+        let zip = rawZip.replace(/\s+/g, "");
+        const usZipPlus4 = /^(\d{5})-\d{4}$/;
+        if (usZipPlus4.test(zip)) {
+          zip = zip.slice(0, 5);
+        }
+
+        setUserType("existing");
+        setExistingVerified(true);
+        setContactId(u.id);
+        setExistingEmail(String(p.email || u.email || ""));
+        setExistingPassword("");
+        setNewUserFormStep("notes");
+        setSkipUserTypeStep(true);
+
+        if (zip) setSearchZip(zip);
+
+        setNewUserForm((prev) => ({
+          ...prev,
+          email: String(p.email || u.email || ""),
+          firstName: String(p.firstName || u.firstName || ""),
+          lastName: String(p.lastName || u.lastName || ""),
+          phone: String(p.phoneNumber || ""),
+          zipCode: rawZip || zip,
+          address: String(p.address || ""),
+          country: String(p.country || ""),
+          state: String(p.state || ""),
+          city: String(p.city || ""),
+          password: "",
+          confirmPassword: "",
+          smsOptIn: prev.smsOptIn,
+        }));
+      } catch {
+        // stay on manual user-type flow
+      } finally {
+        if (!cancelled) setPrefillResolved(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [clientBookingPrefill, company?._id]);
+
+  useEffect(() => {
     if (!contactId) return;
     if (lastLoadedCardsContactId.current === contactId) return;
     lastLoadedCardsContactId.current = contactId;
@@ -257,18 +343,27 @@ export function PublicTemplateA({ company, subdomain, services }: PublicTemplate
         const res = await fetch(`/api/public/cards?userId=${encodeURIComponent(contactId)}`);
         if (!res.ok) return;
         const data = await res.json();
-        if (Array.isArray(data)) {
-          const mapped = data.map((c: any) => ({
-            id: c.id,
-            brand: c.brand || "Card",
-            last4: c.last4,
-            expMonth: c.expMonth,
-            expYear: c.expYear,
-            name: c.nameOnCard || c.name,
-          }));
-          setCards(mapped);
-          setSavedCard((prev) => prev || mapped[0]?.id || null);
-        }
+        const rawList = Array.isArray(data) ? data : data?.cards;
+        if (!Array.isArray(rawList)) return;
+
+        const mapped = rawList.map((c: any) => ({
+          id: c.id,
+          brand: c.brand || "Card",
+          last4: c.last4,
+          expMonth: c.expMonth,
+          expYear: c.expYear,
+          name: c.nameOnCard || c.name,
+        }));
+        setCards(mapped);
+
+        const defaultId =
+          typeof data?.defaultPaymentMethod === "string"
+            ? data.defaultPaymentMethod.trim()
+            : "";
+        const defaultMatch = defaultId
+          ? mapped.find((c) => c.id === defaultId)
+          : undefined;
+        setSavedCard(defaultMatch?.id ?? mapped[0]?.id ?? null);
       } catch (err) {
         console.error("Failed to load saved cards", err);
       }
@@ -829,61 +924,12 @@ export function PublicTemplateA({ company, subdomain, services }: PublicTemplate
 
   return (
     <div className="min-h-screen bg-muted text-foreground">
-      <header className="border-b bg-background/80 backdrop-blur">
-        <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-4">
-          <div className="flex items-center gap-3">
-            {company.logo ? (
-              <img
-                src={company.logo}
-                alt={company.name}
-                className="h-10 w-10 rounded-lg border border-border object-cover"
-              />
-            ) : (
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-border bg-muted text-sm font-semibold">
-                {company.name?.slice(0, 2)?.toUpperCase() || "CO"}
-              </div>
-            )}
-            <div>
-              <div className="text-sm font-semibold uppercase tracking-[0.2em] text-muted-foreground">
-                {company.industry || "Service Provider"}
-              </div>
-              <h1 className="text-xl font-bold tracking-tight">{company.name}</h1>
-            </div>
-          </div>
-            <div className="flex items-center gap-4">
-            <div className="hidden text-xs text-muted-foreground sm:block">
-              {company.website && (
-                <a
-                  href={company.website}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="hover:text-foreground"
-                >
-                  {company.website.replace(/^https?:\/\//, "")}
-                </a>
-              )}
-            </div>
-            <div className="flex items-center gap-2">
-              <a
-                href={subdomain ? `/login?subdomain=${encodeURIComponent(subdomain)}` : "/login"}
-                className="rounded-full border border-border px-4 py-1.5 text-xs font-medium text-foreground hover:border-primary hover:text-primary"
-              >
-                Login
-              </a>
-              <a
-                href={
-                  subdomain
-                    ? `/register?subdomain=${encodeURIComponent(subdomain)}`
-                    : "/register"
-                }
-                className="rounded-full bg-primary px-4 py-1.5 text-xs font-semibold text-primary-foreground shadow-sm hover:bg-primary/90"
-              >
-                Register
-              </a>
-            </div>
-          </div>
-        </div>
-      </header>
+      <ClientBookingTopbar
+        subdomain={subdomain}
+        companyLogo={company?.logo}
+        companyName={company?.name}
+        hideBookNow
+      />
 
       <main className="mx-auto flex max-w-5xl flex-col gap-8 px-4 py-10 md:py-14">
         <section className="rounded-2xl border bg-background p-5 shadow-sm">
@@ -938,64 +984,86 @@ export function PublicTemplateA({ company, subdomain, services }: PublicTemplate
 
             {step === 1 && (
               <div className="space-y-6">
-                <div className="space-y-3">
-                  <div className="text-sm font-semibold text-foreground">Choose user</div>
-                  <div className="grid gap-3 text-xs sm:grid-cols-2 sm:text-sm">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setUserType("new");
-                        setExistingVerified(false);
-                        setNewUserFormStep("form");
-                      }}
-                      className={[
-                        "flex flex-col items-start gap-1 rounded-lg border px-4 py-3 text-left",
-                        userType === "new"
-                          ? "border-primary bg-primary/5"
-                          : "border-border bg-background hover:border-primary/60",
-                      ].join(" ")}
-                    >
-                      <div className="flex w-full items-center justify-between">
-                        <span className="font-semibold text-foreground">New user</span>
-                        {userType === "new" && (
-                          <span className="h-5 w-5 rounded-full bg-primary text-[10px] font-bold text-primary-foreground flex items-center justify-center">
-                            ✓
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-xs text-muted-foreground">
-                        Don&apos;t have an account? Create one in the next steps.
-                      </p>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setUserType("existing");
-                        setExistingVerified(false);
-                        setNewUserFormStep("notes");
-                      }}
-                      className={[
-                        "flex flex-col items-start gap-1 rounded-lg border px-4 py-3 text-left",
-                        userType === "existing"
-                          ? "border-primary bg-primary/5"
-                          : "border-border bg-background hover:border-primary/60",
-                      ].join(" ")}
-                    >
-                      <div className="flex w-full items-center justify-between">
-                        <span className="font-semibold text-foreground">Existing user</span>
-                        {userType === "existing" && (
-                          <span className="h-5 w-5 rounded-full bg-primary text-[10px] font-bold text-primary-foreground flex items-center justify-center">
-                            ✓
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-xs text-muted-foreground">
-                        Login with your email and password to continue.
-                      </p>
-                    </button>
+                {clientBookingPrefill && !prefillResolved && (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Loading your profile…
                   </div>
-                </div>
+                )}
+
+                {prefillResolved && (
+                  <div className="space-y-3">
+                    <div className="text-sm font-semibold text-foreground">Choose user</div>
+                    {skipUserTypeStep && (
+                      <p className="text-xs text-muted-foreground">
+                        You&apos;re signed in —{" "}
+                        <span className="font-medium text-foreground">Existing user</span> is selected and
+                        your service zip is filled from your profile.
+                      </p>
+                    )}
+                    <div className="grid gap-3 text-xs sm:grid-cols-2 sm:text-sm">
+                      <button
+                        type="button"
+                        disabled={skipUserTypeStep}
+                        onClick={() => {
+                          setUserType("new");
+                          setExistingVerified(false);
+                          setNewUserFormStep("form");
+                        }}
+                        className={[
+                          "flex flex-col items-start gap-1 rounded-lg border px-4 py-3 text-left",
+                          skipUserTypeStep ? "cursor-not-allowed opacity-55" : "",
+                          userType === "new"
+                            ? "border-primary bg-primary/5"
+                            : "border-border bg-background hover:border-primary/60",
+                        ].join(" ")}
+                      >
+                        <div className="flex w-full items-center justify-between">
+                          <span className="font-semibold text-foreground">New user</span>
+                          {userType === "new" && (
+                            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">
+                              ✓
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          Don&apos;t have an account? Create one in the next steps.
+                        </p>
+                      </button>
+
+                      <button
+                        type="button"
+                        disabled={skipUserTypeStep}
+                        onClick={() => {
+                          setUserType("existing");
+                          setExistingVerified(false);
+                          setNewUserFormStep("notes");
+                        }}
+                        className={[
+                          "flex flex-col items-start gap-1 rounded-lg border px-4 py-3 text-left",
+                          skipUserTypeStep ? "cursor-default" : "",
+                          userType === "existing"
+                            ? "border-primary bg-primary/5"
+                            : "border-border bg-background hover:border-primary/60",
+                        ].join(" ")}
+                      >
+                        <div className="flex w-full items-center justify-between">
+                          <span className="font-semibold text-foreground">Existing user</span>
+                          {userType === "existing" && (
+                            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">
+                              ✓
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          {skipUserTypeStep
+                            ? "You are logged in — no password needed."
+                            : "Login with your email and password to continue."}
+                        </p>
+                      </button>
+                    </div>
+                  </div>
+                )}
 
                 {userType === "existing" && !existingVerified && (
                   <div className="space-y-3 rounded-xl border bg-muted p-4 text-xs text-foreground sm:text-sm">

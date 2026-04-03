@@ -47,7 +47,7 @@ export async function PATCH(req: NextRequest) {
     const body = await req.json();
     await connectDB();
 
-    const payload = {
+    const payload: Record<string, string> = {
       firstName: String(body.firstName || "").trim(),
       lastName: String(body.lastName || "").trim(),
       phoneNumber: String(body.phoneNumber || "").trim(),
@@ -58,6 +58,10 @@ export async function PATCH(req: NextRequest) {
       zipCode: String(body.zipCode || "").trim(),
       specialInstructions: String(body.specialInstructions || "").trim(),
     };
+
+    if (body.avatarUrl !== undefined) {
+      payload.avatarUrl = String(body.avatarUrl || "").trim();
+    }
 
     const updated = await User.findByIdAndUpdate(user.userId, payload, {
       new: true,

@@ -7,10 +7,18 @@ import { PublicTemplateB } from "@/components/public-site/template-b";
 
 type PageProps = {
   params: Promise<{ subdomain: string }>;
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 };
 
-export default async function PublicSiteByPathPage({ params }: PageProps) {
+export default async function PublicSiteByPathPage({ params, searchParams }: PageProps) {
   const { subdomain: rawSubdomain } = await params;
+  const sp = await searchParams;
+  const clientBookingFlag = sp?.clientBooking;
+  const clientBookingPrefill =
+    clientBookingFlag === "1" ||
+    clientBookingFlag === "true" ||
+    (Array.isArray(clientBookingFlag) &&
+      (clientBookingFlag.includes("1") || clientBookingFlag.includes("true")));
   const subdomain = rawSubdomain?.toLowerCase();
 
   if (!subdomain) {
@@ -89,7 +97,10 @@ export default async function PublicSiteByPathPage({ params }: PageProps) {
     }
   }
 
-  if (template === "templateB") {
+  // Client dashboard "Book Now" (?clientBooking=1) must use the full booking UI (template A)
+  const useTemplateA = template !== "templateB" || clientBookingPrefill;
+
+  if (!useTemplateA) {
     return <PublicTemplateB company={serializedCompany} subdomain={subdomain} />;
   }
 
@@ -98,6 +109,7 @@ export default async function PublicSiteByPathPage({ params }: PageProps) {
       company={serializedCompany}
       subdomain={subdomain}
       services={serializedServices}
+      clientBookingPrefill={clientBookingPrefill}
     />
   );
 }

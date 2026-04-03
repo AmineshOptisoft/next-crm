@@ -1,8 +1,12 @@
 // app/dashboard/layout.tsx
 "use client"
-import { useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { normalizeAvatarUrl } from "@/lib/utils";
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
+import { useTheme } from "next-themes";
+import { Moon, SunMedium, Laptop2 } from "lucide-react";
+import { toast } from "sonner";
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import { AlertCircle } from "lucide-react";
 import { AppSidebar } from "@/components/app-sidebar";
@@ -13,10 +17,11 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 const fetcher = (url: string) =>
   fetch(url, { credentials: "include" }).then((res) => res.json());
@@ -27,6 +32,8 @@ const ALWAYS_ACCESSIBLE = ["/dashboard/company-settings"];
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
+  const { theme, setTheme } = useTheme();
+  const [savingTheme, setSavingTheme] = useState(false);
 
   // Both fetches share the global SWR cache — other components reuse these without extra calls
   const { data: meData, isLoading: loadingMe } = useSWR("/api/auth/me", fetcher, {
@@ -71,6 +78,25 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     }
   }, [isLoading, meData?.user, isSuperAdmin, isOnSettingsPage, isProfileIncomplete, router]);
 
+  // Must run before any conditional return — hooks order must be stable every render
+  const clientBookNowHref = useMemo(() => {
+    const s = settingsData as
+      | { subdomain?: string; publicSites?: Array<{ subdomain?: string }> }
+      | undefined;
+    if (!s) return null;
+    const primary = typeof s.subdomain === "string" ? s.subdomain.trim().toLowerCase() : "";
+    if (primary) return `/site/${primary}?clientBooking=1`;
+    const sites = Array.isArray(s.publicSites) ? s.publicSites : [];
+    const fromSite = sites.find((x) => x?.subdomain)?.subdomain;
+    const sub = typeof fromSite === "string" ? fromSite.trim().toLowerCase() : "";
+    return sub ? `/site/${sub}?clientBooking=1` : null;
+  }, [settingsData]);
+
+  const topbarAvatarUrl = useMemo(
+    () => normalizeAvatarUrl(meData?.user?.avatarUrl),
+    [meData?.user?.avatarUrl]
+  );
+
   // Show loading spinner only for first load and only if NOT on settings page
   if (isLoading && !isOnSettingsPage) {
     return (
@@ -108,29 +134,118 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     }
   }
 
+  async function handleThemeChange(nextTheme: "light" | "dark" | "system") {
+    const previousTheme = (theme as "light" | "dark" | "system" | undefined) || "system";
+    setTheme(nextTheme);
+    setSavingTheme(true);
+
+    try {
+      const res = await fetch("/api/settings/appearance", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ theme: nextTheme }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setTheme(previousTheme);
+        toast.error(data.error || "Failed to save theme");
+      }
+    } catch {
+      setTheme(previousTheme);
+      toast.error("Failed to save theme");
+    } finally {
+      setSavingTheme(false);
+    }
+  }
+
+  const themeIcon =
+    theme === "light" ? (
+      <SunMedium className="h-4 w-4" />
+    ) : theme === "dark" ? (
+      <Moon className="h-4 w-4" />
+    ) : (
+      <Laptop2 className="h-4 w-4" />
+    );
+
   if (isClientBookingsPage) {
     return (
       <div className="min-h-screen bg-background">
         <header className="sticky top-0 z-40 w-full border-b bg-background/95 backdrop-blur">
           <div className="flex h-16 items-center justify-between px-4 md:px-6">
             <Link href="/dashboard/client-bookings" className="flex items-center gap-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-sm font-bold text-primary-foreground">
-                GF
-              </div>
-              <div className="leading-tight">
-                <p className="text-sm font-semibold">Green Frog</p>
+              {settingsData?.logo ? (
+                <img
+                  src={settingsData.logo}
+                  alt={settingsData?.name || "Company logo"}
+                  className="h-8 w-8 rounded-full object-cover border"
+                />
+              ) : (
+                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-sm font-bold text-primary-foreground">
+                  {(settingsData?.name || "GF").slice(0, 2).toUpperCase()}
+                </div>
+              )}
+              <div className="leading-tight hidden md:block">
+                <p className="text-sm font-semibold">{settingsData?.name || "Green Frog"}</p>
                 <p className="text-[11px] text-muted-foreground">Cleaning</p>
               </div>
             </Link>
 
             <div className="flex items-center gap-2">
-              <Button size="sm" className="rounded-full px-5">
-                Book Now
-              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="h-9 w-9" type="button">
+                    {themeIcon}
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-36">
+                  <DropdownMenuLabel>Theme</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    disabled={savingTheme}
+                    onClick={() => handleThemeChange("light")}
+                  >
+                    <SunMedium className="mr-2 h-4 w-4" />
+                    <span>Light</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    disabled={savingTheme}
+                    onClick={() => handleThemeChange("dark")}
+                  >
+                    <Moon className="mr-2 h-4 w-4" />
+                    <span>Dark</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    disabled={savingTheme}
+                    onClick={() => handleThemeChange("system")}
+                  >
+                    <Laptop2 className="mr-2 h-4 w-4" />
+                    <span>System</span>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+              {clientBookNowHref ? (
+                <Button size="sm" className="rounded-full px-5" asChild>
+                  <Link href={clientBookNowHref}>Book Now</Link>
+                </Button>
+              ) : (
+                <Button
+                  size="sm"
+                  className="rounded-full px-5"
+                  type="button"
+                  disabled
+                  title="Set a public site subdomain in company settings to enable booking"
+                >
+                  Book Now
+                </Button>
+              )}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" className="h-10 gap-2 px-2">
-                    <Avatar className="h-7 w-7">
+                    <Avatar key={topbarAvatarUrl || "none"} className="h-7 w-7">
+                      {topbarAvatarUrl ? (
+                        <AvatarImage src={topbarAvatarUrl} alt="" className="object-cover" />
+                      ) : null}
                       <AvatarFallback className="bg-primary text-primary-foreground text-xs">
                         {initials}
                       </AvatarFallback>

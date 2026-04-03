@@ -28,6 +28,14 @@ export async function DELETE(
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
+    const currentDefault = String((doc as any).defaultPaymentMethod || "").trim();
+    if (currentDefault && currentDefault === targetId) {
+      return NextResponse.json(
+        { error: "Default card cannot be deleted. Please set another card as default first." },
+        { status: 400 }
+      );
+    }
+
     const before = Array.isArray((doc as any).cardDetails) ? (doc as any).cardDetails.length : 0;
     (doc as any).cardDetails = ((doc as any).cardDetails || []).filter(
       (c: any) => c?._id?.toString?.() !== targetId
@@ -36,10 +44,6 @@ export async function DELETE(
 
     if (before === after) {
       return NextResponse.json({ error: "Card not found" }, { status: 404 });
-    }
-
-    if ((doc as any).defaultPaymentMethod === targetId) {
-      (doc as any).defaultPaymentMethod = (doc as any).cardDetails[0]?._id?.toString?.() || "";
     }
 
     await doc.save();

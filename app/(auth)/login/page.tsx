@@ -33,6 +33,12 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
+  const getDashboardPathByRole = (role?: string) => {
+    if (role === "contact") return "/dashboard/client-bookings";
+    // company_admin / super_admin / company_user / employee default to main dashboard
+    return "/dashboard";
+  };
+
   const form = useForm<LoginInput>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
@@ -73,9 +79,16 @@ export default function LoginPage() {
         return;
       }
 
-      // SUCCESS: API returned 200 + set cookie
-      router.push("/dashboard");
-      router.refresh(); // Refresh to pick up auth state
+      // SUCCESS: ensure session is readable before navigating, then route by role.
+      // Using hard navigation avoids client-side race conditions with freshly set cookies.
+      const meRes = await fetch("/api/auth/me", {
+        credentials: "include",
+        cache: "no-store",
+      });
+      const meData = await meRes.json().catch(() => ({}));
+      const role = meData?.user?.role as string | undefined;
+      const nextPath = getDashboardPathByRole(role);
+      window.location.assign(nextPath);
     } catch (err) {
       console.error("Login fetch error:", err);
       setError("Network error - please try again");

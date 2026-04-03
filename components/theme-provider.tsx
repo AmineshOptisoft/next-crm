@@ -3,6 +3,10 @@
 import * as React from "react";
 import { ThemeProvider as NextThemesProvider } from "next-themes";
 import { useTheme } from "next-themes";
+import useSWR from "swr";
+
+const meFetcher = (url: string) =>
+  fetch(url, { credentials: "include" }).then((res) => res.json());
 
 type TableDensity = "comfortable" | "compact" | "spacious";
 
@@ -52,13 +56,21 @@ type LayoutPreferences = {
 
 const LayoutContext = React.createContext<LayoutPreferences | null>(null);
 
+/**
+ * Applies `settings.appearance.theme` from the DB whenever we know the logged-in user.
+ * Re-runs when the session loads (fixes dashboard vs public page mismatch) and avoids
+ * one-shot effects that skip under React Strict Mode.
+ */
 function ThemeSyncFromServer() {
   const { setTheme } = useTheme();
-  const hasSyncedRef = React.useRef(false);
+  const { data: meData } = useSWR("/api/auth/me", meFetcher, {
+    revalidateOnFocus: true,
+    dedupingInterval: 30_000,
+  });
 
   React.useEffect(() => {
-    if (hasSyncedRef.current) return;
-    hasSyncedRef.current = true;
+    const userId = meData?.user?.id;
+    if (!userId) return;
 
     let cancelled = false;
 
@@ -70,9 +82,9 @@ function ThemeSyncFromServer() {
         if (!res.ok) return;
 
         const data = await res.json();
-        const theme = data?.theme;
         if (cancelled) return;
 
+        const theme = data?.theme;
         if (theme === "light" || theme === "dark" || theme === "system") {
           setTheme(theme);
         }
@@ -84,7 +96,7 @@ function ThemeSyncFromServer() {
     return () => {
       cancelled = true;
     };
-  }, [setTheme]);
+  }, [meData?.user?.id, setTheme]);
 
   return null;
 }

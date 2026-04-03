@@ -55,6 +55,28 @@ export function BillClientModal({
     onOpenChange,
     bookingId,
 }: BillClientModalProps) {
+    const getPromoCodeText = (src: any): string => {
+        const raw = src?.promocode ?? src?.promoCode ?? src?.promo;
+        if (!raw) return "";
+        if (typeof raw === "string") return raw.trim();
+        if (typeof raw === "object") {
+            const fromCode = typeof raw.code === "string" ? raw.code.trim() : "";
+            if (fromCode) return fromCode;
+            const fromName = typeof raw.name === "string" ? raw.name.trim() : "";
+            if (fromName) return fromName;
+        }
+        return "";
+    };
+
+    const getPromoDiscountAmount = (src: any): number => {
+        const promo = src?.promocode ?? src?.promoCode ?? src?.promo;
+        if (promo && typeof promo === "object") {
+            const promoDisc = Number(promo.discountAmount);
+            if (Number.isFinite(promoDisc) && promoDisc > 0) return promoDisc;
+        }
+        return Number(src?.pricing?.discount) || 0;
+    };
+
     const [loading, setLoading] = useState(false);
     const [fetching, setFetching] = useState(false);
     const [booking, setBooking] = useState<any>(null);
@@ -141,7 +163,7 @@ export function BillClientModal({
             }
 
             // Discount UI defaults (promocode only — don't show "booking discount" without a code)
-            const bookingPromo = bookingRes?.promocode?.code || bookingRes?.promoCode || bookingRes?.promocode || bookingRes?.promo || "";
+            const bookingPromo = getPromoCodeText(bookingRes);
             setIncludeBookingDiscount(Boolean(bookingPromo));
             setCustomDiscounts([]);
         } catch (error) {
@@ -186,13 +208,11 @@ export function BillClientModal({
     }, [items]);
 
     const bookingPromoCode = useMemo(() => {
-        return booking?.promocode?.code || booking?.promoCode || booking?.promocode || booking?.promo || "";
+        return getPromoCodeText(booking);
     }, [booking]);
 
     const bookingDiscountAmount = useMemo(() => {
-        const stored = Number(booking?.promocode?.discountAmount);
-        if (Number.isFinite(stored) && stored > 0) return stored;
-        return Number(booking?.pricing?.discount) || 0;
+        return getPromoDiscountAmount(booking);
     }, [booking]);
 
     const totalDiscountAmount = useMemo(() => {

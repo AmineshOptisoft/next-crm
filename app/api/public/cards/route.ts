@@ -17,7 +17,7 @@ export async function GET(req: NextRequest) {
     }
 
     const user = await User.findById(userId)
-      .select("cardDetails")
+      .select("cardDetails defaultPaymentMethod")
       .lean();
 
     if (!user) {
@@ -34,7 +34,12 @@ export async function GET(req: NextRequest) {
         nameOnCard: c.nameOnCard,
       })) ?? [];
 
-    return NextResponse.json(cards, { status: 200 });
+    const defaultPaymentMethod = String((user as any).defaultPaymentMethod || "").trim();
+
+    return NextResponse.json(
+      { cards, defaultPaymentMethod },
+      { status: 200 }
+    );
   } catch (error: any) {
     console.error("Error fetching card details:", error);
     return NextResponse.json(

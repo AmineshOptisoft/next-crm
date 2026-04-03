@@ -63,11 +63,23 @@ export async function GET(req: NextRequest) {
       ];
     }
 
+    // Upcoming: nearest upcoming booking first (ascending from now).
+    // Previous: most recent past booking first (descending).
+    const sortDirection =
+      bookingType === "upcoming"
+        ? 1
+        : bookingType === "previous"
+          ? -1
+          : -1;
+
     const [bookings, total, upcomingCount, previousCount] = await Promise.all([
       Booking.find(baseFilter)
+      .populate("contactId", "firstName lastName email phoneNumber")
       .populate("serviceId", "name")
+      .populate("subServices.serviceId", "name")
+      .populate("addons.serviceId", "name")
       .populate("technicianId", "firstName lastName")
-      .sort({ startDateTime: -1 })
+      .sort({ startDateTime: sortDirection })
       .skip((page - 1) * limit)
       .limit(limit)
       .lean(),
@@ -107,9 +119,53 @@ export async function GET(req: NextRequest) {
           booking.shippingAddress?.city,
           booking.shippingAddress?.state,
           booking.shippingAddress?.zipCode,
+          booking.shippingAddress?.country,
         ]
           .filter(Boolean)
           .join(", "),
+        contactName:
+          [booking.contactId?.firstName, booking.contactId?.lastName]
+            .filter(Boolean)
+            .join(" ") || "",
+        contactEmail: booking.contactId?.email || "",
+        contactPhone: booking.contactId?.phoneNumber || "",
+        notes: booking.notes || "",
+        specialRequestFromClient: booking.specialRequestFromClient || "",
+        hasPets: booking.hasPets,
+        pets: Array.isArray(booking.pets) ? booking.pets : [],
+        subServices: Array.isArray(booking.subServices)
+          ? booking.subServices
+              .filter((s: any) => Number(s?.quantity || 0) > 0)
+              .map((s: any) => ({
+                name: s?.serviceId?.name || "Sub Service",
+                quantity: Number(s?.quantity || 0),
+              }))
+          : [],
+        addons: Array.isArray(booking.addons)
+          ? booking.addons
+              .filter((a: any) => Number(a?.quantity || 0) > 0)
+              .map((a: any) => ({
+                name: a?.serviceId?.name || "Add On",
+                quantity: Number(a?.quantity || 0),
+              }))
+          : [],
+        pricing: {
+          baseAmount: Number(booking.pricing?.baseAmount || 0),
+          subServicesAmount: Number(booking.pricing?.subServicesAmount || 0),
+          addonsAmount: Number(booking.pricing?.addonsAmount || 0),
+          totalAmount: Number(booking.pricing?.totalAmount || 0),
+          discount: Number(booking.pricing?.discount || 0),
+          finalAmount: Number(booking.pricing?.finalAmount || 0),
+          billedHours: Number(booking.pricing?.billedHours || 0),
+        },
+        timesheet: {
+          arrivalTime: booking.timesheet?.arrivalTime,
+          departureTime: booking.timesheet?.departureTime,
+          cleaningTime: Number(booking.timesheet?.cleaningTime || 0),
+          totalTeamTime: Number(booking.timesheet?.totalTeamTime || 0),
+          technicianTime: Number(booking.timesheet?.technicianTime || 0),
+          notes: booking.timesheet?.notes || "",
+        },
       };
     });
 

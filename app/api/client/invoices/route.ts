@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { connectDB } from "@/lib/db";
 import { Invoice } from "@/app/models/Invoice";
+import { Booking } from "@/app/models/Booking";
 
 export async function GET() {
   try {
@@ -14,9 +15,23 @@ export async function GET() {
     }
 
     await connectDB();
-    const invoices = await Invoice.find({
+    const bookingIds = await Booking.find({
       companyId: user.companyId,
       contactId: user.userId,
+    })
+      .select("_id")
+      .lean();
+    const bookingIdList = bookingIds
+      .map((b: any) => b?._id)
+      .filter(Boolean);
+
+    const invoices = await Invoice.find({
+      companyId: user.companyId,
+      $or: [
+        { contactId: user.userId },
+        { ownerId: user.userId },
+        ...(bookingIdList.length > 0 ? [{ bookingId: { $in: bookingIdList } }] : []),
+      ],
     })
       .populate("contactId", "firstName lastName email company")
       .populate("items.productId", "name sku")

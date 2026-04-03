@@ -1,9 +1,24 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { format } from "date-fns";
-import { CalendarClock, Download, Eye, Loader2, Mail, MapPin, Phone, ReceiptText, UserRound, X } from "lucide-react";
+import {
+  CalendarClock,
+  Check,
+  ChevronsUpDown,
+  Download,
+  Eye,
+  Loader2,
+  Mail,
+  MapPin,
+  Phone,
+  ReceiptText,
+  Upload,
+  UserRound,
+  X,
+} from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -17,7 +32,6 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Table,
   TableBody,
@@ -26,7 +40,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import useSWR from "swr";
+import useSWR, { useSWRConfig } from "swr";
 import { toast } from "sonner";
 import { Textarea } from "@/components/ui/textarea";
 import { Calendar } from "@/components/ui/calendar";
@@ -41,6 +55,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { cn, normalizeAvatarUrl } from "@/lib/utils";
 
 type ClientBooking = {
   _id: string;
@@ -53,6 +68,32 @@ type ClientBooking = {
   technicianName: string;
   finalAmount: number;
   address: string;
+  contactName?: string;
+  contactEmail?: string;
+  contactPhone?: string;
+  notes?: string;
+  specialRequestFromClient?: string;
+  hasPets?: boolean;
+  pets?: string[];
+  subServices?: Array<{ name: string; quantity: number }>;
+  addons?: Array<{ name: string; quantity: number }>;
+  pricing?: {
+    baseAmount?: number;
+    subServicesAmount?: number;
+    addonsAmount?: number;
+    totalAmount?: number;
+    discount?: number;
+    finalAmount?: number;
+    billedHours?: number;
+  };
+  timesheet?: {
+    arrivalTime?: string;
+    departureTime?: string;
+    cleaningTime?: number;
+    totalTeamTime?: number;
+    technicianTime?: number;
+    notes?: string;
+  };
 };
 
 type ClientInvoice = {
@@ -85,6 +126,7 @@ type MeResponse = {
     firstName?: string;
     lastName?: string;
     email?: string;
+    avatarUrl?: string;
   } | null;
 };
 
@@ -106,6 +148,7 @@ type ClientProfile = {
   firstName?: string;
   lastName?: string;
   email?: string;
+  avatarUrl?: string;
   phoneNumber?: string;
   address?: string;
   country?: string;
@@ -143,9 +186,248 @@ async function loadGeo() {
   return geoCache;
 }
 
+const ITEM_H = 36;
+const LIST_H = 288;
+
+const VirtualGeoSelect = memo(function VirtualGeoSelect({
+  id,
+  value,
+  onChange,
+  options,
+  placeholder,
+  disabled,
+}: {
+  id?: string;
+  value: string;
+  onChange: (v: string) => void;
+  options: { label: string; value: string }[];
+  placeholder?: string;
+  disabled?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [scrollTop, setScrollTop] = useState(0);
+  const [typeAhead, setTypeAhead] = useState("");
+  const [lastTypeTime, setLastTypeTime] = useState(0);
+  const [placement, setPlacement] = useState<"top" | "bottom">("bottom");
+  const [listHeight, setListHeight] = useState(LIST_H);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const totalH = options.length * ITEM_H;
+  const startIdx = Math.floor(scrollTop / ITEM_H);
+  const visibleCount = Math.ceil((listHeight || LIST_H) / ITEM_H) + 2;
+  const endIdx = Math.min(startIdx + visibleCount, options.length);
+  const visibleItems = options.slice(startIdx, endIdx);
+  const offsetY = startIdx * ITEM_H;
+
+  const displayLabel = useMemo(
+    () => options.find((o) => o.value === value)?.label ?? "",
+    [options, value]
+  );
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLButtonElement | HTMLDivElement>) => {
+    if (!open) return;
+    const key = e.key;
+    if (key.length === 1 && /^[a-z0-9]$/i.test(key)) {
+      const now = Date.now();
+      const within = now - lastTypeTime < 700;
+      const nextPrefix = (within ? typeAhead + key : key).toLowerCase();
+      setTypeAhead(nextPrefix);
+      setLastTypeTime(now);
+
+      const idx = options.findIndex((o) => o.label.toLowerCase().startsWith(nextPrefix));
+      if (idx >= 0 && scrollRef.current) {
+        const visibleHeight = Math.min(totalH, LIST_H);
+        let newTop = idx * ITEM_H - visibleHeight / 2;
+        newTop = Math.max(0, Math.min(newTop, Math.max(0, totalH - visibleHeight)));
+        scrollRef.current.scrollTop = newTop;
+        setScrollTop(newTop);
+      }
+    }
+  };
+
+  useEffect(() => {
+    if (!open) return;
+
+    setScrollTop(0);
+    scrollRef.current?.scrollTo(0, 0);
+
+    const triggerEl = containerRef.current;
+    if (!triggerEl || typeof window === "undefined") return;
+
+    const rect = triggerEl.getBoundingClientRect();
+    const viewportH = window.innerHeight || document.documentElement.clientHeight || 0;
+
+    const spaceBelow = viewportH - rect.bottom;
+    const spaceAbove = rect.top;
+    const preferredPlacement: "top" | "bottom" =
+      spaceBelow < LIST_H && spaceAbove > spaceBelow ? "top" : "bottom";
+    setPlacement(preferredPlacement);
+
+    const availableSpace =
+      preferredPlacement === "bottom" ? spaceBelow - 8 : spaceAbove - 8;
+    const nextHeight = Math.max(
+      Math.min(LIST_H, Math.max(ITEM_H * 3, availableSpace)),
+      ITEM_H * 3
+    );
+    setListHeight(Number.isFinite(nextHeight) ? nextHeight : LIST_H);
+  }, [open, totalH]);
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      if (!containerRef.current?.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [open]);
+
+  return (
+    <div ref={containerRef} className="relative w-full min-w-0">
+      <button
+        id={id}
+        type="button"
+        onKeyDown={handleKeyDown}
+        disabled={disabled}
+        onClick={() => setOpen((o) => !o)}
+        className={cn(
+          "flex h-11 w-full min-w-0 items-center justify-between rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground",
+          "ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
+          "disabled:cursor-not-allowed disabled:opacity-50"
+        )}
+      >
+        <span
+          className={cn(
+            "block max-w-full truncate text-left",
+            !displayLabel && "text-muted-foreground"
+          )}
+        >
+          {displayLabel || placeholder}
+        </span>
+        <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50" />
+      </button>
+
+      {open && (
+        <div
+          className={cn(
+            "absolute z-200 w-full rounded-md border bg-popover shadow-md",
+            placement === "bottom" ? "top-full mt-1" : "bottom-full mb-1"
+          )}
+        >
+          <div
+            ref={scrollRef}
+            style={{
+              height: Math.min(totalH, listHeight || LIST_H),
+              maxHeight: listHeight || LIST_H,
+              overflowY: "auto",
+              scrollbarWidth: "none",
+            }}
+            className="scrollbar-none"
+            onKeyDown={handleKeyDown}
+            onScroll={(e) => setScrollTop((e.target as HTMLDivElement).scrollTop)}
+          >
+            {options.length === 0 ? (
+              <div className="px-3 py-6 text-center text-sm text-muted-foreground">No results found.</div>
+            ) : (
+              <div style={{ height: totalH, position: "relative" }}>
+                <div style={{ position: "absolute", top: offsetY, width: "100%" }}>
+                  {visibleItems.map((opt) => (
+                    <div
+                      key={opt.value}
+                      style={{ height: ITEM_H }}
+                      onClick={() => {
+                        onChange(opt.value);
+                        setOpen(false);
+                      }}
+                      className={cn(
+                        "flex cursor-pointer select-none items-center gap-2 px-3 text-sm hover:bg-accent hover:text-accent-foreground",
+                        value === opt.value && "bg-accent font-medium"
+                      )}
+                    >
+                      <Check
+                        className={cn(
+                          "h-4 w-4 shrink-0",
+                          value === opt.value ? "opacity-100" : "opacity-0"
+                        )}
+                      />
+                      {opt.label}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+});
+
+const ProfileImageUploader = memo(function ProfileImageUploader({
+  imageUrl,
+  initials,
+  uploading,
+  onUpload,
+  onRemove,
+}: {
+  imageUrl: string;
+  initials: string;
+  uploading: boolean;
+  onUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  onRemove: () => void;
+}) {
+  return (
+    <div className="space-y-2 mb-2 flex flex-col gap-2">
+      <Label>Profile photo</Label>
+      <div className="flex flex-col md:flex-row items-start md:items-center gap-6">
+        {imageUrl ? (
+          <div className="relative">
+            <img
+              src={imageUrl}
+              alt="Profile photo"
+              className="h-24 w-24 rounded-lg object-cover border-2 border-gray-200"
+            />
+            <button
+              type="button"
+              onClick={onRemove}
+              className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
+              aria-label="Remove profile photo"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        ) : (
+          <div className="h-24 w-24 rounded-lg border-2 border-dashed border-gray-300 flex items-center justify-center bg-gray-50 text-primary">
+            <div className="flex flex-col items-center gap-1">
+              <Upload className="h-6 w-6 text-gray-400" />
+              <span className="text-xs font-semibold">{initials}</span>
+            </div>
+          </div>
+        )}
+        <div className="flex-1">
+          <Label htmlFor="client-avatar-upload" className="font-semibold">Upload Image</Label>
+          <p className="text-sm text-muted-foreground mb-2">
+            PNG, JPG, WEBP up to 5MB
+          </p>
+          <Input
+            id="client-avatar-upload"
+            type="file"
+            accept="image/png,image/jpeg,image/jpg,image/webp"
+            disabled={uploading}
+            onChange={onUpload}
+          />
+          <p className="text-xs text-muted-foreground mt-2">
+            Changes apply after you click Save Changes.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+});
+
 export default function ClientBookingsPage() {
   const [activeTab, setActiveTab] = useState<"upcoming" | "previous">("upcoming");
-  const [dashboardTab, setDashboardTab] = useState<"booking" | "payment" | "invoices">("booking");
+  const [dashboardTab, setDashboardTab] = useState<"booking" | "payment" | "invoices" | "profile">("booking");
   const [page, setPage] = useState(1);
   const [filterSheetOpen, setFilterSheetOpen] = useState(false);
   const [selectedPreset, setSelectedPreset] = useState<string>("");
@@ -154,8 +436,11 @@ export default function ClientBookingsPage() {
   const [filterRange, setFilterRange] = useState<DateRange | undefined>(undefined);
   const [appliedRange, setAppliedRange] = useState<DateRange | undefined>(undefined);
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [profileDraft, setProfileDraft] = useState<ClientProfile | null>(null);
   const [passwordSheetOpen, setPasswordSheetOpen] = useState(false);
   const [savingProfile, setSavingProfile] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const { mutate } = useSWRConfig();
   const [savingPassword, setSavingPassword] = useState(false);
   const [addCardSheetOpen, setAddCardSheetOpen] = useState(false);
   const [savingCard, setSavingCard] = useState(false);
@@ -192,6 +477,7 @@ export default function ClientBookingsPage() {
     firstName: "",
     lastName: "",
     email: "",
+    avatarUrl: "",
     phoneNumber: "",
     address: "",
     country: "",
@@ -337,11 +623,15 @@ export default function ClientBookingsPage() {
   }, [viewClientInvoice?.bookingId]);
 
   useEffect(() => {
+    if (!meData?.user?.id) return;
     let cancelled = false;
     async function loadClientInvoices() {
       try {
         const res = await fetch("/api/client/invoices", { credentials: "include" });
-        if (!res.ok) return;
+        if (!res.ok) {
+          if (!cancelled) setClientInvoices([]);
+          return;
+        }
         const data = await res.json();
         if (cancelled) return;
         setClientInvoices(Array.isArray(data) ? data : []);
@@ -353,7 +643,7 @@ export default function ClientBookingsPage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [meData?.user?.id]);
 
   useEffect(() => {
     let cancelled = false;
@@ -363,10 +653,16 @@ export default function ClientBookingsPage() {
         if (!res.ok) return;
         const data = await res.json();
         if (cancelled) return;
-        setProfile({
+        setProfile((prev) => ({
           firstName: data.firstName || "",
           lastName: data.lastName || "",
           email: data.email || "",
+          avatarUrl:
+            typeof data.avatarUrl === "string"
+              ? data.avatarUrl.trim()
+              : data.avatarUrl === null
+                ? ""
+                : prev.avatarUrl,
           phoneNumber: data.phoneNumber || "",
           address: data.address || "",
           country: data.country || "",
@@ -376,7 +672,7 @@ export default function ClientBookingsPage() {
           specialInstructions: data.specialInstructions || "",
           defaultPaymentMethod: data.defaultPaymentMethod || "",
           cardDetails: Array.isArray(data.cardDetails) ? data.cardDetails : [],
-        });
+        }));
       } catch {
         // ignore
       }
@@ -412,9 +708,40 @@ export default function ClientBookingsPage() {
     return profile.address || "Address not available";
   }, [profile.address]);
 
+  const openEditProfileSheet = () => {
+    setProfileDraft({
+      firstName: profile.firstName || "",
+      lastName: profile.lastName || "",
+      email: profile.email || "",
+      avatarUrl: profile.avatarUrl || "",
+      phoneNumber: profile.phoneNumber || "",
+      address: profile.address || "",
+      country: profile.country || "",
+      state: profile.state || "",
+      city: profile.city || "",
+      zipCode: profile.zipCode || "",
+      specialInstructions: profile.specialInstructions || "",
+      defaultPaymentMethod: profile.defaultPaymentMethod || "",
+      cardDetails: profile.cardDetails || [],
+    });
+    setSheetOpen(true);
+  };
+
+  /** Invoices shared with the client (sent or later); keyed by booking id for quick lookup. */
+  const sentInvoiceByBookingId = useMemo(() => {
+    const map = new Map<string, ClientInvoice>();
+    const visible = new Set(["sent", "paid", "overdue"]);
+    for (const inv of clientInvoices) {
+      const bid = inv.bookingId != null ? String(inv.bookingId) : "";
+      if (!bid || !visible.has(String(inv.status || "").toLowerCase())) continue;
+      if (!map.has(bid)) map.set(bid, inv);
+    }
+    return map;
+  }, [clientInvoices]);
+
   const countryOptions = useMemo(() => {
-    if (!geoLib) return [];
-    const selected = (profile.country || "").trim();
+    if (!sheetOpen || !geoLib) return [];
+    const selected = (profileDraft?.country || "").trim();
     const list = geoLib.Country.getAllCountries().map((c: any) => ({
       label: c.name,
       value: c.name,
@@ -424,16 +751,16 @@ export default function ClientBookingsPage() {
       list.unshift({ label: selected, value: selected, isoCode: "" });
     }
     return list;
-  }, [geoLib, profile.country]);
+  }, [sheetOpen, geoLib, profileDraft?.country]);
 
   const countryCode = useMemo(
-    () => countryOptions.find((c: any) => c.value === (profile.country || ""))?.isoCode ?? "",
-    [countryOptions, profile.country]
+    () => countryOptions.find((c: any) => c.value === (profileDraft?.country || ""))?.isoCode ?? "",
+    [countryOptions, profileDraft?.country]
   );
 
   const stateOptions = useMemo(() => {
-    if (!geoLib || !countryCode) return [];
-    const selected = (profile.state || "").trim();
+    if (!sheetOpen || !geoLib || !countryCode) return [];
+    const selected = (profileDraft?.state || "").trim();
     const list = geoLib.State.getStatesOfCountry(countryCode).map((s: any) => ({
       label: s.name,
       value: s.name,
@@ -443,40 +770,116 @@ export default function ClientBookingsPage() {
       list.unshift({ label: selected, value: selected, isoCode: "" });
     }
     return list;
-  }, [geoLib, countryCode, profile.state]);
+  }, [sheetOpen, geoLib, countryCode, profileDraft?.state]);
 
   const stateCode = useMemo(
-    () => stateOptions.find((s: any) => s.value === (profile.state || ""))?.isoCode ?? "",
-    [stateOptions, profile.state]
+    () => stateOptions.find((s: any) => s.value === (profileDraft?.state || ""))?.isoCode ?? "",
+    [stateOptions, profileDraft?.state]
   );
 
   const cityOptions = useMemo(() => {
     let list: { label: string; value: string }[] = [];
-    if (geoLib && countryCode && stateCode) {
+    if (sheetOpen && geoLib && countryCode && stateCode) {
       list = geoLib.City.getCitiesOfState(countryCode, stateCode).map((c: any) => ({
         label: c.name,
         value: c.name,
       }));
     }
-    const selected = (profile.city || "").trim();
+    const selected = (profileDraft?.city || "").trim();
     if (selected && !list.some((c) => c.value === selected)) {
       list.unshift({ label: selected, value: selected });
     }
     return list;
-  }, [geoLib, countryCode, stateCode, profile.city]);
+  }, [sheetOpen, geoLib, countryCode, stateCode, profileDraft?.city]);
 
-  const initials = userName
-    .split(" ")
-    .map((v) => v[0])
-    .join("")
-    .slice(0, 2)
-    .toUpperCase();
+  const profileAvatarUrl = useMemo(
+    () => normalizeAvatarUrl(profile.avatarUrl || meData?.user?.avatarUrl),
+    [profile.avatarUrl, meData?.user?.avatarUrl]
+  );
+
+  const draftProfileAvatarUrl = useMemo(
+    () => normalizeAvatarUrl(profileDraft?.avatarUrl),
+    [profileDraft?.avatarUrl]
+  );
+
+  const displayInitials = useMemo(() => {
+    const first = (profile.firstName || meData?.user?.firstName || "").trim();
+    const last = (profile.lastName || meData?.user?.lastName || "").trim();
+    if (first && last) {
+      return (first[0] + last[0]).toUpperCase();
+    }
+    const name = [first, last].filter(Boolean).join(" ") || userName;
+    const parts = name.split(/\s+/).filter(Boolean);
+    if (parts.length >= 2) {
+      return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+    }
+    if (parts.length === 1 && parts[0].length > 0) {
+      return parts[0].slice(0, 2).toUpperCase();
+    }
+    return "U";
+  }, [
+    profile.firstName,
+    profile.lastName,
+    meData?.user?.firstName,
+    meData?.user?.lastName,
+    userName,
+  ]);
+
+  const draftDisplayInitials = useMemo(() => {
+    const first = (profileDraft?.firstName || "").trim();
+    const last = (profileDraft?.lastName || "").trim();
+    if (first && last) return (first[0] + last[0]).toUpperCase();
+    const name = [first, last].filter(Boolean).join(" ");
+    const parts = name.split(/\s+/).filter(Boolean);
+    if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+    if (parts.length === 1 && parts[0].length > 0) return parts[0].slice(0, 2).toUpperCase();
+    return displayInitials;
+  }, [profileDraft?.firstName, profileDraft?.lastName, displayInitials]);
 
   const handleProfileChange = (field: keyof ClientProfile, value: string) => {
-    setProfile((prev) => ({ ...prev, [field]: value }));
+    setProfileDraft((prev) => ({ ...(prev || profile), [field]: value }));
+  };
+
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("File size must be less than 5MB.");
+      e.target.value = "";
+      return;
+    }
+
+    setUploadingAvatar(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const uploadRes = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
+        credentials: "include",
+      });
+      if (!uploadRes.ok) throw new Error("Upload failed");
+      const uploadData = await uploadRes.json();
+      const url = typeof uploadData.url === "string" ? uploadData.url.trim() : "";
+      if (!url) throw new Error("No URL");
+
+      setProfileDraft((prev) => ({ ...(prev || profile), avatarUrl: url }));
+      toast.success("Profile photo selected. Click Save Changes to apply.");
+    } catch {
+      toast.error("Failed to upload profile photo.");
+    } finally {
+      setUploadingAvatar(false);
+      e.target.value = "";
+    }
+  };
+
+  const handleRemoveDraftAvatar = () => {
+    setProfileDraft((prev) => ({ ...(prev || profile), avatarUrl: "" }));
+    toast.success("Profile photo removed. Click Save Changes to apply.");
   };
 
   const handleSaveProfile = async () => {
+    const draft = profileDraft || profile;
     setSavingProfile(true);
     try {
       const res = await fetch("/api/client/profile", {
@@ -484,19 +887,39 @@ export default function ClientBookingsPage() {
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({
-          firstName: profile.firstName,
-          lastName: profile.lastName,
-          phoneNumber: profile.phoneNumber,
-          address: profile.address,
-          country: profile.country,
-          state: profile.state,
-          city: profile.city,
-          zipCode: profile.zipCode,
-          specialInstructions: profile.specialInstructions,
+          firstName: draft.firstName,
+          lastName: draft.lastName,
+          phoneNumber: draft.phoneNumber,
+          address: draft.address,
+          country: draft.country,
+          state: draft.state,
+          city: draft.city,
+          zipCode: draft.zipCode,
+          specialInstructions: draft.specialInstructions,
+          avatarUrl: draft.avatarUrl ?? "",
         }),
       });
       if (!res.ok) throw new Error("Failed");
+      const updated = await res.json().catch(() => ({}));
+      setProfile((prev) => ({
+        ...prev,
+        firstName: String(updated?.firstName ?? prev.firstName ?? "").trim(),
+        lastName: String(updated?.lastName ?? prev.lastName ?? "").trim(),
+        email: String(updated?.email ?? prev.email ?? "").trim(),
+        phoneNumber: String(updated?.phoneNumber ?? prev.phoneNumber ?? "").trim(),
+        address: String(updated?.address ?? prev.address ?? "").trim(),
+        country: String(updated?.country ?? prev.country ?? "").trim(),
+        state: String(updated?.state ?? prev.state ?? "").trim(),
+        city: String(updated?.city ?? prev.city ?? "").trim(),
+        zipCode: String(updated?.zipCode ?? prev.zipCode ?? "").trim(),
+        specialInstructions: String(
+          updated?.specialInstructions ?? prev.specialInstructions ?? ""
+        ).trim(),
+        avatarUrl: String(updated?.avatarUrl ?? prev.avatarUrl ?? "").trim(),
+      }));
+      await mutate("/api/auth/me");
       toast.success("Profile updated.");
+      setProfileDraft(null);
       setSheetOpen(false);
     } catch {
       toast.error("Failed to update profile.");
@@ -735,6 +1158,11 @@ export default function ClientBookingsPage() {
   };
 
   const openDeleteCardDialog = (cardId: string) => {
+    const currentDefault = String(profile.defaultPaymentMethod || selectedCardId || "").trim();
+    if (currentDefault && currentDefault === cardId) {
+      toast.error("Default card cannot be deleted. Set another card as default first.");
+      return;
+    }
     setCardPendingDeleteId(cardId);
     setDeleteCardDialogOpen(true);
   };
@@ -880,7 +1308,7 @@ export default function ClientBookingsPage() {
 
   return (
     <div className="space-y-4">
-      <div className="overflow-hidden rounded-2xl border bg-card">
+      <div className="rounded-2xl border bg-card">
         <div className="relative h-44 w-full bg-muted">
           <div className="absolute inset-0 bg-[linear-gradient(to_right,transparent,rgba(0,0,0,0.35))]" />
           <div className="absolute inset-0 bg-primary/20" />
@@ -888,7 +1316,23 @@ export default function ClientBookingsPage() {
             <h1 className="text-3xl font-bold tracking-tight text-primary-foreground">Dashboard</h1>
           </div>
         </div>
-        <div className="flex flex-wrap items-center justify-center gap-2 border-t bg-background px-4 py-3">
+        <div className="w-full border-t bg-background px-2 md:px-4 py-3">
+<div className="flex overflow-x-auto no-scrollbar items-center justify-start md:justify-center gap-1 w-full">
+        <Button
+            type="button"
+            size="sm"
+            className={cn(
+              "lg:hidden w-fit",
+              dashboardTab === "profile" ? "" : "bg-muted text-foreground hover:bg-muted/80"
+            )}
+            onClick={(e) => {
+              e.preventDefault();
+              setDashboardTab("profile");
+            }}
+          >
+            Profile
+          </Button>
+
           <Button
             type="button"
             size="sm"
@@ -903,8 +1347,11 @@ export default function ClientBookingsPage() {
           <Button
             type="button"
             size="sm"
-            variant="outline"
-            className={dashboardTab === "payment" ? "border-primary text-primary" : ""}
+            className={
+              dashboardTab === "payment"
+                ? ""
+                : "bg-muted text-foreground hover:bg-muted/80"
+            }
             onClick={(e) => {
               e.preventDefault();
               setDashboardTab("payment");
@@ -915,8 +1362,11 @@ export default function ClientBookingsPage() {
           <Button
             type="button"
             size="sm"
-            variant="outline"
-            className={dashboardTab === "invoices" ? "border-primary text-primary" : ""}
+            className={
+              dashboardTab === "invoices"
+                ? ""
+                : "bg-muted text-foreground hover:bg-muted/80"
+            }
             onClick={(e) => {
               e.preventDefault();
               setDashboardTab("invoices");
@@ -925,16 +1375,20 @@ export default function ClientBookingsPage() {
             Invoices
           </Button>
         </div>
+        </div>
       </div>
 
-      {dashboardTab === "payment" ? (
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
-          <Card className="lg:col-span-3">
-            <CardContent className="space-y-4 p-4">
+      {dashboardTab === "profile" ? (
+        <div className="grid grid-cols-1 gap-4">
+          <Card>
+            <CardContent className="space-y-4 p-4 max-h-screen overflow-y-auto">
               <div className="flex flex-col items-center border-b pb-4">
-                <div className="mb-2 flex h-16 w-16 items-center justify-center rounded-full bg-primary text-xl font-bold text-primary-foreground">
-                  {initials}
-                </div>
+                <Avatar key={profileAvatarUrl || "none"} className="mb-2 h-16 w-16">
+                  <AvatarImage src={profileAvatarUrl || undefined} alt="" className="object-cover" />
+                  <AvatarFallback className="bg-primary text-xl font-bold text-primary-foreground">
+                    {displayInitials}
+                  </AvatarFallback>
+                </Avatar>
                 <p className="text-sm font-semibold">{userName}</p>
               </div>
 
@@ -945,7 +1399,92 @@ export default function ClientBookingsPage() {
                   variant="outline"
                   onClick={(e) => {
                     e.preventDefault();
-                    setSheetOpen(true);
+                    openEditProfileSheet();
+                  }}
+                >
+                  Edit Profile
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setPasswordSheetOpen(true);
+                  }}
+                >
+                  Change Password
+                </Button>
+              </div>
+
+              <div className="space-y-2 text-xs">
+                <div className="rounded-md border p-2">
+                  <p className="mb-1 text-muted-foreground">Email</p>
+                  <div className="flex items-center gap-1.5 text-foreground">
+                    <Mail className="h-3.5 w-3.5 text-primary" />
+                    <span>{userEmail}</span>
+                  </div>
+                </div>
+                <div className="rounded-md border p-2">
+                  <p className="mb-1 text-muted-foreground">Phone</p>
+                  <div className="flex items-center gap-1.5 text-foreground">
+                    <Phone className="h-3.5 w-3.5 text-primary" />
+                    <span>{profile.phoneNumber || "Not available"}</span>
+                  </div>
+                </div>
+                <div className="rounded-md border p-2">
+                  <p className="mb-1 text-muted-foreground">Address</p>
+                  <div className="flex items-start gap-1.5 text-foreground">
+                    <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
+                    <span>{profileAddress}</span>
+                  </div>
+                </div>
+                <div className="rounded-md border p-2">
+                  <p className="mb-1 text-muted-foreground">Country</p>
+                  <span>{profile.country || "Not available"}</span>
+                </div>
+                <div className="rounded-md border p-2">
+                  <p className="mb-1 text-muted-foreground">State</p>
+                  <span>{profile.state || "Not available"}</span>
+                </div>
+                <div className="rounded-md border p-2">
+                  <p className="mb-1 text-muted-foreground">City</p>
+                  <span>{profile.city || "Not available"}</span>
+                </div>
+                <div className="rounded-md border p-2">
+                  <p className="mb-1 text-muted-foreground">Zip Code</p>
+                  <span>{profile.zipCode || "Not available"}</span>
+                </div>
+                <div className="rounded-md border p-2">
+                  <p className="mb-1 text-muted-foreground">Special Instructions</p>
+                  <span>{profile.specialInstructions || "Not available"}</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      ) : dashboardTab === "payment" ? (
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
+          <Card className="hidden lg:block lg:col-span-3 sticky top-[4rem]">
+            <CardContent className="space-y-4 p-4">
+              <div className="flex flex-col items-center border-b pb-4">
+                <Avatar key={profileAvatarUrl || "none"} className="mb-2 h-16 w-16">
+                  <AvatarImage src={profileAvatarUrl || undefined} alt="" className="object-cover" />
+                  <AvatarFallback className="bg-primary text-xl font-bold text-primary-foreground">
+                    {displayInitials}
+                  </AvatarFallback>
+                </Avatar>
+                <p className="text-sm font-semibold">{userName}</p>
+              </div>
+
+              <div className="grid gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    openEditProfileSheet();
                   }}
                 >
                   Edit Profile
@@ -1009,8 +1548,8 @@ export default function ClientBookingsPage() {
             </CardContent>
           </Card>
 
-          <Card className="lg:col-span-9 max-h-[calc(100vh-14rem)] overflow-y-auto">
-            <CardContent className="space-y-4 p-4 md:p-6 max-h-screen overflow-y-auto">
+          <Card className="lg:col-span-9 max-h-screen overflow-y-hidden">
+            <CardContent className="space-y-4 p-4 md:p-6 max-h-screen">
               <div className="flex items-center justify-between">
                 <div>
                   <h2 className="text-lg font-semibold">Payment Methods</h2>
@@ -1020,6 +1559,7 @@ export default function ClientBookingsPage() {
                   + Add Card
                 </Button>
               </div>
+              <div className="flex flex-col gap-2 overflow-y-auto max-h-[calc(100vh-200px)] py-2">
 
               {!profile.cardDetails || profile.cardDetails.length === 0 ? (
                 <div className="rounded-md border p-6 text-center text-sm text-muted-foreground">
@@ -1030,6 +1570,8 @@ export default function ClientBookingsPage() {
                   {profile.cardDetails.map((card, index) => {
                     const cardId = card._id || `${card.brand}-${card.last4}-${index}`;
                     const isSelected = selectedCardId === cardId;
+                    const isDefaultCard =
+                      String(profile.defaultPaymentMethod || "").trim() === cardId || isSelected;
                     const expires = [card.expMonth, card.expYear].filter(Boolean).join("/");
                     return (
                       <div
@@ -1061,34 +1603,40 @@ export default function ClientBookingsPage() {
                         </div>
                         <div className="flex items-center gap-2">
                           {isSelected && <Badge>Default Card</Badge>}
-                          <Button
-                            type="button"
-                            variant="destructive"
-                            size="sm"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              openDeleteCardDialog(cardId);
-                            }}
-                          >
-                            Delete
-                          </Button>
+                          {!isDefaultCard && (
+                            <Button
+                              type="button"
+                              variant="destructive"
+                              size="sm"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                openDeleteCardDialog(cardId);
+                              }}
+                            >
+                              Delete
+                            </Button>
+                          )}
                         </div>
                       </div>
                     );
                   })}
                 </div>
               )}
+              </div>
             </CardContent>
           </Card>
         </div>
       ) : dashboardTab === "invoices" ? (
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
-          <Card className="lg:col-span-3">
+          <Card className="hidden lg:block lg:col-span-3 sticky top-[4rem]">
             <CardContent className="space-y-4 p-4 max-h-screen overflow-y-auto">
               <div className="flex flex-col items-center border-b pb-4">
-                <div className="mb-2 flex h-16 w-16 items-center justify-center rounded-full bg-primary text-xl font-bold text-primary-foreground">
-                  {initials}
-                </div>
+                <Avatar key={profileAvatarUrl || "none"} className="mb-2 h-16 w-16">
+                  <AvatarImage src={profileAvatarUrl || undefined} alt="" className="object-cover" />
+                  <AvatarFallback className="bg-primary text-xl font-bold text-primary-foreground">
+                    {displayInitials}
+                  </AvatarFallback>
+                </Avatar>
                 <p className="text-sm font-semibold">{userName}</p>
               </div>
 
@@ -1099,7 +1647,7 @@ export default function ClientBookingsPage() {
                   variant="outline"
                   onClick={(e) => {
                     e.preventDefault();
-                    setSheetOpen(true);
+                    openEditProfileSheet();
                   }}
                 >
                   Edit Profile
@@ -1222,13 +1770,16 @@ export default function ClientBookingsPage() {
           </Card>
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
-          <Card className="lg:col-span-3">
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-12 sticky top-[4rem]">
+          <Card className="hidden lg:block lg:col-span-3 max-h-screen sticky top-[4rem] ">
             <CardContent className="space-y-4 p-4 max-h-screen overflow-y-auto">
               <div className="flex flex-col items-center border-b pb-4">
-                <div className="mb-2 flex h-16 w-16 items-center justify-center rounded-full bg-primary text-xl font-bold text-primary-foreground">
-                  {initials}
-                </div>
+                <Avatar key={profileAvatarUrl || "none"} className="mb-2 h-16 w-16">
+                  <AvatarImage src={profileAvatarUrl || undefined} alt="" className="object-cover" />
+                  <AvatarFallback className="bg-primary text-xl font-bold text-primary-foreground">
+                    {displayInitials}
+                  </AvatarFallback>
+                </Avatar>
                 <p className="text-sm font-semibold">{userName}</p>
               </div>
 
@@ -1239,7 +1790,7 @@ export default function ClientBookingsPage() {
                   variant="outline"
                   onClick={(e) => {
                     e.preventDefault();
-                    setSheetOpen(true);
+                    openEditProfileSheet();
                   }}
                 >
                   Edit Profile
@@ -1303,9 +1854,9 @@ export default function ClientBookingsPage() {
             </CardContent>
           </Card>
 
-          <div className="space-y-4 lg:col-span-9 max-h-screen overflow-y-auto pr-1">
+          <div className="space-y-4 lg:col-span-9 max-h-screen pr-1">
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <Card className="border-primary/20 bg-primary/5">
+              <Card className="border-primary/20 bg-primary/5 max-h-screen">
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm text-muted-foreground">Upcoming Bookings</CardTitle>
                 </CardHeader>
@@ -1352,7 +1903,7 @@ export default function ClientBookingsPage() {
                 </Button>
               </div>
 
-              <TabsContent value={activeTab} className="flex-none space-y-3">
+              <TabsContent value={activeTab} className="flex-none space-y-3 overflow-y-auto max-h-[calc(100vh-200px)]">
                 {bookings.length === 0 ? (
                   <Card>
                     <CardContent className="py-10 text-center text-sm text-muted-foreground">
@@ -1368,15 +1919,31 @@ export default function ClientBookingsPage() {
                       "bg-muted text-muted-foreground border-border";
 
                     return (
-                      <Card key={booking._id} className="overflow-hidden">
+                      <Card key={booking._id} className="overflow-hidden relative">
                         <CardContent className="p-0">
                           <div className="border-l-4 border-primary px-5 py-4">
-                            <div className="flex flex-wrap items-center justify-between gap-3">
+                            <div className="flex flex-wrap items-center justify-between gap-3 mt-2 md:mt-0">
                               <div>
                                 <p className="text-sm text-muted-foreground">Order #{booking.orderId || "-"}</p>
                                 <h3 className="text-lg font-semibold">{booking.serviceName}</h3>
                               </div>
-                              <Badge className={`capitalize ${statusClass}`}>{booking.status}</Badge>
+                              <div className="flex flex-wrap items-center justify-end gap-2">
+                                <Badge className={`capitalize text-[10px] ${statusClass} absolute top-[0.5rem] right-[0.5rem] lg:top-[1rem] lg:right-[1rem]`}>{booking.status}</Badge>
+                                {sentInvoiceByBookingId.has(booking._id) && (
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    className="gap-1.5"
+                                    onClick={() =>
+                                      setViewClientInvoice(sentInvoiceByBookingId.get(booking._id)!)
+                                    }
+                                  >
+                                    <ReceiptText className="h-4 w-4" />
+                                    Invoice
+                                  </Button>
+                                )}
+                              </div>
                             </div>
 
                             <div className="mt-4 grid grid-cols-1 gap-3 text-sm md:grid-cols-2">
@@ -1423,7 +1990,13 @@ export default function ClientBookingsPage() {
         </div>
       )}
 
-      <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
+      <Sheet
+        open={sheetOpen}
+        onOpenChange={(open) => {
+          setSheetOpen(open);
+          if (!open) setProfileDraft(null);
+        }}
+      >
         <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-2xl">
           <SheetHeader>
             <SheetTitle>Edit User Information</SheetTitle>
@@ -1433,117 +2006,100 @@ export default function ClientBookingsPage() {
           </SheetHeader>
 
           <div className="grid grid-cols-1 gap-4 px-4 md:grid-cols-2">
-
-          <div className="space-y-2 md:col-span-2">
-              <Label>Please choose image</Label>
-              <Input type="file" accept="image/*" />
+            <div className="md:col-span-2">
+              <ProfileImageUploader
+                imageUrl={draftProfileAvatarUrl}
+                initials={draftDisplayInitials}
+                uploading={uploadingAvatar}
+                onUpload={handleAvatarUpload}
+                onRemove={handleRemoveDraftAvatar}
+              />
             </div>
 
             <div className="space-y-2">
               <Label>First name</Label>
               <Input
-                value={profile.firstName || ""}
+                value={profileDraft?.firstName || ""}
                 onChange={(e) => handleProfileChange("firstName", e.target.value)}
               />
             </div>
             <div className="space-y-2">
               <Label>Last name</Label>
               <Input
-                value={profile.lastName || ""}
+                value={profileDraft?.lastName || ""}
                 onChange={(e) => handleProfileChange("lastName", e.target.value)}
               />
             </div>
             <div className="space-y-2 ">
               <Label>Email address</Label>
-              <Input value={profile.email || ""} disabled />
+              <Input value={profileDraft?.email || ""} disabled />
             </div>
             
             <div className="space-y-2">
               <Label>Number</Label>
               <Input
-                value={profile.phoneNumber || ""}
+                value={profileDraft?.phoneNumber || ""}
                 onChange={(e) => handleProfileChange("phoneNumber", e.target.value)}
               />
             </div>
             <div className="space-y-2 md:col-span-2">
               <Label>Street Address</Label>
               <Textarea
-                value={profile.address || ""}
+                value={profileDraft?.address || ""}
                 onChange={(e) => handleProfileChange("address", e.target.value)}
               />
             </div>
             <div className="space-y-2">
               <Label>Country</Label>
-              <Select
-                value={profile.country || ""}
-                onValueChange={(value) => {
+              <VirtualGeoSelect
+                id="client-country"
+                value={profileDraft?.country || ""}
+                options={countryOptions}
+                placeholder="Select Country"
+                disabled={!geoLib}
+                onChange={(value) => {
                   handleProfileChange("country", value);
                   handleProfileChange("state", "");
                   handleProfileChange("city", "");
                 }}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select country" />
-                </SelectTrigger>
-                <SelectContent>
-                  {countryOptions.map((country: any) => (
-                    <SelectItem key={country.value} value={country.value}>
-                      {country.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              />
             </div>
             <div className="space-y-2">
               <Label>State</Label>
-              <Select
-                value={profile.state || ""}
-                onValueChange={(value) => {
+              <VirtualGeoSelect
+                id="client-state"
+                value={profileDraft?.state || ""}
+                options={stateOptions}
+                placeholder="Select State"
+                disabled={!geoLib || !(profileDraft?.country || "").trim()}
+                onChange={(value) => {
                   handleProfileChange("state", value);
                   handleProfileChange("city", "");
                 }}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select state" />
-                </SelectTrigger>
-                <SelectContent>
-                  {stateOptions.map((state: any) => (
-                    <SelectItem key={state.value} value={state.value}>
-                      {state.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              />
             </div>
             <div className="space-y-2">
               <Label>City</Label>
-              <Select
-                value={profile.city || ""}
-                onValueChange={(value) => handleProfileChange("city", value)}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select city" />
-                </SelectTrigger>
-                <SelectContent>
-                  {cityOptions.map((city: any) => (
-                    <SelectItem key={city.value} value={city.value}>
-                      {city.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <VirtualGeoSelect
+                id="client-city"
+                value={profileDraft?.city || ""}
+                options={cityOptions}
+                placeholder="Select City"
+                disabled={!geoLib || !(profileDraft?.state || "").trim()}
+                onChange={(value) => handleProfileChange("city", value)}
+              />
             </div>
             <div className="space-y-2">
               <Label>Zip Code</Label>
               <Input
-                value={profile.zipCode || ""}
+                value={profileDraft?.zipCode || ""}
                 onChange={(e) => handleProfileChange("zipCode", e.target.value)}
               />
             </div>
             <div className="space-y-2 md:col-span-2">
               <Label>Special Instructions</Label>
               <Textarea
-                value={profile.specialInstructions || ""}
+                value={profileDraft?.specialInstructions || ""}
                 onChange={(e) =>
                   handleProfileChange("specialInstructions", e.target.value)
                 }
@@ -1562,7 +2118,10 @@ export default function ClientBookingsPage() {
             <Button
               variant="destructive"
               className="min-w-[110px]"
-              onClick={() => setSheetOpen(false)}
+              onClick={() => {
+                setSheetOpen(false);
+                setProfileDraft(null);
+              }}
               disabled={savingProfile}
             >
               Cancel

@@ -7,10 +7,18 @@ import { PublicTemplateB } from "@/components/public-site/template-b";
 
 type PageProps = {
   params: Promise<{ subdomain: string }>;
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 };
 
-export default async function PublicSitePage({ params }: PageProps) {
+export default async function PublicSitePage({ params, searchParams }: PageProps) {
   const { subdomain: rawSubdomain } = await params;
+  const sp = await searchParams;
+  const clientBookingFlag = sp?.clientBooking;
+  const clientBookingPrefill =
+    clientBookingFlag === "1" ||
+    clientBookingFlag === "true" ||
+    (Array.isArray(clientBookingFlag) &&
+      (clientBookingFlag.includes("1") || clientBookingFlag.includes("true")));
   const subdomain = rawSubdomain?.toLowerCase();
 
   if (!subdomain) {
@@ -72,6 +80,10 @@ export default async function PublicSitePage({ params }: PageProps) {
     }));
   }
 
+  // Ensure server data passed to Client Components is fully JSON-serializable.
+  const serializedCompany = JSON.parse(JSON.stringify(company));
+  const serializedServices = JSON.parse(JSON.stringify(servicesWithHierarchy));
+
   let template: "templateA" | "templateB" = "templateA";
 
   if (company.subdomain === subdomain && company.publicTemplate) {
@@ -85,9 +97,19 @@ export default async function PublicSitePage({ params }: PageProps) {
     }
   }
 
-  if (template === "templateB") {
-    return <PublicTemplateB company={company} subdomain={subdomain} />;
+  // Client dashboard "Book Now" (?clientBooking=1) must use the full booking UI (template A)
+  const useTemplateA = template !== "templateB" || clientBookingPrefill;
+
+  if (!useTemplateA) {
+    return <PublicTemplateB company={serializedCompany} subdomain={subdomain} />;
   }
 
-  return <PublicTemplateA company={company} subdomain={subdomain} services={servicesWithHierarchy} />;
+  return (
+    <PublicTemplateA
+      company={serializedCompany}
+      subdomain={subdomain}
+      services={serializedServices}
+      clientBookingPrefill={clientBookingPrefill}
+    />
+  );
 }
