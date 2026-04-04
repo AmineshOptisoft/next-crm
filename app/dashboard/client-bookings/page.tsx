@@ -109,6 +109,7 @@ type ClientInvoice = {
     lastName?: string;
     email?: string;
     company?: string;
+    companyName?: string;
   };
   items?: Array<{
     description: string;
@@ -2356,8 +2357,12 @@ export default function ClientBookingsPage() {
                         <div className="font-semibold text-foreground">
                           {`${viewClientInvoice.contactId?.firstName || ""} ${viewClientInvoice.contactId?.lastName || ""}`.trim() || "N/A"}
                         </div>
-                        {viewClientInvoice.contactId?.company && (
-                          <div className="text-muted-foreground">{viewClientInvoice.contactId.company}</div>
+                        {(viewClientInvoice.contactId?.companyName ||
+                          viewClientInvoice.contactId?.company) && (
+                          <div className="text-muted-foreground">
+                            {viewClientInvoice.contactId?.companyName ||
+                              viewClientInvoice.contactId?.company}
+                          </div>
                         )}
                         {viewClientInvoice.contactId?.email && (
                           <div className="text-muted-foreground">{viewClientInvoice.contactId.email}</div>

@@ -7,7 +7,6 @@ import { User } from "../models/User";
 import { Booking } from "../models/Booking";
 import { TechnicianTimeOff } from "../models/TechnicianTimeOff";
 import { Types } from "mongoose";
-
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Download } from "lucide-react";
@@ -18,6 +17,8 @@ import { UpcomingBookings } from "@/components/dashboard/upcoming-bookings";
 import { TodaysBookings } from "@/components/dashboard/todays-bookings";
 import { TechnicianStatsCards } from "../../components/dashboard/technician-stats-cards";
 import { CompletedBookings } from "../../components/dashboard/completed-bookings";
+import { TechnicianAnalyticsWithFilter } from "@/components/dashboard/technician-analytics-with-filter";
+import { getTechnicianAnalyticsForRange } from "@/lib/get-technician-analytics-range";
 
 function mapBookingForDetails(b: any) {
   return {
@@ -286,8 +287,6 @@ async function getTechnicianStats(companyId: string, technicianId: string) {
   };
 }
 
-
-
 export default async function DashboardPage() {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
@@ -309,6 +308,21 @@ export default async function DashboardPage() {
     isTechnician ? null : await getCompanyStats(user.companyId);
   const technicianStats: Awaited<ReturnType<typeof getTechnicianStats>> | null =
     isTechnician ? await getTechnicianStats(user.companyId, user.userId) : null;
+
+  const now = new Date();
+  const startOfToday = new Date(now);
+  startOfToday.setHours(0, 0, 0, 0);
+  const endOfToday = new Date(now);
+  endOfToday.setHours(23, 59, 59, 999);
+  const initialTechnicianAnalytics = await getTechnicianAnalyticsForRange(
+    user.companyId,
+    startOfToday,
+    endOfToday,
+    isTechnician ? user.userId : undefined
+  );
+  const initialFromIso = startOfToday.toISOString();
+  const initialToIso = endOfToday.toISOString();
+  const initialTechnicianAnalyticsSwrKey = `/api/dashboard/technician-analytics?from=${encodeURIComponent(initialFromIso)}&to=${encodeURIComponent(initialToIso)}`;
 
   const fullName =
     user.firstName && user.lastName
@@ -385,11 +399,13 @@ export default async function DashboardPage() {
           </TabsContent>
 
           <TabsContent value="analytics" className="space-y-4">
-            <div className="py-12 text-center">
-              <p className="text-muted-foreground">
-                Analytics view coming soon
-              </p>
-            </div>
+            <TechnicianAnalyticsWithFilter
+              initialData={initialTechnicianAnalytics}
+              initialFromIso={initialFromIso}
+              initialToIso={initialToIso}
+              initialSwrKey={initialTechnicianAnalyticsSwrKey}
+              isTechnician={isTechnician}
+            />
           </TabsContent>
 
           <TabsContent value="reports" className="space-y-4">
