@@ -13,7 +13,7 @@ export async function GET(req: NextRequest) {
 
     await connectDB();
 
-    let query: any = {};
+    let query: any = { $or: [{ isDefaultService: false }, { isDefaultService: { $exists: false } }] };
     if (user.role !== "super_admin") {
         query.companyId = user.companyId;
     }
@@ -64,6 +64,7 @@ export async function POST(req: NextRequest) {
 
     const service = await Service.create({
         companyId: targetCompanyId,
+        isDefaultService: false,
         name,
         description,
         logo: "", // Will be updated after moving file

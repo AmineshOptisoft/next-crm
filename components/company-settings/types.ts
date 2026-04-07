@@ -20,6 +20,7 @@ export interface Company {
         state?: string;
         country?: string;
         zipCode?: string;
+        addressInstructions?: string;
         latitude?: number;
         longitude?: number;
     };

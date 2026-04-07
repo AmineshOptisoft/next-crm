@@ -467,7 +467,7 @@ export function CompanyProfile({ formData, setFormData, saving, handleSubmit, in
                             onChange={(e) =>
                                 (setFormData({ ...formData, phone: e.target.value }), clearError("phone"))
                             }
-                            placeholder="+1 (555) 123-4567"
+                            placeholder="(555) 123-4567"
                             aria-invalid={Boolean(errors.phone)}
                             aria-describedby={errors.phone ? "phone-error" : undefined}
                         />
@@ -501,7 +501,30 @@ export function CompanyProfile({ formData, setFormData, saving, handleSubmit, in
                             )}
                         </div>
                         <div className="grid gap-4 md:grid-cols-2">
-                            <div className="space-y-2">
+                           
+
+                        {/* Google Maps Section */}
+                        <div className="space-y-4">
+                            <div className="flex items-center gap-2">
+                                <MapPin className="h-5 w-5 text-primary" />
+                                <h4 className="font-semibold">Location on Map</h4>
+                            </div>
+                            <p className="text-sm text-muted-foreground">
+                                Click on the map to select your company location
+                            </p>
+                            {errors["address.location"] && (
+                                <p className="text-destructive text-sm">
+                                    {errors["address.location"]}
+                                </p>
+                            )}
+                            <div
+                                ref={mapRef}
+                                className="w-full h-[400px] rounded-lg border-2 border-gray-200"
+                                style={{ minHeight: "400px" }}
+                            />
+                        </div>
+
+                        <div className="space-y-2">
                                 <Label htmlFor="country">Country *</Label>
                                 <Select
                                     value={savedCountry}
@@ -642,29 +665,8 @@ export function CompanyProfile({ formData, setFormData, saving, handleSubmit, in
                             </div>
                         </div>
 
-                        {/* Google Maps Section */}
-                        <div className="space-y-4">
-                            <div className="flex items-center gap-2">
-                                <MapPin className="h-5 w-5 text-primary" />
-                                <h4 className="font-semibold">Location on Map</h4>
-                            </div>
-                            <p className="text-sm text-muted-foreground">
-                                Click on the map to select your company location
-                            </p>
-                            {errors["address.location"] && (
-                                <p className="text-destructive text-sm">
-                                    {errors["address.location"]}
-                                </p>
-                            )}
-                            <div
-                                ref={mapRef}
-                                className="w-full h-[400px] rounded-lg border-2 border-gray-200"
-                                style={{ minHeight: "400px" }}
-                            />
-                        </div>
-
                         {/* Latitude and Longitude Fields */}
-                        <div className="grid gap-4 md:grid-cols-2">
+                        <div className="hidden md:grid gap-4 md:grid-cols-2">
                             <div className="space-y-2">
                                 <Label htmlFor="latitude">Latitude</Label>
                                 <Input

@@ -109,8 +109,6 @@ export function ClientBookingTopbar({
   }
 
   async function handleThemeChange(nextTheme: "light" | "dark" | "system") {
-    const previousTheme = (theme as "light" | "dark" | "system" | undefined) || "system";
-    setTheme(nextTheme);
     if (!user) return;
     setSavingTheme(true);
     try {
@@ -122,11 +120,12 @@ export function ClientBookingTopbar({
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setTheme(previousTheme);
         toast.error(data.error || "Failed to save theme");
+        return;
       }
+      // Apply exactly once after persistence to avoid flicker.
+      setTheme(nextTheme);
     } catch {
-      setTheme(previousTheme);
       toast.error("Failed to save theme");
     } finally {
       setSavingTheme(false);

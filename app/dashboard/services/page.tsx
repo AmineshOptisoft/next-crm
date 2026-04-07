@@ -45,6 +45,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
 
 interface SubService {
     name: string;
@@ -68,6 +69,15 @@ interface Service {
     parentId?: string;
     category: "main" | "sub" | "addon";
     estimatedTime?: number;
+    isDefaultService?: boolean;
+}
+
+interface DefaultServiceSelection {
+    selected: boolean;
+    basePrice: number;
+    hourlyRate: number;
+    estimatedTime: number;
+    percentage: number;
 }
 
 export default function ServicesPage() {
@@ -102,6 +112,11 @@ export default function ServicesPage() {
     const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
     const [serviceToDelete, setServiceToDelete] = useState<string | null>(null);
     const [idToDelete, setIdToDelete] = useState<string | null>(null);
+    const [isDefaultSheetOpen, setIsDefaultSheetOpen] = useState(false);
+    const [defaultServices, setDefaultServices] = useState<Service[]>([]);
+    const [defaultServiceSelections, setDefaultServiceSelections] = useState<Record<string, DefaultServiceSelection>>({});
+    const [isLoadingDefaults, setIsLoadingDefaults] = useState(false);
+    const [isImportingDefaults, setIsImportingDefaults] = useState(false);
 
     async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
         const file = e.target.files?.[0];
@@ -172,6 +187,107 @@ export default function ServicesPage() {
             toast.error("Error loading services");
         } finally {
             setLoading(false);
+        }
+    }
+
+    async function fetchDefaultServices() {
+        setIsLoadingDefaults(true);
+        try {
+            let res = await fetch("/api/services/defaults");
+            if (!res.ok) {
+                toast.error("Failed to load default services");
+                return;
+            }
+            let data: Service[] = await res.json();
+            if (data.length === 0) {
+                const seedRes = await fetch("/api/services/defaults", { method: "POST" });
+                if (seedRes.ok) {
+                    res = await fetch("/api/services/defaults");
+                    if (res.ok) {
+                        data = await res.json();
+                    }
+                }
+            }
+            setDefaultServices(data);
+            const nextSelections: Record<string, DefaultServiceSelection> = {};
+            data.forEach((service) => {
+                nextSelections[service._id] = {
+                    selected: false,
+                    basePrice: service.basePrice || 0,
+                    hourlyRate: service.hourlyRate || 0,
+                    estimatedTime: service.estimatedTime || 0,
+                    percentage: service.percentage || 0,
+                };
+            });
+            setDefaultServiceSelections(nextSelections);
+        } catch (error) {
+            console.error(error);
+            toast.error("Error loading default services");
+        } finally {
+            setIsLoadingDefaults(false);
+        }
+    }
+
+    function toggleDefaultSelection(id: string, checked: boolean) {
+        setDefaultServiceSelections((prev) => ({
+            ...prev,
+            [id]: {
+                ...(prev[id] || { selected: false, basePrice: 0, hourlyRate: 0, estimatedTime: 0, percentage: 0 }),
+                selected: checked,
+            },
+        }));
+    }
+
+    function updateDefaultPricing(id: string, field: keyof Omit<DefaultServiceSelection, "selected">, value: number) {
+        setDefaultServiceSelections((prev) => ({
+            ...prev,
+            [id]: {
+                ...(prev[id] || { selected: false, basePrice: 0, hourlyRate: 0, estimatedTime: 0, percentage: 0 }),
+                [field]: value,
+            },
+        }));
+    }
+
+    async function handleSaveDefaultServices() {
+        const selectedIds = Object.entries(defaultServiceSelections)
+            .filter(([, value]) => value.selected)
+            .map(([id]) => id);
+
+        if (selectedIds.length === 0) {
+            toast.error("Select at least one service");
+            return;
+        }
+
+        const selections = selectedIds.map((id) => ({
+            defaultServiceId: id,
+            basePrice: defaultServiceSelections[id].basePrice,
+            hourlyRate: defaultServiceSelections[id].hourlyRate,
+            estimatedTime: defaultServiceSelections[id].estimatedTime,
+            percentage: defaultServiceSelections[id].percentage,
+        }));
+
+        setIsImportingDefaults(true);
+        try {
+            const res = await fetch("/api/services/defaults/import", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ selections }),
+            });
+
+            const data = await res.json();
+            if (!res.ok) {
+                toast.error(data?.error || "Failed to import services");
+                return;
+            }
+
+            toast.success(`${data.createdCount || 0} services imported`);
+            setIsDefaultSheetOpen(false);
+            fetchServices();
+        } catch (error) {
+            console.error(error);
+            toast.error("Failed to import services");
+        } finally {
+            setIsImportingDefaults(false);
         }
     }
 
@@ -334,6 +450,25 @@ export default function ServicesPage() {
         }
     }
 
+    const defaultMainServices = defaultServices.filter((service) => service.category === "main");
+    const defaultChildrenByParent = defaultServices.reduce<Record<string, Service[]>>((acc, service) => {
+        if (service.parentId) {
+            const key = String(service.parentId);
+            if (!acc[key]) acc[key] = [];
+            acc[key].push(service);
+        }
+        return acc;
+    }, {});
+
+    const servicesByParent = services.reduce<Record<string, Service[]>>((acc, service) => {
+        const key = service.parentId ? String(service.parentId) : "root";
+        if (!acc[key]) acc[key] = [];
+        acc[key].push(service);
+        return acc;
+    }, {});
+
+    const sortedMainServices = (servicesByParent["root"] || []).sort((a, b) => a.name.localeCompare(b.name));
+
     return (
         <div className="space-y-6">
             <div className="flex items-center justify-between">
@@ -343,16 +478,134 @@ export default function ServicesPage() {
                         Manage your services and sub-services offerings
                     </p>
                 </div>
-                <Sheet open={isSheetOpen} onOpenChange={(open) => {
-                    setIsSheetOpen(open);
-                    if (!open) resetForm();
-                }}>
-                    <SheetTrigger asChild>
-                        <Button onClick={resetForm} className="bg-primary hover:bg-primary/90">
-                            <Plus className="mr-2 h-4 w-4" />
-                            Create Service
-                        </Button>
-                    </SheetTrigger>
+                <div className="flex items-center gap-2">
+                    <Sheet
+                        open={isDefaultSheetOpen}
+                        onOpenChange={(open) => {
+                            setIsDefaultSheetOpen(open);
+                            if (open) fetchDefaultServices();
+                        }}
+                    >
+                        <SheetTrigger asChild>
+                            <Button variant="outline">
+                                <Plus className="mr-2 h-4 w-4" />
+                                Add Default Services
+                            </Button>
+                        </SheetTrigger>
+                        <SheetContent className="w-full sm:max-w-xl md:max-w-4xl overflow-y-auto">
+                            <SheetHeader>
+                                <SheetTitle>Select Default Services</SheetTitle>
+                                <SheetDescription>
+                                    Choose main services first, then pick related sub-services/addons and set pricing.
+                                </SheetDescription>
+                            </SheetHeader>
+                            <div className="mt-6 space-y-4">
+                                {isLoadingDefaults ? (
+                                    <p className="text-sm text-muted-foreground">Loading default services...</p>
+                                ) : defaultMainServices.length === 0 ? (
+                                    <p className="text-sm text-muted-foreground">No default services found.</p>
+                                ) : (
+                                    defaultMainServices.map((main) => {
+                                        const mainSelection = defaultServiceSelections[main._id];
+                                        const isMainSelected = !!mainSelection?.selected;
+                                        const children = defaultChildrenByParent[String(main._id)] || [];
+
+                                        return (
+                                            <div key={main._id} className="rounded-lg border p-4 space-y-4">
+                                                <div className="flex items-start gap-3">
+                                                    <Checkbox
+                                                        checked={isMainSelected}
+                                                        onCheckedChange={(checked) => toggleDefaultSelection(main._id, !!checked)}
+                                                    />
+                                                    <div>
+                                                        <p className="font-semibold">{main.name}</p>
+                                                        {main.description && (
+                                                            <p className="text-sm text-muted-foreground">{main.description}</p>
+                                                        )}
+                                                    </div>
+                                                </div>
+
+                                                {isMainSelected && children.length > 0 && (
+                                                    <div className="space-y-3 pl-7">
+                                                        {children.map((child) => {
+                                                            const childSelection = defaultServiceSelections[child._id];
+                                                            const isChildSelected = !!childSelection?.selected;
+                                                            return (
+                                                                <div key={child._id} className="rounded-md border p-3 space-y-3">
+                                                                    <div className="flex items-start gap-3">
+                                                                        <Checkbox
+                                                                            checked={isChildSelected}
+                                                                            onCheckedChange={(checked) => toggleDefaultSelection(child._id, !!checked)}
+                                                                        />
+                                                                        <div>
+                                                                            <p className="font-medium">
+                                                                                {child.name}
+                                                                                <span className="ml-2 text-xs uppercase text-muted-foreground">{child.category}</span>
+                                                                            </p>
+                                                                            {child.description && (
+                                                                                <p className="text-sm text-muted-foreground">{child.description}</p>
+                                                                            )}
+                                                                        </div>
+                                                                    </div>
+
+                                                                    {isChildSelected && (
+                                                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pl-7">
+                                                                            <Input
+                                                                                type="number"
+                                                                                placeholder="Base Price"
+                                                                                value={childSelection?.basePrice ?? 0}
+                                                                                onChange={(e) => updateDefaultPricing(child._id, "basePrice", parseFloat(e.target.value) || 0)}
+                                                                            />
+                                                                            <Input
+                                                                                type="number"
+                                                                                placeholder="Hourly Rate"
+                                                                                value={childSelection?.hourlyRate ?? 0}
+                                                                                onChange={(e) => updateDefaultPricing(child._id, "hourlyRate", parseFloat(e.target.value) || 0)}
+                                                                            />
+                                                                            <Input
+                                                                                type="number"
+                                                                                placeholder="Estimated Time (min)"
+                                                                                value={childSelection?.estimatedTime ?? 0}
+                                                                                onChange={(e) => updateDefaultPricing(child._id, "estimatedTime", parseInt(e.target.value) || 0)}
+                                                                            />
+                                                                            <Input
+                                                                                type="number"
+                                                                                placeholder="Range Percentage"
+                                                                                value={childSelection?.percentage ?? 0}
+                                                                                onChange={(e) => updateDefaultPricing(child._id, "percentage", parseFloat(e.target.value) || 0)}
+                                                                            />
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        );
+                                    })
+                                )}
+                            </div>
+                            <SheetFooter className="mt-6">
+                                <Button variant="outline" onClick={() => setIsDefaultSheetOpen(false)}>
+                                    Cancel
+                                </Button>
+                                <Button onClick={handleSaveDefaultServices} disabled={isImportingDefaults}>
+                                    {isImportingDefaults ? "Saving..." : "Save Selected Services"}
+                                </Button>
+                            </SheetFooter>
+                        </SheetContent>
+                    </Sheet>
+                    <Sheet open={isSheetOpen} onOpenChange={(open) => {
+                        setIsSheetOpen(open);
+                        if (!open) resetForm();
+                    }}>
+                        <SheetTrigger asChild>
+                            <Button onClick={resetForm} className="bg-primary hover:bg-primary/90">
+                                <Plus className="mr-2 h-4 w-4" />
+                                Create Service
+                            </Button>
+                        </SheetTrigger>
                     <SheetContent className="w-full sm:max-w-xl md:max-w-5xl overflow-y-auto p-0">
                         <div className="p-0 pb-0">
                             <SheetHeader className="mb-0">
@@ -613,7 +866,8 @@ export default function ServicesPage() {
                             </div>
                         </form>
                     </SheetContent >
-                </Sheet >
+                    </Sheet >
+                </div>
             </div >
 
             {
@@ -648,76 +902,110 @@ export default function ServicesPage() {
                                         </TableCell>
                                     </TableRow>
                                 ) : (
-                                    services.map((service, index) => (
-                                        <TableRow key={service._id}>
-                                            <TableCell>{index + 1}</TableCell>
-                                            <TableCell className="font-medium">
-                                                <div className="flex items-center gap-2">
-                                                    {/* Colored dot indicator */}
-                                                    <div className={`w-2 h-2 rounded-full ${service.parentId ? 'bg-orange-400' : 'bg-blue-500'}`} />
-                                                    {service.logo && <img src={service.logo} alt="" className="h-6 w-6 object-cover rounded" />}
-                                                    <span>{service.name}</span>
-                                                </div>
-                                            </TableCell>
-                                            <TableCell>
-                                                <div className="flex flex-col gap-1">
-                                                    <span className="text-xs text-muted-foreground uppercase font-bold tracking-wider">
-                                                        {service.category || "main"}
-                                                    </span>
-                                                    <span>
-                                                        {service.availability === 'new_client' ? 'New Client' :
-                                                            service.availability === 'existing_client' ? 'Existing Client' :
-                                                                service.availability === 'admin_service' ? 'Admin Service' : 'Both'}
-                                                    </span>
-                                                </div>
-                                            </TableCell>
-                                            <TableCell>
-                                                {service.category === "main" ? "--" : `${service.percentage || 0}%`}
-                                            </TableCell>
-                                            <TableCell>
-                                                {service.category === "main" ? "--" : `$${service.basePrice || 0}`}
-                                            </TableCell>
-                                            <TableCell>
-                                                {service.category === "main" ? "--" : `$${service.hourlyRate || 0}/hr`}
-                                            </TableCell>
-                                            <TableCell>
-                                                {service.category === "main" ? "--" : `${service.estimatedTime || 0} min`}
-                                            </TableCell>
-                                            <TableCell>
-                                                <div className="flex items-center gap-2">
-                                                    <Switch
-                                                        checked={service.status === "active"}
-                                                        onCheckedChange={() => handleStatusToggle(service)}
-                                                        className="data-[state=checked]:bg-green-600"
-                                                    />
-                                                    <span className={`text-sm font-medium ${service.status === "active" ? "text-green-600" : "text-gray-500"}`}>
-                                                        {/* {service.status === "active" ? "Active" : "Inactive"} */}
-                                                    </span>
-                                                </div>
-                                            </TableCell>
-                                            <TableCell className="text-right">
-                                                <div className="flex justify-end gap-2">
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="icon"
-                                                        onClick={() => handleEdit(service)}
-                                                        className="hover:bg-blue-50 hover:text-blue-600 transition-colors"
-                                                    >
-                                                        <Pencil className="h-4 w-4" />
-                                                    </Button>
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="icon"
-                                                        onClick={() => handleDelete(service._id)}
-                                                        className="hover:bg-red-50 hover:text-red-600 transition-colors"
-                                                        disabled={deletingId === service._id}
-                                                    >
-                                                        <Trash2 className="h-4 w-4" />
-                                                    </Button>
-                                                </div>
-                                            </TableCell>
-                                        </TableRow>
-                                    ))
+                                    sortedMainServices.flatMap((mainService, mainIndex) => {
+                                        const children = (servicesByParent[String(mainService._id)] || []).sort((a, b) => a.name.localeCompare(b.name));
+                                        const rows: React.ReactNode[] = [];
+
+                                        rows.push(
+                                            <TableRow key={mainService._id}>
+                                                <TableCell>{mainIndex + 1}</TableCell>
+                                                <TableCell className="font-medium">
+                                                    <div className="flex items-center gap-2">
+                                                        <div className="w-2 h-2 rounded-full bg-blue-500" />
+                                                        {mainService.logo && <img src={mainService.logo} alt="" className="h-6 w-6 object-cover rounded" />}
+                                                        <span>{mainService.name}</span>
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell>
+                                                    <div className="flex flex-col gap-1">
+                                                        <span className="text-xs text-muted-foreground uppercase font-bold tracking-wider">
+                                                            {mainService.category || "main"}
+                                                        </span>
+                                                        <span>
+                                                            {mainService.availability === 'new_client' ? 'New Client' :
+                                                                mainService.availability === 'existing_client' ? 'Existing Client' :
+                                                                    mainService.availability === 'admin_service' ? 'Admin Service' : 'Both'}
+                                                        </span>
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell>--</TableCell>
+                                                <TableCell>--</TableCell>
+                                                <TableCell>--</TableCell>
+                                                <TableCell>--</TableCell>
+                                                <TableCell>
+                                                    <div className="flex items-center gap-2">
+                                                        <Switch
+                                                            checked={mainService.status === "active"}
+                                                            onCheckedChange={() => handleStatusToggle(mainService)}
+                                                            className="data-[state=checked]:bg-green-600"
+                                                        />
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell className="text-right">
+                                                    <div className="flex justify-end gap-2">
+                                                        <Button variant="ghost" size="icon" onClick={() => handleEdit(mainService)} className="hover:bg-blue-50 hover:text-blue-600 transition-colors">
+                                                            <Pencil className="h-4 w-4" />
+                                                        </Button>
+                                                        <Button variant="ghost" size="icon" onClick={() => handleDelete(mainService._id)} className="hover:bg-red-50 hover:text-red-600 transition-colors" disabled={deletingId === mainService._id}>
+                                                            <Trash2 className="h-4 w-4" />
+                                                        </Button>
+                                                    </div>
+                                                </TableCell>
+                                            </TableRow>
+                                        );
+
+                                        children.forEach((child) => {
+                                            rows.push(
+                                                <TableRow key={child._id}>
+                                                    <TableCell />
+                                                    <TableCell className="font-medium">
+                                                        <div className="flex items-center gap-2 pl-6">
+                                                            <div className="w-2 h-2 rounded-full bg-orange-400" />
+                                                            {child.logo && <img src={child.logo} alt="" className="h-6 w-6 object-cover rounded" />}
+                                                            <span>{child.name}</span>
+                                                        </div>
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <div className="flex flex-col gap-1">
+                                                            <span className="text-xs text-muted-foreground uppercase font-bold tracking-wider">
+                                                                {child.category}
+                                                            </span>
+                                                            <span>
+                                                                {child.availability === 'new_client' ? 'New Client' :
+                                                                    child.availability === 'existing_client' ? 'Existing Client' :
+                                                                        child.availability === 'admin_service' ? 'Admin Service' : 'Both'}
+                                                            </span>
+                                                        </div>
+                                                    </TableCell>
+                                                    <TableCell>{`${child.percentage || 0}%`}</TableCell>
+                                                    <TableCell>{`$${child.basePrice || 0}`}</TableCell>
+                                                    <TableCell>{`$${child.hourlyRate || 0}/hr`}</TableCell>
+                                                    <TableCell>{`${child.estimatedTime || 0} min`}</TableCell>
+                                                    <TableCell>
+                                                        <div className="flex items-center gap-2">
+                                                            <Switch
+                                                                checked={child.status === "active"}
+                                                                onCheckedChange={() => handleStatusToggle(child)}
+                                                                className="data-[state=checked]:bg-green-600"
+                                                            />
+                                                        </div>
+                                                    </TableCell>
+                                                    <TableCell className="text-right">
+                                                        <div className="flex justify-end gap-2">
+                                                            <Button variant="ghost" size="icon" onClick={() => handleEdit(child)} className="hover:bg-blue-50 hover:text-blue-600 transition-colors">
+                                                                <Pencil className="h-4 w-4" />
+                                                            </Button>
+                                                            <Button variant="ghost" size="icon" onClick={() => handleDelete(child._id)} className="hover:bg-red-50 hover:text-red-600 transition-colors" disabled={deletingId === child._id}>
+                                                                <Trash2 className="h-4 w-4" />
+                                                            </Button>
+                                                        </div>
+                                                    </TableCell>
+                                                </TableRow>
+                                            );
+                                        });
+
+                                        return rows;
+                                    })
                                 )}
                             </TableBody>
                         </Table>

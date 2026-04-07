@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useMemo, memo } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import Script from "next/script";
 import { Input } from "@/components/ui/input";
@@ -205,6 +205,8 @@ function CompanyProfile({
     setSelectedLogo,
 }: CompanyProfileProps) {
     const [errors, setErrors] = useState<Record<string, string | undefined>>({});
+    const [locationQuery, setLocationQuery] = useState("");
+    const [isLocationManuallyCleared, setIsLocationManuallyCleared] = useState(false);
 
     const clearError = (key: string) => {
         setErrors((prev) => (prev[key] ? { ...prev, [key]: undefined } : prev));
@@ -319,9 +321,63 @@ function CompanyProfile({
 
     // Google Maps initialization
     const mapRef = useRef<HTMLDivElement>(null);
+    const locationInputRef = useRef<HTMLInputElement>(null);
     const mapInstanceRef = useRef<any | null>(null);
     const markerRef = useRef<any | null>(null);
+    const geocoderRef = useRef<any | null>(null);
+    const autocompleteRef = useRef<any | null>(null);
     const [isMapReady, setIsMapReady] = useState(false);
+    const hasSelectedLocation = useMemo(() => {
+        const lat = formData?.address?.latitude;
+        const lng = formData?.address?.longitude;
+        return typeof lat === "number" && typeof lng === "number";
+    }, [formData?.address?.latitude, formData?.address?.longitude]);
+
+    const extractAddressParts = (components: any[] = []) => {
+        const getPart = (types: string[]) =>
+            components.find((c: any) => types.some((t) => c.types?.includes(t)))?.long_name || "";
+
+        return {
+            streetNumber: getPart(["street_number"]),
+            route: getPart(["route"]),
+            city: getPart(["locality", "postal_town", "administrative_area_level_3"]),
+            state: getPart(["administrative_area_level_1"]),
+            country: getPart(["country"]),
+            zipCode: getPart(["postal_code"]),
+        };
+    };
+
+    const setAddressFromLatLng = (lat: number, lng: number) => {
+        if (!geocoderRef.current) return;
+        geocoderRef.current.geocode(
+            { location: { lat, lng } },
+            (results: any[], status: string) => {
+                if (status !== "OK" || !results?.[0]) return;
+                const topResult = results[0];
+                const parts = extractAddressParts(topResult.address_components || []);
+                const street = [parts.streetNumber, parts.route].filter(Boolean).join(" ").trim();
+
+                setLocationQuery(topResult.formatted_address || "");
+                setIsLocationManuallyCleared(false);
+                setFormData((prev: any) => ({
+                    ...prev,
+                    address: {
+                        ...prev.address,
+                        street: street || prev.address.street || "",
+                        country: parts.country || prev.address.country || "",
+                        state: parts.state || prev.address.state || "",
+                        city: parts.city || prev.address.city || "",
+                        zipCode: parts.zipCode || prev.address.zipCode || "",
+                    },
+                }));
+                clearError("address.street");
+                clearError("address.country");
+                clearError("address.state");
+                clearError("address.city");
+                clearError("address.zipCode");
+            }
+        );
+    };
 
     // Initialize map function
     const initMap = () => {
@@ -340,6 +396,7 @@ function CompanyProfile({
             });
 
             mapInstanceRef.current = map;
+            geocoderRef.current = new google.maps.Geocoder();
 
             if (formData.address.latitude && formData.address.longitude) {
                 markerRef.current = new google.maps.Marker({
@@ -374,8 +431,75 @@ function CompanyProfile({
                             draggable: false,
                         });
                     }
+
+                    setAddressFromLatLng(lat, lng);
                 }
             });
+
+            if (locationInputRef.current) {
+                autocompleteRef.current = new google.maps.places.Autocomplete(locationInputRef.current, {
+                    fields: ["address_components", "formatted_address", "geometry"],
+                });
+
+                autocompleteRef.current.addListener("place_changed", () => {
+                    const place = autocompleteRef.current?.getPlace?.();
+                    const placeLocation = place?.geometry?.location;
+
+                    if (!place || !placeLocation) {
+                        setError("address.location", "Please select a valid location.");
+                        return;
+                    }
+
+                    const lat = placeLocation.lat();
+                    const lng = placeLocation.lng();
+                    const nextPosition = { lat, lng };
+
+                    setLocationQuery(place.formatted_address || locationInputRef.current?.value || "");
+                    setIsLocationManuallyCleared(false);
+                    setFormData((prev: any) => ({
+                        ...prev,
+                        address: {
+                            ...prev.address,
+                            latitude: lat,
+                            longitude: lng,
+                        },
+                    }));
+
+                    clearError("address.location");
+
+                    if (markerRef.current) {
+                        markerRef.current.setPosition(nextPosition);
+                    } else {
+                        markerRef.current = new google.maps.Marker({
+                            position: nextPosition,
+                            map,
+                            draggable: false,
+                        });
+                    }
+
+                    map.setCenter(nextPosition);
+                    map.setZoom(15);
+
+                    const parts = extractAddressParts(place.address_components || []);
+                    const street = [parts.streetNumber, parts.route].filter(Boolean).join(" ").trim();
+                    setFormData((prev: any) => ({
+                        ...prev,
+                        address: {
+                            ...prev.address,
+                            street: street || prev.address.street || "",
+                            country: parts.country || prev.address.country || "",
+                            state: parts.state || prev.address.state || "",
+                            city: parts.city || prev.address.city || "",
+                            zipCode: parts.zipCode || prev.address.zipCode || "",
+                        },
+                    }));
+                    clearError("address.street");
+                    clearError("address.country");
+                    clearError("address.state");
+                    clearError("address.city");
+                    clearError("address.zipCode");
+                });
+            }
         } catch (error) {
             console.error("Error initializing map:", error);
         }
@@ -435,6 +559,13 @@ function CompanyProfile({
     const savedCountry = (formData?.address?.country ?? "").trim();
     const savedState = (formData?.address?.state ?? "").trim();
     const savedCity = (formData?.address?.city ?? "").trim();
+
+    useEffect(() => {
+        if (hasSelectedLocation && !locationQuery && !isLocationManuallyCleared) {
+            const fallback = [savedCity, savedState, savedCountry].filter(Boolean).join(", ");
+            setLocationQuery(fallback);
+        }
+    }, [hasSelectedLocation, locationQuery, isLocationManuallyCleared, savedCity, savedState, savedCountry]);
 
     const countryOptions = useMemo(() => {
         if (!geoLib) return [];
@@ -675,7 +806,7 @@ function CompanyProfile({
                             onChange={(e) =>
                                 (setFormData({ ...formData, phone: e.target.value }), clearError("phone"))
                             }
-                            placeholder="+1 (555) 123-4567"
+                            placeholder="(555) 123-4567"
                             aria-invalid={Boolean(errors.phone)}
                             aria-describedby={errors.phone ? "phone-error" : undefined}
                         />
@@ -688,9 +819,88 @@ function CompanyProfile({
 
                     <div className="space-y-4">
                         <h3 className="font-semibold">Address</h3>
-                        <div className="space-y-2">
+                        
+                        <div className="grid gap-4 md:grid-cols-1">
+                            
+
+                        <div className="space-y-4">
+                            <div className="flex items-center gap-2">
+                                <MapPin className="h-5 w-5 text-primary" />
+                                <h4 className="font-semibold">Location on Map</h4>
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="selectLocation">Select Location *</Label>
+                                <div className="flex items-center gap-2">
+                                    <Input
+                                        id="selectLocation"
+                                        ref={locationInputRef}
+                                        value={locationQuery}
+                                        onChange={(e) => {
+                                            const value = e.target.value;
+                                            setLocationQuery(value);
+                                            if (value.trim() === "") {
+                                                setIsLocationManuallyCleared(true);
+                                            } else {
+                                                setIsLocationManuallyCleared(false);
+                                            }
+                                        }}
+                                        placeholder="Search and select your location"
+                                        aria-invalid={Boolean(errors["address.location"])}
+                                        aria-describedby={errors["address.location"] ? "location-error" : undefined}
+                                    />
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        onClick={() => {
+                                            setLocationQuery("");
+                                            setIsLocationManuallyCleared(true);
+                                        }}
+                                        disabled={!locationQuery}
+                                    >
+                                        Clear
+                                    </Button>
+                                </div>
+                            </div>
+                            <p className="text-sm text-muted-foreground">
+                                Search above or click on the map to select your company location
+                            </p>
+                            {errors["address.location"] && (
+                                <p id="location-error" className="text-destructive text-sm">
+                                    {errors["address.location"]}
+                                </p>
+                            )}
+                            <div
+                                ref={mapRef}
+                                className="w-full h-[400px] rounded-lg border-2 border-gray-200"
+                                style={{ minHeight: "400px" }}
+                            />
+                            {hasSelectedLocation && (
+                                <div className="space-y-2">
+                                    <Label htmlFor="addressInstructions">Current Address (Instructions)</Label>
+                                    <Textarea
+                                        id="addressInstructions"
+                                        value={formData.address.addressInstructions || ""}
+                                        onChange={(e) =>
+                                            setFormData({
+                                                ...formData,
+                                                address: {
+                                                    ...formData.address,
+                                                    addressInstructions: e.target.value,
+                                                },
+                                            })
+                                        }
+                                        placeholder="e.g. Building name, floor, landmark, unit number"
+                                        rows={2}
+                                    />
+                                </div>
+                            )}
+                        </div>
+
+                        {hasSelectedLocation && (
+                        <div className="grid md:grid-cols-2 gap-4">
+                        <div className="space-y-2 col-span-2">
                             <Label htmlFor="street">Street *</Label>
-                            <Input
+                            <Textarea
                                 id="street"
                                 value={formData.address.street}
                                 onChange={(e) =>
@@ -708,8 +918,8 @@ function CompanyProfile({
                                 </p>
                             )}
                         </div>
-                        <div className="grid gap-4 md:grid-cols-2">
-                            <div className="space-y-2">
+
+                        <div className="space-y-2">
                                 <Label htmlFor="country">Country *</Label>
                                 <VirtualGeoSelect
                                     id="country"
@@ -810,28 +1020,10 @@ function CompanyProfile({
                                 )}
                             </div>
                         </div>
-
-                        <div className="space-y-4">
-                            <div className="flex items-center gap-2">
-                                <MapPin className="h-5 w-5 text-primary" />
-                                <h4 className="font-semibold">Location on Map</h4>
-                            </div>
-                            <p className="text-sm text-muted-foreground">
-                                Click on the map to select your company location
-                            </p>
-                            {errors["address.location"] && (
-                                <p className="text-destructive text-sm">
-                                    {errors["address.location"]}
-                                </p>
-                            )}
-                            <div
-                                ref={mapRef}
-                                className="w-full h-[400px] rounded-lg border-2 border-gray-200"
-                                style={{ minHeight: "400px" }}
-                            />
+                        )}
                         </div>
 
-                        <div className="grid gap-4 md:grid-cols-2">
+                        <div style={{ display: "none" }} className="hidden md:grid gap-4 md:grid-cols-2">
                             <div className="space-y-2">
                                 <Label htmlFor="latitude">Latitude</Label>
                                 <Input
@@ -877,6 +1069,29 @@ function CompanyProfile({
 
 
 export default function CompanySettingsPage() {
+    const searchParams = useSearchParams();
+    const allowedTabs = new Set([
+        "profile",
+        "subscription",
+        "preferences",
+        "availability",
+        "payments",
+        "promocodes",
+        "service-areas",
+        "zip-codes",
+        "mail-sending",
+        "subdomain",
+    ]);
+    const requestedTab = searchParams.get("tab");
+    const initialTab =
+        requestedTab && allowedTabs.has(requestedTab) ? requestedTab : "profile";
+    const [activeTab, setActiveTab] = useState(initialTab);
+
+    useEffect(() => {
+        if (requestedTab && allowedTabs.has(requestedTab)) {
+            setActiveTab(requestedTab);
+        }
+    }, [requestedTab]);
     const router = useRouter();
     const [saving, setSaving] = useState(false);
     const [isRedirectDialogOpen, setIsRedirectDialogOpen] = useState(false);
@@ -914,6 +1129,7 @@ export default function CompanySettingsPage() {
             state: "",
             country: "",
             zipCode: "",
+            addressInstructions: "",
             latitude: undefined as number | undefined,
             longitude: undefined as number | undefined,
         },
@@ -936,6 +1152,8 @@ export default function CompanySettingsPage() {
                 state: apiAddress.state ?? prev.address.state ?? "",
                 country: apiAddress.country ?? prev.address.country ?? "",
                 zipCode: apiAddress.zipCode ?? prev.address.zipCode ?? "",
+                addressInstructions:
+                    apiAddress.addressInstructions ?? prev.address.addressInstructions ?? "",
                 latitude: apiAddress.latitude ?? prev.address.latitude,
                 longitude: apiAddress.longitude ?? prev.address.longitude,
             };
@@ -1077,7 +1295,7 @@ console.log("company",company?.address);
                 </p>
             </div>
 
-            <Tabs defaultValue="profile" className="space-y-6">
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
                 <TabsList className="w-full justify-start overflow-x-auto h-auto flex-nowrap p-1">
                     <TabsTrigger value="profile">Profile</TabsTrigger>
                     <TabsTrigger value="subscription">Subscription</TabsTrigger>

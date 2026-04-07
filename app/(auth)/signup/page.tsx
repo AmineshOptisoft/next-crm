@@ -217,6 +217,7 @@ const VirtualGeoSelect = memo(function VirtualGeoSelect({
 
 export default function SignupPage() {
   const router = useRouter();
+  const duplicateCompanyError = "Company name already exists";
 
   const form = useForm<SignupInput>({
     resolver: zodResolver(signupSchema),
@@ -294,6 +295,54 @@ export default function SignupPage() {
 
   const [loading, setLoading] = useState(false);
   const [successDialogOpen, setSuccessDialogOpen] = useState(false);
+  const [isCheckingCompany, setIsCheckingCompany] = useState(false);
+  const companyCheckRequestId = useRef(0);
+  const companyCheckTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (companyCheckTimeoutRef.current) {
+        clearTimeout(companyCheckTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  async function checkCompanyNameAvailability(name: string) {
+    const trimmedName = name.trim();
+    if (!trimmedName || trimmedName.length < 2) {
+      if (form.formState.errors.companyName?.message === duplicateCompanyError) {
+        form.clearErrors("companyName");
+      }
+      return;
+    }
+
+    const requestId = ++companyCheckRequestId.current;
+
+    try {
+      setIsCheckingCompany(true);
+      const res = await fetch(
+        `/api/auth/signup?companyName=${encodeURIComponent(trimmedName)}`
+      );
+      const data = await res.json();
+
+      if (companyCheckRequestId.current !== requestId) return;
+
+      if (data.exists) {
+        form.setError("companyName", { type: "validate", message: duplicateCompanyError });
+        return;
+      }
+
+      if (form.formState.errors.companyName?.message === duplicateCompanyError) {
+        form.clearErrors("companyName");
+      }
+    } catch {
+      // Keep silent on lookup failure and rely on submit-time validation.
+    } finally {
+      if (companyCheckRequestId.current === requestId) {
+        setIsCheckingCompany(false);
+      }
+    }
+  }
 
   async function onSubmit(values: SignupInput) {
     setLoading(true);
@@ -469,6 +518,25 @@ export default function SignupPage() {
                             placeholder="Acme Inc."
                             className="h-11 rounded-lg border border-input bg-background text-sm text-foreground placeholder:text-muted-foreground"
                             {...field}
+                            onChange={(e) => {
+                              field.onChange(e);
+                              // Remove stale duplicate error as soon as user edits the name.
+                              if (form.formState.errors.companyName?.message === duplicateCompanyError) {
+                                form.clearErrors("companyName");
+                              }
+                              if (companyCheckTimeoutRef.current) {
+                                clearTimeout(companyCheckTimeoutRef.current);
+                              }
+                            }}
+                            onBlur={(e) => {
+                              field.onBlur();
+                              if (companyCheckTimeoutRef.current) {
+                                clearTimeout(companyCheckTimeoutRef.current);
+                              }
+                              companyCheckTimeoutRef.current = setTimeout(() => {
+                                checkCompanyNameAvailability(e.target.value);
+                              }, 250);
+                            }}
                           />
                         </FormControl>
                         <FormMessage />
@@ -556,10 +624,14 @@ export default function SignupPage() {
                   <Button
                     type="submit"
                     className="mt-1 h-11 w-full rounded-lg bg-primary text-sm font-semibold text-secondary hover:bg-primary/90"
-                    disabled={loading}
+                    disabled={loading || isCheckingCompany}
                   >
                     {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    {loading ? "Creating account..." : "Sign up"}
+                    {loading
+                      ? "Creating account..."
+                      : isCheckingCompany
+                        ? "Checking company..."
+                        : "Sign up"}
                   </Button>
                 </form>
               </Form>

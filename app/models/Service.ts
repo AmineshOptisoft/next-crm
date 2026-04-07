@@ -28,7 +28,9 @@ export interface IService extends Document {
     // Estimated time in minutes (for sub-services and addons)
     estimatedTime?: number;
 
-    companyId: mongoose.Types.ObjectId;
+    companyId?: mongoose.Types.ObjectId;
+    isDefaultService: boolean;
+    defaultServiceKey?: string;
     createdAt: Date;
     updatedAt: Date;
 }
@@ -83,8 +85,12 @@ const ServiceSchema = new Schema({
     companyId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "Company",
-        required: true,
+        required: function (this: any) {
+            return !this.isDefaultService;
+        },
     },
+    isDefaultService: { type: Boolean, default: false },
+    defaultServiceKey: { type: String },
 
     // Kept for simple use cases
     subServices: {
@@ -103,5 +109,6 @@ ServiceSchema.index({
     category: 1,
     status: 1,
 });
+ServiceSchema.index({ isDefaultService: 1, defaultServiceKey: 1 });
 
 export const Service = models.Service || model<IService>("Service", ServiceSchema);

@@ -79,6 +79,11 @@ export function Topbar() {
     revalidateOnFocus: false,
     dedupingInterval: 60000,
   });
+  const { data: companySettings } = useSWR("/api/company/settings", fetcher, {
+    revalidateOnFocus: false,
+    dedupingInterval: 30000,
+  });
+  const isFreePlan = (companySettings?.plan || "free").toLowerCase() === "free";
 
   useEffect(() => {
     if (meData?.user) {
@@ -208,6 +213,15 @@ export function Topbar() {
 
         {/* Right: theme, settings, user menu */}
         <div className="flex items-center gap-3">
+          {isFreePlan && (
+            <Button
+              size="sm"
+              className="rounded-full px-4"
+              onClick={() => router.push("/dashboard/company-settings?tab=subscription")}
+            >
+              Upgrade now
+            </Button>
+          )}
           {/* Theme toggle / menu */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 const ANALYTICS_RANGE_STORAGE_KEY = "dashboard-technician-analytics-range";
 
@@ -103,6 +103,8 @@ export function TechnicianAnalyticsWithFilter({
   const [selectedPreset, setSelectedPreset] = useState("today");
   const [daysUpToToday, setDaysUpToToday] = useState("7");
   const [daysStartingToday, setDaysStartingToday] = useState("7");
+  const dragAnchorRef = useRef<Date | null>(null);
+  const isDraggingRef = useRef(false);
   const [filterRange, setFilterRange] = useState<DateRange | undefined>(() => {
     const stored = readStoredDateRange();
     if (stored) return stored;
@@ -174,6 +176,7 @@ export function TechnicianAnalyticsWithFilter({
 
   const applyPreset = (preset: string) => {
     setSelectedPreset(preset);
+    if (preset === "custom") return;
     setFilterRange(buildRangeFromPreset(preset));
   };
 
@@ -198,6 +201,48 @@ export function TechnicianAnalyticsWithFilter({
     persistAppliedRange(t);
     setFilterSheetOpen(false);
   };
+
+  const normalizeDateOnly = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const buildRange = (a: Date, b: Date): DateRange =>
+    a.getTime() <= b.getTime() ? { from: a, to: b } : { from: b, to: a };
+
+  const handleCalendarDayClick = (day: Date, modifiers: { disabled?: boolean }) => {
+    if (modifiers.disabled) return;
+    const d = normalizeDateOnly(day);
+    setSelectedPreset("custom");
+    setFilterRange({ from: d, to: d });
+    dragAnchorRef.current = d;
+    isDraggingRef.current = false;
+  };
+
+  const handleCalendarDayMouseEnter = (
+    day: Date,
+    modifiers: { disabled?: boolean },
+    e: React.MouseEvent
+  ) => {
+    if (modifiers.disabled || e.buttons !== 1) return;
+
+    const current = normalizeDateOnly(day);
+    setSelectedPreset("custom");
+
+    if (!dragAnchorRef.current) {
+      dragAnchorRef.current = current;
+      setFilterRange({ from: current, to: current });
+      return;
+    }
+
+    isDraggingRef.current = true;
+    setFilterRange(buildRange(dragAnchorRef.current, current));
+  };
+
+  useEffect(() => {
+    const stopDragging = () => {
+      isDraggingRef.current = false;
+      dragAnchorRef.current = null;
+    };
+    window.addEventListener("mouseup", stopDragging);
+    return () => window.removeEventListener("mouseup", stopDragging);
+  }, []);
 
   const swrKey = buildRangeQueryKey(appliedRange);
   const { data, isLoading, error } = useSWR(swrKey, fetcher, {
@@ -336,6 +381,14 @@ export function TechnicianAnalyticsWithFilter({
               >
                 Last Month
               </Button>
+              <Button
+                type="button"
+                variant={selectedPreset === "custom" ? "default" : "ghost"}
+                className="w-full justify-start"
+                onClick={() => applyPreset("custom")}
+              >
+                Custom
+              </Button>
               <div className="flex items-center gap-2 rounded-md border p-2">
                 <input
                   type="text"
@@ -412,7 +465,14 @@ export function TechnicianAnalyticsWithFilter({
                 <Calendar
                   mode="range"
                   selected={filterRange}
-                  onSelect={setFilterRange}
+                  onSelect={(range) => {
+                    setFilterRange(range);
+                    if (range?.from) {
+                      setSelectedPreset("custom");
+                    }
+                  }}
+                  onDayClick={handleCalendarDayClick}
+                  onDayMouseEnter={handleCalendarDayMouseEnter}
                   captionLayout="dropdown"
                   fromYear={2020}
                   toYear={2035}

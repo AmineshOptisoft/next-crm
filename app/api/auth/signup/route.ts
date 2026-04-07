@@ -9,6 +9,28 @@ import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import mongoose from "mongoose";
 
+function escapeRegex(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+export async function GET(req: NextRequest) {
+  await connectDB();
+
+  const companyName = req.nextUrl.searchParams.get("companyName")?.trim();
+  if (!companyName) {
+    return NextResponse.json({ exists: false });
+  }
+
+  const existingCompany = await Company.exists({
+    name: {
+      $regex: `^${escapeRegex(companyName)}$`,
+      $options: "i",
+    },
+  });
+
+  return NextResponse.json({ exists: !!existingCompany });
+}
+
 export async function POST(req: NextRequest) {
   await connectDB();
 
@@ -28,11 +50,29 @@ export async function POST(req: NextRequest) {
 
   const { firstName, lastName, email, password, companyName, countryId, stateId, cityId } =
     parseResult.data;
+  const normalizedCompanyName = companyName?.trim();
 
   // Check existing user
   const existing = await User.exists({ email });
   if (existing) {
     return NextResponse.json({ error: "Email already in use", field: "email" }, { status: 400 });
+  }
+
+  // Check company name uniqueness (case-insensitive, trimmed)
+  if (normalizedCompanyName) {
+    const existingCompany = await Company.exists({
+      name: {
+        $regex: `^${escapeRegex(normalizedCompanyName)}$`,
+        $options: "i",
+      },
+    });
+
+    if (existingCompany) {
+      return NextResponse.json(
+        { error: "Company name already exists", field: "companyName" },
+        { status: 400 }
+      );
+    }
   }
 
   // Parallel: hash password + generate token
@@ -56,7 +96,7 @@ export async function POST(req: NextRequest) {
           email,
           passwordHash,
           role: "company_admin",
-          companyName,
+          companyName: normalizedCompanyName,
           countryId,
           stateId,
           cityId,
@@ -71,7 +111,7 @@ export async function POST(req: NextRequest) {
     const [company] = await Company.create(
       [
         {
-          name: companyName,
+          name: normalizedCompanyName,
           adminId: user._id,
           email,
           address: { city: cityId, state: stateId, country: countryId },
@@ -117,6 +157,15 @@ export async function POST(req: NextRequest) {
   } catch (error) {
     await session.abortTransaction();
     console.error("Signup error:", error);
+
+    // Defensive fallback in case a unique index rejects duplicate company names.
+    if (error instanceof mongoose.Error && "code" in error && (error as any).code === 11000) {
+      return NextResponse.json(
+        { error: "Company name already exists", field: "companyName" },
+        { status: 400 }
+      );
+    }
+
     return NextResponse.json(
       { error: "Failed to create account. Please try again." },
       { status: 500 }
