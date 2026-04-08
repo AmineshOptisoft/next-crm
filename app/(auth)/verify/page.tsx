@@ -38,11 +38,16 @@ function VerifyPageContent() {
       })
         .then(async (res) => {
           const data = await res.json();
+          const alreadyVerified =
+            typeof data?.error === "string" &&
+            data.error.toLowerCase().includes("already verified");
 
-          if (res.ok) {
+          if (res.ok || alreadyVerified) {
             setStatus("success");
             setMessage(
-              "Account verified successfully! Redirecting to login..."
+              alreadyVerified
+                ? "User already verified."
+                : "Account verified successfully! Redirecting to login..."
             );
             setTimeout(() => {
               router.push("/login");

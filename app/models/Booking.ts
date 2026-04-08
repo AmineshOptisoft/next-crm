@@ -2,6 +2,7 @@ import mongoose, { Schema, Document, models, model } from "mongoose";
 import "./Service";
 
 export interface IBooking extends Document {
+    orderId: string;
     contactId: mongoose.Types.ObjectId;
     technicianId: mongoose.Types.ObjectId;
     serviceId: mongoose.Types.ObjectId;
@@ -75,7 +76,19 @@ export interface IBooking extends Document {
         notes?: string;
     };
 
-    status: "scheduled" | "in_progress" | "completed" | "cancelled" | "no_show";
+    status:
+        | "unconfirmed"
+        | "confirmed"
+        | "rejected"
+        | "invoice_sent"
+        | "paid"
+        | "closed"
+        | "deleted"
+        | "scheduled"
+        | "in_progress"
+        | "completed"
+        | "cancelled"
+        | "no_show";
 
     // Recurring booking reference
     recurringGroupId?: string; // Same ID for all bookings in a recurring series

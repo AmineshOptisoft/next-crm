@@ -467,7 +467,7 @@ export function CompanyProfile({ formData, setFormData, saving, handleSubmit, in
                             onChange={(e) =>
                                 (setFormData({ ...formData, phone: e.target.value }), clearError("phone"))
                             }
-                            placeholder="(555) 123-4567"
+                            placeholder="1234567890"
                             aria-invalid={Boolean(errors.phone)}
                             aria-describedby={errors.phone ? "phone-error" : undefined}
                         />

@@ -101,7 +101,7 @@ export function UpcomingBookings({
 
   return (
     <>
-      <Card className="py-4 h-full">
+      <Card className="py-4 max-h-screen overflow-y-auto">
         <CardHeader>
           <div className="flex items-center justify-between">
             <div className="flex flex-col justify-center gap-2">

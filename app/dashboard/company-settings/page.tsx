@@ -183,6 +183,20 @@ import { log } from "console";
 const fetcher = (url: string) =>
     fetch(url, { credentials: "include" }).then((res) => res.json());
 
+const toCompanySubdomain = (name: string) => {
+    const normalized = (name || "")
+        .toLowerCase()
+        .trim()
+        .replace(/[^a-z0-9\s-]/g, "")
+        .replace(/\s+/g, "-")
+        .replace(/-+/g, "-")
+        .replace(/^-+|-+$/g, "");
+
+    if (!normalized) return "";
+    if (normalized.length >= 3) return normalized.slice(0, 50);
+    return normalized.padEnd(3, normalized[normalized.length - 1] || "x").slice(0, 50);
+};
+
 interface CompanyProfileProps {
     formData: any;
     setFormData: (data: any) => void;
@@ -191,6 +205,7 @@ interface CompanyProfileProps {
     industries: Array<{ _id: string; name: string }>;
     selectedLogo: File | null;
     setSelectedLogo: (file: File | null) => void;
+    isActiveTab: boolean;
 }
 
 declare const google: any;
@@ -203,6 +218,7 @@ function CompanyProfile({
     industries,
     selectedLogo,
     setSelectedLogo,
+    isActiveTab,
 }: CompanyProfileProps) {
     const [errors, setErrors] = useState<Record<string, string | undefined>>({});
     const [locationQuery, setLocationQuery] = useState("");
@@ -511,6 +527,15 @@ function CompanyProfile({
         }
     }, [isMapReady]);
 
+    // Ensure map initializes even when script is already loaded before onLoad fires.
+    useEffect(() => {
+        if (!isActiveTab) return;
+        if (typeof window === "undefined") return;
+        if ((window as any).google?.maps && !isMapReady) {
+            setIsMapReady(true);
+        }
+    }, [isActiveTab, isMapReady]);
+
     useEffect(() => {
         if (mapInstanceRef.current && formData.address.latitude && formData.address.longitude) {
             const position = {
@@ -530,6 +555,32 @@ function CompanyProfile({
             mapInstanceRef.current.setCenter(position);
         }
     }, [formData.address.latitude, formData.address.longitude]);
+
+    // Tabs can hide the map container; force resize/recenter when profile tab becomes active.
+    useEffect(() => {
+        if (!isActiveTab || !mapInstanceRef.current) return;
+
+        const map = mapInstanceRef.current;
+        const lat = formData.address.latitude;
+        const lng = formData.address.longitude;
+        const center =
+            typeof lat === "number" && typeof lng === "number"
+                ? { lat, lng }
+                : { lat: 19.076, lng: 72.8777 };
+
+        const timeout = setTimeout(() => {
+            try {
+                if ((window as any).google?.maps?.event) {
+                    (window as any).google.maps.event.trigger(map, "resize");
+                }
+                map.setCenter(center);
+            } catch (error) {
+                console.error("Error resizing map on tab activation:", error);
+            }
+        }, 100);
+
+        return () => clearTimeout(timeout);
+    }, [isActiveTab, formData.address.latitude, formData.address.longitude]);
 
     const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -622,6 +673,9 @@ function CompanyProfile({
             <Script
                 src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAQODjSc_eWcBWoIdk7trMzl98oRHF9HFs&libraries=places"
                 onLoad={() => {
+                    setIsMapReady(true);
+                }}
+                onReady={() => {
                     setIsMapReady(true);
                 }}
                 onError={() => {
@@ -806,7 +860,7 @@ function CompanyProfile({
                             onChange={(e) =>
                                 (setFormData({ ...formData, phone: e.target.value }), clearError("phone"))
                             }
-                            placeholder="(555) 123-4567"
+                            placeholder="1234567890"
                             aria-invalid={Boolean(errors.phone)}
                             aria-describedby={errors.phone ? "phone-error" : undefined}
                         />
@@ -1258,6 +1312,40 @@ export default function CompanySettingsPage() {
                 await mutateSettings(updated, { revalidate: false });
 
                 if (updated.profileCompleted === true) {
+                    const hasSubdomain = Boolean(updated?.subdomain);
+                    const hasPublicSites =
+                        Array.isArray(updated?.publicSites) && updated.publicSites.length > 0;
+
+                    // Auto-create first public site once, right after profile completion.
+                    if (!hasSubdomain && !hasPublicSites) {
+                        const autoSubdomain = toCompanySubdomain(updated?.name || finalFormData.name || "");
+
+                        if (autoSubdomain) {
+                            const autoSitePayload = {
+                                subdomain: autoSubdomain,
+                                publicTemplate: "templateA",
+                                publicSites: [{ subdomain: autoSubdomain, template: "templateA" }],
+                            };
+
+                            const autoSiteResponse = await fetch("/api/company/settings", {
+                                method: "PUT",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify(autoSitePayload),
+                            });
+
+                            if (autoSiteResponse.ok) {
+                                const autoSiteUpdated = await autoSiteResponse.json();
+                                await mutateSettings(autoSiteUpdated, { revalidate: false });
+                            } else {
+                                const autoSiteError = await autoSiteResponse.json().catch(() => null);
+                                toast.error(
+                                    autoSiteError?.error ||
+                                    "Profile saved, but automatic subdomain creation failed."
+                                );
+                            }
+                        }
+                    }
+
                     setIsRedirectDialogOpen(true);
                 } else {
                     toast.warning("Settings saved, but profile is not complete yet. Please fill all required fields.");
@@ -1318,6 +1406,7 @@ console.log("company",company?.address);
                         industries={industries}
                         selectedLogo={selectedLogo}
                         setSelectedLogo={setSelectedLogo}
+                        isActiveTab={activeTab === "profile"}
                     />
                 </TabsContent>
 

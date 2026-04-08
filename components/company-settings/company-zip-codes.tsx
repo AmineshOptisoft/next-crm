@@ -71,6 +71,16 @@ export function CompanyZipCodes() {
         fetchServiceAreas();
     }, []);
 
+    useEffect(() => {
+        const refreshData = () => {
+            fetchZipCodes();
+            fetchServiceAreas();
+        };
+
+        window.addEventListener("zip-codes:refresh", refreshData);
+        return () => window.removeEventListener("zip-codes:refresh", refreshData);
+    }, []);
+
     const fetchServiceAreas = async () => {
         try {
             const response = await fetch("/api/service-areas");

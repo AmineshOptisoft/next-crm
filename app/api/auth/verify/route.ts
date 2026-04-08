@@ -16,10 +16,20 @@ export async function GET(req: NextRequest) {
       );
     }
 
+    const userByEmail = await User.findOne({ email });
+
+    if (!userByEmail) {
+      return NextResponse.json({ error: "User not found" }, { status: 400 });
+    }
+
+    if (userByEmail.isVerified) {
+      return NextResponse.json({ message: "User already verified" });
+    }
+
     const user = await User.findOne({ email, verificationToken: token });
 
     if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 400 });
+      return NextResponse.json({ error: "Invalid verification link" }, { status: 400 });
     }
 
     if (

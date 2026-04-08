@@ -23,6 +23,52 @@ import { Promocode } from "@/components/company-settings/types";
 const fetcher = (url: string) => fetch(url, { credentials: "include" }).then(r => r.json());
 const TECHNICIAN_BOOKING_BUFFER_MINUTES = 30;
 
+function getTimeZoneDateParts(date: Date, timeZone: string) {
+    const formatter = new Intl.DateTimeFormat("en-CA", {
+        timeZone,
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hourCycle: "h23",
+    });
+
+    const parts = formatter.formatToParts(date);
+    const pick = (type: Intl.DateTimeFormatPartTypes) =>
+        Number(parts.find((part) => part.type === type)?.value ?? "0");
+
+    return {
+        year: pick("year"),
+        month: pick("month"),
+        day: pick("day"),
+        hour: pick("hour"),
+        minute: pick("minute"),
+        second: pick("second"),
+    };
+}
+
+function getLocalDateParts(date: Date) {
+    return {
+        year: date.getFullYear(),
+        month: date.getMonth() + 1,
+        day: date.getDate(),
+        hour: date.getHours(),
+        minute: date.getMinutes(),
+        second: date.getSeconds(),
+    };
+}
+
+function isBeforeNowInTimeZone(selected: { year: number; month: number; day: number; hour: number; minute: number; second: number }, timeZone: string) {
+    const now = getTimeZoneDateParts(new Date(), timeZone);
+
+    const selectedValue = (((((selected.year * 100 + selected.month) * 100 + selected.day) * 100 + selected.hour) * 100 + selected.minute) * 100 + selected.second);
+    const nowValue = (((((now.year * 100 + now.month) * 100 + now.day) * 100 + now.hour) * 100 + now.minute) * 100 + now.second);
+
+    return selectedValue < nowValue;
+}
+
 // Helper: service (main, sub, or addon) is available for the selected user type (new vs existing)
 function isServiceAvailableForUserType(
     availability: string | undefined,
@@ -262,6 +308,11 @@ export function AddBookingForm({ open, onOpenChange, initialData, technicians, c
 
     const { data: promocodesData } = useSWR(open ? "/api/promocodes" : null, fetcher, { revalidateOnFocus: false, dedupingInterval: 60_000 });
     const promocodes: Promocode[]  = promocodesData || [];
+    const { data: companyData } = useSWR(open ? "/api/company/settings" : null, fetcher, {
+        revalidateOnFocus: false,
+        dedupingInterval: 60_000,
+    });
+    const companyTimezone = companyData?.settings?.timezone || "UTC";
 
     const { data: servicesData } = useSWR(
         open && selectedTechnicianServiceId ? `/api/users/${selectedTechnicianServiceId}/services` : null,
@@ -655,14 +706,13 @@ export function AddBookingForm({ open, onOpenChange, initialData, technicians, c
             }
             if ((!contactId && !newContactData) || !selectedService) { toast.error("Please select a contact and service"); return; }
 
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
             if (!bookingStart) {
                 toast.error("Please select a start date and time");
                 return;
             }
-            if (bookingStart < today) {
-                toast.error("Booking start date cannot be before today");
+            const bookingStartWallClock = getLocalDateParts(bookingStart);
+            if (isBeforeNowInTimeZone(bookingStartWallClock, companyTimezone)) {
+                toast.error(`Booking start time cannot be in the past (${companyTimezone})`);
                 return;
             }
             if (bookingType === "recurring") {
@@ -738,6 +788,7 @@ export function AddBookingForm({ open, onOpenChange, initialData, technicians, c
                         ? frequency === "monthly" ? { monthlyWeeks, endDate: recurringEndDate } : { selectedDays, endDate: recurringEndDate }
                         : undefined,
                     startDateTime: bookingStart, endDateTime: bookingEnd,
+                    startDateTimeLocalParts: bookingStartWallClock,
                     shippingAddress: { street: shippingData.shippingAddress, country: shippingData.shippingCountry, city: shippingData.shippingCity, state: shippingData.shippingState, zipCode: shippingData.shippingZipCode },
                     notes,
                     pricing: { baseAmount: selectedService.basePrice || selectedService.hourlyRate || 0, subServicesAmount: subTotal, addonsAmount: addonsTotal, totalAmount: total, discount, finalAmount, billedHours: 0 },

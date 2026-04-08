@@ -70,6 +70,7 @@ export function Topbar() {
   const [avatarUrl, setAvatarUrl] = useState<string | undefined>();
   const [openCmd, setOpenCmd] = useState(false);
   const [savingTheme, setSavingTheme] = useState(false);
+  const [mounted, setMounted] = useState(false);
 
   const title =
     Object.entries(titleMap).find(([key]) => pathname.startsWith(key))?.[1] ||
@@ -100,6 +101,10 @@ export function Topbar() {
       }
     }
   }, [meData]);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // ⌘K / Ctrl+K
   useEffect(() => {
@@ -166,14 +171,15 @@ export function Topbar() {
     [router]
   );
 
-  const themeIcon =
-    theme === "light" ? (
-      <SunMedium className="h-4 w-4" />
-    ) : theme === "dark" ? (
-      <Moon className="h-4 w-4" />
-    ) : (
-      <Laptop2 className="h-4 w-4" />
-    );
+  const themeIcon = !mounted ? (
+    <Laptop2 className="h-4 w-4" />
+  ) : theme === "light" ? (
+    <SunMedium className="h-4 w-4" />
+  ) : theme === "dark" ? (
+    <Moon className="h-4 w-4" />
+  ) : (
+    <Laptop2 className="h-4 w-4" />
+  );
 
   return (
     <>

@@ -4,8 +4,9 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { MapPin, Plus, Trash2, Pencil } from "lucide-react";
+import { Loader2, MapPin, Plus, Trash2, Pencil } from "lucide-react";
 import {
     Table,
     TableBody,
@@ -45,6 +46,9 @@ export function CompanyServiceAreas() {
     const [formData, setFormData] = useState({ name: "" });
     const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
     const [areaToDelete, setAreaToDelete] = useState<string | null>(null);
+    const [availableZipCodes, setAvailableZipCodes] = useState<string[]>([]);
+    const [selectedZipCodes, setSelectedZipCodes] = useState<string[]>([]);
+    const [isLoadingZipCodes, setIsLoadingZipCodes] = useState(false);
 
     useEffect(() => {
         fetchServiceAreas();
@@ -68,28 +72,46 @@ export function CompanyServiceAreas() {
             return;
         }
 
+        if (!editingArea && selectedZipCodes.length === 0) {
+            toast.error("Please fetch and select at least one zip code");
+            return;
+        }
+
         try {
             const url = editingArea
                 ? `/api/service-areas/${editingArea._id}`
                 : "/api/service-areas";
             const method = editingArea ? "PUT" : "POST";
+            const payload = editingArea
+                ? { name: formData.name }
+                : { name: formData.name, zipCodes: selectedZipCodes };
 
             const response = await fetch(url, {
                 method,
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(formData),
+                body: JSON.stringify(payload),
             });
 
             if (response.ok) {
+                const data = await response.json();
                 setIsSheetOpen(false);
                 setFormData({ name: "" });
                 setEditingArea(null);
+                setAvailableZipCodes([]);
+                setSelectedZipCodes([]);
                 fetchServiceAreas();
+                window.dispatchEvent(new CustomEvent("zip-codes:refresh"));
                 toast.success(
                     editingArea
                         ? "Service area updated successfully!"
                         : "Service area added successfully!"
                 );
+
+                if (!editingArea && Array.isArray(data?.selectedZipCodes)) {
+                    toast.success(
+                        `${data.totalSavedZipCodes ?? data.selectedZipCodes.length} zip code(s) saved for this area.`
+                    );
+                }
             } else {
                 const error = await response.json();
                 toast.error(error.error || "Failed to save service area");
@@ -136,7 +158,69 @@ export function CompanyServiceAreas() {
     const handleOpenSheet = () => {
         setEditingArea(null);
         setFormData({ name: "" });
+        setAvailableZipCodes([]);
+        setSelectedZipCodes([]);
         setIsSheetOpen(true);
+    };
+
+    const handleSheetOpenChange = (open: boolean) => {
+        setIsSheetOpen(open);
+        if (!open) {
+            setEditingArea(null);
+            setFormData({ name: "" });
+            setAvailableZipCodes([]);
+            setSelectedZipCodes([]);
+            setIsLoadingZipCodes(false);
+        }
+    };
+
+    const toggleZipCodeSelection = (zipCode: string, checked: boolean) => {
+        setSelectedZipCodes((prev) => {
+            if (checked) {
+                if (prev.includes(zipCode)) return prev;
+                return [...prev, zipCode];
+            }
+            return prev.filter((item) => item !== zipCode);
+        });
+    };
+
+    const handleFetchZipCodes = async () => {
+        if (!formData.name.trim()) {
+            toast.error("Please enter a service area name first");
+            return;
+        }
+
+        setIsLoadingZipCodes(true);
+        try {
+            const response = await fetch(
+                `/api/service-areas/zip-preview?location=${encodeURIComponent(formData.name.trim())}`
+            );
+            const data = await response.json();
+
+            if (!response.ok) {
+                toast.error(data.error || "Failed to fetch zip codes");
+                setAvailableZipCodes([]);
+                setSelectedZipCodes([]);
+                return;
+            }
+
+            const zipCodes = Array.isArray(data?.zipCodes) ? data.zipCodes : [];
+            setAvailableZipCodes(zipCodes);
+            setSelectedZipCodes(zipCodes);
+
+            if (zipCodes.length === 0) {
+                toast.info("No zip codes found for this location.");
+            } else {
+                toast.success(`${zipCodes.length} zip code(s) found. Select the ones you need.`);
+            }
+        } catch (error) {
+            console.error("Error fetching zip code preview:", error);
+            toast.error("Error fetching zip codes");
+            setAvailableZipCodes([]);
+            setSelectedZipCodes([]);
+        } finally {
+            setIsLoadingZipCodes(false);
+        }
     };
 
     return (
@@ -148,7 +232,7 @@ export function CompanyServiceAreas() {
                         Manage your service zone names
                     </CardDescription>
                 </div>
-                <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
+                <Sheet open={isSheetOpen} onOpenChange={handleSheetOpenChange}>
                     <SheetTrigger asChild>
                         <Button onClick={handleOpenSheet}>
                             <Plus className="mr-2 h-4 w-4" />
@@ -185,12 +269,62 @@ export function CompanyServiceAreas() {
                                     id="name"
                                     placeholder="e.g. San Diego, La Mesa"
                                     value={formData.name}
-                                    onChange={(e) =>
-                                        setFormData({ name: e.target.value })
-                                    }
+                                    onChange={(e) => {
+                                        setFormData({ name: e.target.value });
+                                        if (!editingArea) {
+                                            setAvailableZipCodes([]);
+                                            setSelectedZipCodes([]);
+                                        }
+                                    }}
                                     className="h-10"
                                 />
                             </div>
+                            {!editingArea && (
+                                <div className="space-y-3">
+                                    <Button
+                                        type="button"
+                                        variant="secondary"
+                                        onClick={handleFetchZipCodes}
+                                        disabled={isLoadingZipCodes || !formData.name.trim()}
+                                    >
+                                        {isLoadingZipCodes ? (
+                                            <>
+                                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                                Fetching zip codes...
+                                            </>
+                                        ) : (
+                                            "Fetch Zip Codes"
+                                        )}
+                                    </Button>
+
+                                    {availableZipCodes.length > 0 && (
+                                        <div className="space-y-2 rounded-md border p-3">
+                                            <p className="text-sm font-medium">
+                                                Select zip codes for this area
+                                            </p>
+                                            <div className="max-h-48 space-y-2 overflow-y-auto pr-1">
+                                                {availableZipCodes.map((zipCode) => (
+                                                    <label
+                                                        key={zipCode}
+                                                        className="flex items-center gap-2 text-sm"
+                                                    >
+                                                        <Checkbox
+                                                            checked={selectedZipCodes.includes(zipCode)}
+                                                            onCheckedChange={(checked) =>
+                                                                toggleZipCodeSelection(
+                                                                    zipCode,
+                                                                    Boolean(checked)
+                                                                )
+                                                            }
+                                                        />
+                                                        <span>{zipCode}</span>
+                                                    </label>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
                         </div>
 
                         <div className="p-6 border-t bg-muted/10 mt-auto">

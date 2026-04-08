@@ -4,6 +4,7 @@ import { connectDB } from "@/lib/db";
 import { Booking } from "@/app/models/Booking";
 import { Service } from "@/app/models/Service";
 import { User } from "@/app/models/User";
+import { Company } from "@/app/models/Company";
 import mongoose from "mongoose";
 import bcrypt from "bcryptjs";
 import { v4 as uuidv4 } from "uuid";
@@ -12,6 +13,53 @@ import { v4 as uuidv4 } from "uuid";
 function generateOrderId() {
     // Increased randomness: 6 digits + timestamp to minimize collisions
     return `ORD-${Date.now()}-${Math.floor(Math.random() * 1000000).toString().padStart(6, '0')}`;
+}
+
+function getTimeZoneDateParts(date: Date, timeZone: string) {
+    const formatter = new Intl.DateTimeFormat("en-CA", {
+        timeZone,
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hourCycle: "h23",
+    });
+
+    const parts = formatter.formatToParts(date);
+    const pick = (type: Intl.DateTimeFormatPartTypes) =>
+        Number(parts.find((part) => part.type === type)?.value ?? "0");
+
+    return {
+        year: pick("year"),
+        month: pick("month"),
+        day: pick("day"),
+        hour: pick("hour"),
+        minute: pick("minute"),
+        second: pick("second"),
+    };
+}
+
+function isBeforeNowInTimeZone(date: Date, timeZone: string) {
+    const selected = getTimeZoneDateParts(date, timeZone);
+    const now = getTimeZoneDateParts(new Date(), timeZone);
+
+    const selectedValue = (((((selected.year * 100 + selected.month) * 100 + selected.day) * 100 + selected.hour) * 100 + selected.minute) * 100 + selected.second);
+    const nowValue = (((((now.year * 100 + now.month) * 100 + now.day) * 100 + now.hour) * 100 + now.minute) * 100 + now.second);
+
+    return selectedValue < nowValue;
+}
+
+function isWallClockBeforeNowInTimeZone(
+    selected: { year: number; month: number; day: number; hour: number; minute: number; second?: number } | undefined,
+    timeZone: string
+) {
+    if (!selected) return false;
+    const now = getTimeZoneDateParts(new Date(), timeZone);
+    const selectedValue = (((((selected.year * 100 + selected.month) * 100 + selected.day) * 100 + selected.hour) * 100 + selected.minute) * 100 + (selected.second ?? 0));
+    const nowValue = (((((now.year * 100 + now.month) * 100 + now.day) * 100 + now.hour) * 100 + now.minute) * 100 + now.second);
+    return selectedValue < nowValue;
 }
 
 // POST - Create booking(s)
@@ -44,6 +92,7 @@ export async function POST(req: NextRequest) {
                 frequency,
                 customRecurrence,
                 startDateTime,
+                startDateTimeLocalParts,
                 endDateTime,
                 shippingAddress,
                 notes,
@@ -57,14 +106,25 @@ export async function POST(req: NextRequest) {
                 ? { code: promoCodeString, discountAmount: promoDiscountAmount }
                 : undefined;
 
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
             const start = new Date(startDateTime);
-            if (isNaN(start.getTime()) || start < today) {
+            const company = await Company.findById(user.companyId).session(session).lean();
+            const companyTimeZone = company?.settings?.timezone || "UTC";
+            const hasWallClockParts =
+                startDateTimeLocalParts &&
+                typeof startDateTimeLocalParts.year === "number" &&
+                typeof startDateTimeLocalParts.month === "number" &&
+                typeof startDateTimeLocalParts.day === "number" &&
+                typeof startDateTimeLocalParts.hour === "number" &&
+                typeof startDateTimeLocalParts.minute === "number";
+            const isPastStart = hasWallClockParts
+                ? isWallClockBeforeNowInTimeZone(startDateTimeLocalParts, companyTimeZone)
+                : isBeforeNowInTimeZone(start, companyTimeZone);
+
+            if (isNaN(start.getTime()) || isPastStart) {
                 await session.abortTransaction();
                 session.endSession();
                 return NextResponse.json(
-                    { error: "Booking start date cannot be before today." },
+                    { error: `Booking start time cannot be in the past (${companyTimeZone}).` },
                     { status: 400 }
                 );
             }
@@ -146,7 +206,7 @@ export async function POST(req: NextRequest) {
                         recurringGroupId: bookingGroupId,
                         companyId: user.companyId,
                         status: "unconfirmed"
-                    }], { session });
+                    } as any], { session });
                     allCreatedBookings.push(booking[0]);
                 }
                 else if (bookingType === "recurring") {
