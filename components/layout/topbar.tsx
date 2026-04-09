@@ -12,6 +12,8 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useLayoutPreferences } from "@/components/theme-provider";
 import {
+  Bell,
+  Star,
   Search,
   Moon,
   Settings,
@@ -30,6 +32,13 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
+import {
   CommandDialog,
   CommandEmpty,
   CommandGroup,
@@ -47,16 +56,28 @@ const titleMap: Record<string, string> = {
   "/dashboard/contacts": "Contacts",
   "/dashboard/deals": "Deals",
   "/dashboard/employees": "Employees",
+  "/dashboard/reviews": "Reviews",
   "/dashboard/tasks": "Tasks",
 };
 
 type MeResponse = {
   user: {
+    id?: string;
+    role?: string;
     firstName?: string;
     lastName?: string;
     email: string;
     avatarUrl?: string;
   } | null;
+};
+
+type ReviewNotification = {
+  _id: string;
+  title: string;
+  rating: number;
+  reviewer: string;
+  technicianName: string;
+  createdAt?: string;
 };
 
 export function Topbar() {
@@ -71,6 +92,7 @@ export function Topbar() {
   const [openCmd, setOpenCmd] = useState(false);
   const [savingTheme, setSavingTheme] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [reviewsSheetOpen, setReviewsSheetOpen] = useState(false);
 
   const title =
     Object.entries(titleMap).find(([key]) => pathname.startsWith(key))?.[1] ||
@@ -84,6 +106,20 @@ export function Topbar() {
     revalidateOnFocus: false,
     dedupingInterval: 30000,
   });
+  const isTechnicianRole =
+    meData?.user?.role === "company_user" || meData?.user?.role === "employee";
+  const reviewsFeedUrl =
+    isTechnicianRole && meData?.user?.id
+      ? `/api/reviews?technicianId=${meData.user.id}&limit=10`
+      : "/api/reviews?reviewedBy=client&limit=10";
+  const { data: recentClientReviews } = useSWR<ReviewNotification[]>(
+    reviewsFeedUrl,
+    fetcher,
+    {
+      revalidateOnFocus: true,
+      dedupingInterval: 15_000,
+    }
+  );
   const isFreePlan = (companySettings?.plan || "free").toLowerCase() === "free";
 
   useEffect(() => {
@@ -229,6 +265,20 @@ export function Topbar() {
             </Button>
           )}
           {/* Theme toggle / menu */}
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-9 w-9 relative"
+            onClick={() => setReviewsSheetOpen(true)}
+          >
+            <Bell className="h-4 w-4" />
+            {Array.isArray(recentClientReviews) && recentClientReviews.length > 0 && (
+              <span className="absolute -top-0.5 -right-0.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] text-primary-foreground">
+                {recentClientReviews.length}
+              </span>
+            )}
+          </Button>
+
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="icon" className="h-9 w-9">
@@ -325,6 +375,66 @@ export function Topbar() {
           </DropdownMenu>
         </div>
       </div>
+
+      <Sheet open={reviewsSheetOpen} onOpenChange={setReviewsSheetOpen}>
+        <SheetContent side="right" className="sm:max-w-xl w-full p-0 flex flex-col">
+          <SheetHeader className="p-4 border-b gap-0">
+            <SheetTitle>
+              {isTechnicianRole ? "My Recent Reviews" : "Recent Client Reviews"}
+            </SheetTitle>
+            <SheetDescription>
+              {isTechnicianRole
+                ? "Most recent 10 reviews for your technician profile."
+                : "Most recent 10 technician reviews by clients."}
+            </SheetDescription>
+            <div className="w-full flex justify-end">
+            <Button
+              className=""
+              onClick={() => {
+                setReviewsSheetOpen(false);
+                router.push("/dashboard/reviews");
+              }}
+            >
+              View More
+            </Button>
+          </div>
+          </SheetHeader>
+          <div className="flex-1 overflow-y-auto p-4 space-y-3">
+            {Array.isArray(recentClientReviews) && recentClientReviews.length > 0 ? (
+              recentClientReviews.map((review) => (
+                <div key={review._id} className="rounded-md border p-3">
+                  <div className="text-sm font-medium">
+                    {review.reviewer} reviewed {review.technicianName}
+                  </div>
+                  <div className="flex items-center gap-2 mt-1">
+                    <div className="flex items-center gap-0.5">
+                      {[1, 2, 3, 4, 5].map((star) => (
+                        <Star
+                          key={star}
+                          className={`h-3.5 w-3.5 ${
+                            review.rating >= star ? "fill-primary text-primary" : "text-muted-foreground"
+                          }`}
+                        />
+                      ))}
+                    </div>
+                    <span className="text-xs text-muted-foreground">({review.rating}/5)</span>
+                  </div>
+                  <div className="text-xs text-muted-foreground mt-1">
+                    {review.title}
+                  </div>
+                  <div className="text-[11px] text-muted-foreground mt-1">
+                    {review.createdAt ? new Date(review.createdAt).toLocaleString() : ""}
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="rounded-md border border-dashed p-6 text-sm text-muted-foreground text-center">
+                No recent client reviews.
+              </div>
+            )}
+          </div>
+        </SheetContent>
+      </Sheet>
 
       {/* Command palette */}
       <CommandDialog open={openCmd} onOpenChange={setOpenCmd}>

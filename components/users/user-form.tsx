@@ -221,14 +221,6 @@ export interface UserData {
     staffRole?: "Staff" | "Trainee";
     avatarUrl?: string;
 
-    reviews?: {
-        _id?: string;
-        title: string;
-        rating: number;
-        text: string;
-        reviewer: string;
-        createdAt?: string;
-    }[];
     password?: string;
 }
 
@@ -269,6 +261,15 @@ export function UserForm({ user, onSave, loading }: UserFormProps) {
     const [offTimes, setOffTimes] = useState<OffTime[]>([]);
     const [addBreakDialogOpen, setAddBreakDialogOpen] = useState(false);
     const [isSavingBreak, setIsSavingBreak] = useState(false);
+    const [reviews, setReviews] = useState<{
+        _id?: string;
+        title: string;
+        rating: number;
+        text: string;
+        reviewer: string;
+        createdAt?: string;
+    }[]>([]);
+    const [loggedInReviewerName, setLoggedInReviewerName] = useState("Admin");
 
     const handleSaveBreak = async (data: any) => {
         setIsSavingBreak(true);
@@ -339,6 +340,33 @@ export function UserForm({ user, onSave, loading }: UserFormProps) {
              }
         };
 
+        const fetchMe = async () => {
+            try {
+                const response = await fetch("/api/auth/me", { credentials: "include" });
+                if (!response.ok) return;
+                const data = await response.json();
+                const firstName = data?.user?.firstName ?? "";
+                const lastName = data?.user?.lastName ?? "";
+                const fullName = [firstName, lastName].filter(Boolean).join(" ").trim();
+                setLoggedInReviewerName(fullName || data?.user?.email || "Admin");
+            } catch (error) {
+                console.error("Failed to fetch current user:", error);
+            }
+        };
+
+        const fetchReviews = async () => {
+            const technicianId = user._id || formData._id;
+            if (!technicianId) return;
+            try {
+                const response = await fetch(`/api/reviews?technicianId=${technicianId}`);
+                if (!response.ok) return;
+                const data = await response.json();
+                setReviews(Array.isArray(data) ? data : []);
+            } catch (error) {
+                console.error("Failed to fetch reviews:", error);
+            }
+        };
+
         const fetchRoles = async () => {
             try {
                 // Fetch all company roles (system defaults + custom), not just "creator=me"
@@ -367,6 +395,8 @@ export function UserForm({ user, onSave, loading }: UserFormProps) {
         };
 
         fetchOffTimes();
+        fetchMe();
+        fetchReviews();
 
         const fetchServiceAreas = async () => {
             try {
@@ -397,13 +427,6 @@ export function UserForm({ user, onSave, loading }: UserFormProps) {
         fetchServiceAreas();
         fetchZipCodes();
     }, []);
-
-    // Sync reviews from user when user data updates (e.g. after fetch or after saving a review)
-    useEffect(() => {
-        if (user.reviews !== undefined) {
-            setFormData((prev) => ({ ...prev, reviews: user.reviews }));
-        }
-    }, [user.reviews]);
 
 
     // ── Geo options — memoized, built from lazy lib (same as bookings form) ────
@@ -1137,11 +1160,45 @@ export function UserForm({ user, onSave, loading }: UserFormProps) {
                         </CardHeader>
                         <CardContent>
                             <UserReviews
-                                reviews={formData.reviews || []}
+                                reviews={reviews}
+                                defaultReviewer={loggedInReviewerName}
+                                reviewerReadOnly
                                 onSave={async (newReview) => {
-                                    const newReviews = [...(formData.reviews || []), newReview];
-                                    handleChange("reviews", newReviews);
-                                    await onSave({ reviews: newReviews });
+                                    const technicianId = user._id || formData._id;
+                                    if (!technicianId) {
+                                        toast.error("Technician not found.");
+                                        return;
+                                    }
+
+                                    const response = await fetch("/api/reviews", {
+                                        method: "POST",
+                                        headers: { "Content-Type": "application/json" },
+                                        body: JSON.stringify({
+                                            reviewTitle: newReview.title,
+                                            reviewNote: newReview.text,
+                                            starRating: newReview.rating,
+                                            technicianId,
+                                        }),
+                                    });
+
+                                    const payload = await response.json().catch(() => ({}));
+                                    if (!response.ok) {
+                                        throw new Error(payload?.error || "Failed to create review");
+                                    }
+
+                                    const reviewer = loggedInReviewerName || newReview.reviewer || "Admin";
+                                    setReviews((prev) => [
+                                        {
+                                            _id: payload?.review?._id,
+                                            title: newReview.title,
+                                            rating: newReview.rating,
+                                            text: newReview.text,
+                                            reviewer,
+                                            createdAt: payload?.review?.createdAt || new Date().toISOString(),
+                                        },
+                                        ...prev,
+                                    ]);
+                                    toast.success("Review added successfully.");
                                 }}
                             />
                         </CardContent>

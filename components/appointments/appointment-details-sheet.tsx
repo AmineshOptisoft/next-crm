@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, memo } from "react";
+import { useEffect, useMemo, useState, memo, type ReactNode } from "react";
 import {
   Sheet,
   SheetContent,
   SheetDescription,
+  SheetFooter,
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
@@ -18,10 +19,14 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { CheckCircle, CreditCard, Pencil, Trash2, XCircle, FileText, DollarSign, Archive, Loader2 } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { CheckCircle, CreditCard, Pencil, Trash2, XCircle, FileText, DollarSign, Archive, Loader2, Star } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import dynamic from "next/dynamic";
+import useSWR from "swr";
 
 const EditBookingDetailsDialog = dynamic(
   () => import("./edit-booking-details-dialog").then((m) => m.EditBookingDetailsDialog),
@@ -90,10 +95,14 @@ export interface AppointmentDetails {
   // Staff Details
   assignedStaff?: DisplayValue;
   preferredTechnician?: DisplayValue;
+  technicianId?: string;
 
   // Co-technicians on shared bookings
   coTechnicians?: string[];
 }
+
+const fetcher = (url: string) =>
+  fetch(url, { credentials: "include" }).then((res) => res.json());
 
 interface AppointmentDetailsSheetProps {
   appointment?: AppointmentDetails;
@@ -105,6 +114,8 @@ interface AppointmentDetailsSheetProps {
   /** Optional top-right manage action, useful in read-only contexts */
   onManageBooking?: () => void;
   manageBookingLabel?: string;
+  /** Optional custom footer for read-only contexts (e.g. dashboard widgets). */
+  footerContent?: ReactNode;
 }
 
 export function AppointmentDetailsSheet({
@@ -115,6 +126,7 @@ export function AppointmentDetailsSheet({
   readOnly = false,
   onManageBooking,
   manageBookingLabel = "Manage Booking",
+  footerContent,
 }: AppointmentDetailsSheetProps) {
   if (!appointment) return null;
 
@@ -123,8 +135,42 @@ export function AppointmentDetailsSheet({
   /** Tracks which button's action is in progress; loader shows only on that button */
   const [loadingAction, setLoadingAction] = useState<string | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isFeedbackSheetOpen, setIsFeedbackSheetOpen] = useState(false);
+  const [savingFeedback, setSavingFeedback] = useState(false);
   const router = useRouter();
   const isLoading = loadingAction !== null;
+  const { data: meData } = useSWR("/api/auth/me", fetcher, {
+    revalidateOnFocus: false,
+    dedupingInterval: 60_000,
+  });
+  const { data: myBookingReviews, mutate: mutateMyBookingReviews } = useSWR(
+    appointment.bookingId ? `/api/reviews?bookingId=${appointment.bookingId}&mine=1` : null,
+    fetcher,
+    { revalidateOnFocus: false, dedupingInterval: 10_000 }
+  );
+  const reviewerName = useMemo(() => {
+    const first = meData?.user?.firstName ?? "";
+    const last = meData?.user?.lastName ?? "";
+    const fullName = [first, last].filter(Boolean).join(" ").trim();
+    return fullName || meData?.user?.email || "";
+  }, [meData?.user?.email, meData?.user?.firstName, meData?.user?.lastName]);
+  const [newReview, setNewReview] = useState({
+    rating: 5,
+    title: "",
+    text: "",
+    reviewer: "",
+  });
+  const hasAlreadyReviewedThisBooking = Array.isArray(myBookingReviews) && myBookingReviews.length > 0;
+  const canShowFeedbackButton =
+    appointment.bookingStatus === "completed" &&
+    !!appointment.bookingId &&
+    !!appointment.technicianId &&
+    !hasAlreadyReviewedThisBooking;
+
+  useEffect(() => {
+    if (!reviewerName) return;
+    setNewReview((prev) => ({ ...prev, reviewer: reviewerName }));
+  }, [reviewerName]);
 
   const handleStatusUpdate = async (newStatus: string) => {
     try {
@@ -167,6 +213,47 @@ export function AppointmentDetailsSheet({
       toast.error("Failed to delete booking");
     } finally {
       setLoadingAction(null);
+    }
+  };
+
+  const handleSaveFeedback = async () => {
+    if (!appointment.bookingId || !appointment.technicianId) {
+      toast.error("Missing booking or technician details for review.");
+      return;
+    }
+    if (!newReview.title.trim() || !newReview.text.trim()) return;
+
+    try {
+      setSavingFeedback(true);
+      const res = await fetch("/api/reviews", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          reviewTitle: newReview.title.trim(),
+          reviewNote: newReview.text.trim(),
+          starRating: newReview.rating,
+          bookingId: appointment.bookingId,
+          technicianId: appointment.technicianId,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data?.error || "Failed to save review");
+      }
+
+      toast.success("Feedback saved successfully.");
+      setIsFeedbackSheetOpen(false);
+      await mutateMyBookingReviews();
+      setNewReview({
+        rating: 5,
+        title: "",
+        text: "",
+        reviewer: reviewerName,
+      });
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to save review");
+    } finally {
+      setSavingFeedback(false);
     }
   };
 
@@ -309,6 +396,17 @@ export function AppointmentDetailsSheet({
                 </Button>
               )}
 
+            {canShowFeedbackButton && (
+              <Button
+                variant="outline"
+                className="min-w-[120px]"
+                onClick={() => setIsFeedbackSheetOpen(true)}
+                disabled={isLoading}
+              >
+                Feedbak
+              </Button>
+            )}
+
             {/* Unconfirmed State */}
             {appointment.bookingStatus === "unconfirmed" && (
               <>
@@ -438,6 +536,11 @@ export function AppointmentDetailsSheet({
             </div>
           </div>
         )}
+        {readOnly && footerContent && (
+          <div className="mt-auto p-4 border-t bg-muted/30">
+            <div className="flex flex-wrap gap-2 justify-end">{footerContent}</div>
+          </div>
+        )}
       </SheetContent>
 
       {!readOnly && editBookingOpen && (
@@ -492,6 +595,69 @@ export function AppointmentDetailsSheet({
             </DialogFooter>
           </DialogContent>
         </Dialog>
+      )}
+
+      {!readOnly && (
+        <Sheet open={isFeedbackSheetOpen} onOpenChange={setIsFeedbackSheetOpen}>
+          <SheetContent side="right" className="sm:max-w-2xl w-full p-0 flex flex-col">
+            <SheetHeader className="p-4 border-b gap-0">
+              <SheetTitle>Add New Review</SheetTitle>
+              <SheetDescription>Fill in review details and save.</SheetDescription>
+            </SheetHeader>
+            <div className="flex-1 overflow-y-auto p-6">
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label>Rating</Label>
+                  <div className="flex gap-1">
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <Star
+                        key={star}
+                        className={`w-6 h-6 cursor-pointer ${(newReview.rating || 0) >= star ? "fill-primary text-primary" : "text-muted-foreground"}`}
+                        onClick={() => setNewReview((prev) => ({ ...prev, rating: star }))}
+                      />
+                    ))}
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label>Review Title</Label>
+                  <Input
+                    placeholder="e.g. 100% Satisfied"
+                    value={newReview.title}
+                    onChange={(e) => setNewReview((prev) => ({ ...prev, title: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Review Text</Label>
+                  <Textarea
+                    placeholder="Enter review content..."
+                    value={newReview.text}
+                    onChange={(e) => setNewReview((prev) => ({ ...prev, text: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Reviewer Name</Label>
+                  <Input value={newReview.reviewer} readOnly />
+                </div>
+              </div>
+            </div>
+            <SheetFooter className="p-4 border-t bg-muted/30 flex justify-end gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setIsFeedbackSheetOpen(false)}
+                disabled={savingFeedback}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleSaveFeedback}
+                disabled={savingFeedback || !newReview.title.trim() || !newReview.text.trim()}
+              >
+                {savingFeedback && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {savingFeedback ? "Saving..." : "Save Review"}
+              </Button>
+            </SheetFooter>
+          </SheetContent>
+        </Sheet>
       )}
     </Sheet>
   );

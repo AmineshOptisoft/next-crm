@@ -192,15 +192,6 @@ const UserSchema = new Schema(
     resetPasswordOtp: { type: String, default: null },
     resetPasswordOtpExpires: { type: Date, default: null },
 
-    // Reviews
-    reviews: [{
-      title: String,
-      rating: Number,
-      text: String,
-      reviewer: String,
-      createdAt: { type: Date, default: Date.now }
-    }],
-
     // Employee specific fields
     position: { type: String },
     department: { type: String },

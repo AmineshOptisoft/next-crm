@@ -69,8 +69,11 @@ export default function Calendar() {
     dedupingInterval: 60_000,
   });
   const userRole: string = meData?.user?.role ?? '';
+  const userId: string = meData?.user?.id ?? '';
   const userPermissions: any[] = meData?.user?.permissions ?? [];
   const isAdminRole = userRole === 'super_admin' || userRole === 'company_admin';
+  const isTechnicianRole = userRole === 'company_user' || userRole === 'employee';
+  const shouldRestrictToOwnSchedule = isTechnicianRole && !!userId;
 
   const hasAppointmentPermission = useCallback(
     (action: 'canCreate' | 'canEdit' | 'canDelete') => {
@@ -108,17 +111,25 @@ export default function Calendar() {
 
   const resources = useMemo(() => {
     const rawResources = data?.resources || [];
-    return rawResources.filter(
+    const activeResources = rawResources.filter(
       (resource: any) =>
         resource?.isActive !== false && resource?.isTechnicianActive !== false
     );
-  }, [data?.resources]);
+
+    if (!shouldRestrictToOwnSchedule) return activeResources;
+
+    return activeResources.filter((resource: any) => String(resource?.id) === userId);
+  }, [data?.resources, shouldRestrictToOwnSchedule, userId]);
   const events = data?.events || [];
 
   // Filter events per view with useMemo to prevent unnecessary React re-renders 
   // and FullCalendar forced updates every cycle
   const filteredEvents = useMemo(() => {
     return events.filter((event: any) => {
+      if (shouldRestrictToOwnSchedule && String(event?.resourceId ?? "") !== userId) {
+        return false;
+      }
+
       const type = (event as any).type;
       if (type === "booking") return true;
       if (type === "unavailability") return true;
@@ -127,7 +138,7 @@ export default function Calendar() {
       }
       return true;
     });
-  }, [events, currentView]);
+  }, [events, currentView, shouldRestrictToOwnSchedule, userId]);
 
   const isTechnicianUnavailable = useCallback(
     (resourceId: string | undefined, start: Date, end: Date) => {
@@ -197,6 +208,7 @@ export default function Calendar() {
 
         assignedStaff: props.assignedStaff,
         preferredTechnician: props.preferredTechnician,
+        technicianId: info.event.getResources()?.[0]?.id,
 
         // Co-technicians on shared bookings
         coTechnicians: props.coTechnicians,

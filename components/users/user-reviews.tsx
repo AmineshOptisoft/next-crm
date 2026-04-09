@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Star, Plus, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,17 +27,23 @@ interface Review {
 interface UserReviewsProps {
     reviews: Review[];
     onSave: (review: Review) => void | Promise<void>;
+    defaultReviewer?: string;
+    reviewerReadOnly?: boolean;
 }
 
-export function UserReviews({ reviews, onSave }: UserReviewsProps) {
+export function UserReviews({ reviews, onSave, defaultReviewer = "Admin", reviewerReadOnly = false }: UserReviewsProps) {
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [newReview, setNewReview] = useState<Partial<Review>>({
       rating: 5,
       title: "",
       text: "",
-      reviewer: "Admin"
+      reviewer: defaultReviewer
   });
+
+  useEffect(() => {
+    setNewReview((prev) => ({ ...prev, reviewer: defaultReviewer }));
+  }, [defaultReviewer]);
 
   const handleSave = async () => {
       if (!newReview.title || !newReview.text) return;
@@ -53,7 +59,7 @@ export function UserReviews({ reviews, onSave }: UserReviewsProps) {
         };
         await onSave(reviewToSave);
         setIsSheetOpen(false);
-        setNewReview({ rating: 5, title: "", text: "", reviewer: "Admin" });
+        setNewReview({ rating: 5, title: "", text: "", reviewer: defaultReviewer });
       } finally {
         setSaving(false);
       }
@@ -107,6 +113,7 @@ export function UserReviews({ reviews, onSave }: UserReviewsProps) {
                           <Input 
                                placeholder="Customer Name"
                                value={newReview.reviewer}
+                               readOnly={reviewerReadOnly}
                                onChange={e => setNewReview(prev => ({ ...prev, reviewer: e.target.value }))}
                           />
                       </div>

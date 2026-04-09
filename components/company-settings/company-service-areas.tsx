@@ -396,7 +396,7 @@ export function CompanyServiceAreas() {
                             Are you sure you want to delete this service area? This action cannot be undone.
                         </DialogDescription>
                     </DialogHeader>
-                    <DialogFooter className="gap-2 sm:gap-0">
+                    <DialogFooter className="gap-2">
                         <Button variant="outline" onClick={() => setDeleteConfirmOpen(false)}>
                             Cancel
                         </Button>

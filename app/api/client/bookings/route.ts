@@ -105,6 +105,7 @@ export async function GET(req: NextRequest) {
         _id: booking._id.toString(),
         orderId: booking.orderId || "",
         status: booking.status || "unconfirmed",
+        technicianId: booking.technicianId?._id?.toString?.() || "",
         bookingType,
         startDateTime: booking.startDateTime,
         endDateTime: booking.endDateTime,

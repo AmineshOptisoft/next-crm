@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
 import { User } from "@/app/models/User";
+import { Review } from "@/app/models/Review";
 import { getCurrentUser, requireCompanyAdmin } from "@/lib/auth";
 import { buildCompanyFilter, validateCompanyAccess } from "@/lib/permissions";
 import bcrypt from "bcryptjs";
@@ -71,10 +72,36 @@ export async function GET(req: NextRequest) {
     .sort({ createdAt: -1 })
     .lean();
 
+  const userIds = (users as any[]).map((u) => u?._id).filter(Boolean);
+  const avgRatings = userIds.length
+    ? await Review.aggregate([
+        { $match: { technicianId: { $in: userIds } } },
+        {
+          $group: {
+            _id: "$technicianId",
+            averageRating: { $avg: "$starRating" },
+            totalReviews: { $sum: 1 },
+          },
+        },
+      ])
+    : [];
+  const ratingMap = new Map(
+    avgRatings.map((r: any) => [
+      String(r._id),
+      {
+        averageRating: Number(r.averageRating || 0),
+        totalReviews: Number(r.totalReviews || 0),
+      },
+    ])
+  );
+
   const mapped = (users as any[]).map((u) => {
     if (u.defaultRoleName && !u.customRoleId) {
       u.customRoleId = { _id: DEFAULT_ROLE_IDS[u.defaultRoleName], name: u.defaultRoleName };
     }
+    const rating = ratingMap.get(String(u._id));
+    u.averageRating = rating?.averageRating ?? null;
+    u.totalReviews = rating?.totalReviews ?? 0;
     return u;
   });
   return NextResponse.json(mapped);

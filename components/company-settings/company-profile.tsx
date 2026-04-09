@@ -31,6 +31,11 @@ interface CompanyProfileProps {
 
 export function CompanyProfile({ formData, setFormData, saving, handleSubmit, industries, selectedLogo, setSelectedLogo }: CompanyProfileProps) {
     const [errors, setErrors] = useState<Record<string, string | undefined>>({});
+    const rawIndustry = (formData?.industry ?? "").trim();
+    const matchedIndustry = industries.find(
+        (industry) => industry._id === rawIndustry || industry.name === rawIndustry
+    );
+    const industrySelectValue = matchedIndustry?.name || (rawIndustry ? rawIndustry : "none");
 
     const clearError = (key: string) => {
         setErrors((prev) => (prev[key] ? { ...prev, [key]: undefined } : prev));
@@ -140,6 +145,12 @@ export function CompanyProfile({ formData, setFormData, saving, handleSubmit, in
             el?.focus?.();
             return;
         }
+
+        // Keep industry normalized so parent save handlers always persist it.
+        setFormData((prev: any) => ({
+            ...prev,
+            industry: (prev?.industry ?? "").trim(),
+        }));
 
         handleSubmit(e);
     };
@@ -279,6 +290,7 @@ export function CompanyProfile({ formData, setFormData, saving, handleSubmit, in
     const savedCity = savedCityRaw;
     return (
         <form onSubmit={onSubmit} noValidate>
+            <input type="hidden" name="industry" value={(formData?.industry ?? "").trim()} />
             <Script
                 src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAQODjSc_eWcBWoIdk7trMzl98oRHF9HFs&libraries=places"
                 onLoad={() => {
@@ -365,7 +377,7 @@ export function CompanyProfile({ formData, setFormData, saving, handleSubmit, in
                         <div className="space-y-2">
                             <Label htmlFor="industry">Industry</Label>
                             <Select
-                                value={formData.industry || "none"}
+                                value={industrySelectValue}
                                 onValueChange={(value) => {
                                     setFormData({
                                         ...formData,

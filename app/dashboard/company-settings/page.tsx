@@ -610,6 +610,11 @@ function CompanyProfile({
     const savedCountry = (formData?.address?.country ?? "").trim();
     const savedState = (formData?.address?.state ?? "").trim();
     const savedCity = (formData?.address?.city ?? "").trim();
+    const rawIndustry = (formData?.industry ?? "").trim();
+    const matchedIndustry = industries.find(
+        (industry) => industry._id === rawIndustry || industry.name === rawIndustry
+    );
+    const industrySelectValue = matchedIndustry?.name || (rawIndustry ? rawIndustry : "none");
 
     useEffect(() => {
         if (hasSelectedLocation && !locationQuery && !isLocationManuallyCleared) {
@@ -758,7 +763,7 @@ function CompanyProfile({
                         <div className="space-y-2">
                             <Label htmlFor="industry">Industry</Label>
                             <Select
-                                value={formData.industry || "none"}
+                                value={industrySelectValue}
                                 onValueChange={(value) => {
                                     setFormData({
                                         ...formData,

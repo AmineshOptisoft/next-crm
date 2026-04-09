@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
@@ -35,7 +35,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Pencil, Trash2, Users, UserCheck, UserX, Loader2 } from "lucide-react";
+import { Plus, Pencil, Trash2, Users, UserCheck, UserX, Loader2, Star, ArrowUpDown } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import useSWR from "swr";
@@ -55,12 +55,17 @@ interface User {
   isActive: boolean;
   isVerified: boolean;
   createdAt: string;
+  averageRating?: number | null;
+  totalReviews?: number;
 }
 
 interface Role {
   _id: string;
   name: string;
 }
+
+type SortColumn = "name" | "email" | "role" | "averageRating" | "status" | "joined";
+type SortDirection = "asc" | "desc";
 
 export default function UsersPage() {
   const { data: rawUsers, isLoading: loadingUsers, mutate: mutateUsers } = useSWR('/api/users', fetcher, {
@@ -80,6 +85,8 @@ export default function UsersPage() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [idToDelete, setIdToDelete] = useState<string | null>(null);
+  const [sortColumn, setSortColumn] = useState<SortColumn>("joined");
+  const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
@@ -191,6 +198,106 @@ export default function UsersPage() {
     }
     return <Badge variant="outline">No Role</Badge>;
   };
+
+  const getRoleLabel = (user: User) => {
+    if (user.role === "company_admin") return "Company Admin";
+    if (user.customRoleId?.name) return user.customRoleId.name;
+    return "No Role";
+  };
+
+  const handleSort = (column: SortColumn) => {
+    setSortColumn((prevColumn) => {
+      if (prevColumn === column) {
+        setSortDirection((prevDir) => (prevDir === "asc" ? "desc" : "asc"));
+        return prevColumn;
+      }
+      // Ratings are most useful high → low on first click.
+      setSortDirection(column === "averageRating" ? "desc" : "asc");
+      return column;
+    });
+  };
+
+  const sortedUsers = useMemo(() => {
+    const items = [...users];
+    items.sort((a, b) => {
+      if (sortColumn === "averageRating") {
+        const isTechA = a.role === "company_user" || a.role === "employee";
+        const isTechB = b.role === "company_user" || b.role === "employee";
+        const reviewsA = Number(a.totalReviews || 0);
+        const reviewsB = Number(b.totalReviews || 0);
+
+        // Keep technician rows ahead of non-technician rows for rating sort.
+        if (isTechA !== isTechB) return isTechA ? -1 : 1;
+
+        // Among technicians, reviewed users should appear before "No reviews".
+        const hasReviewsA = reviewsA > 0;
+        const hasReviewsB = reviewsB > 0;
+        if (hasReviewsA !== hasReviewsB) return hasReviewsA ? -1 : 1;
+
+        // If neither has reviews, stabilize with name.
+        if (!hasReviewsA && !hasReviewsB) {
+          const nameA = `${a.firstName || ""} ${a.lastName || ""}`.trim().toLowerCase();
+          const nameB = `${b.firstName || ""} ${b.lastName || ""}`.trim().toLowerCase();
+          return nameA.localeCompare(nameB);
+        }
+
+        const avgA = Number(a.averageRating || 0);
+        const avgB = Number(b.averageRating || 0);
+        if (avgA < avgB) return sortDirection === "asc" ? -1 : 1;
+        if (avgA > avgB) return sortDirection === "asc" ? 1 : -1;
+
+        // Tie-breaker: more reviews first, then name.
+        if (reviewsA !== reviewsB) return reviewsB - reviewsA;
+        const nameA = `${a.firstName || ""} ${a.lastName || ""}`.trim().toLowerCase();
+        const nameB = `${b.firstName || ""} ${b.lastName || ""}`.trim().toLowerCase();
+        return nameA.localeCompare(nameB);
+      }
+
+      let left: string | number = "";
+      let right: string | number = "";
+
+      switch (sortColumn) {
+        case "name":
+          left = `${a.firstName || ""} ${a.lastName || ""}`.trim().toLowerCase();
+          right = `${b.firstName || ""} ${b.lastName || ""}`.trim().toLowerCase();
+          break;
+        case "email":
+          left = (a.email || "").toLowerCase();
+          right = (b.email || "").toLowerCase();
+          break;
+        case "role":
+          left = getRoleLabel(a).toLowerCase();
+          right = getRoleLabel(b).toLowerCase();
+          break;
+        case "status":
+          left = a.isActive ? 1 : 0;
+          right = b.isActive ? 1 : 0;
+          break;
+        case "joined":
+          left = new Date(a.createdAt).getTime();
+          right = new Date(b.createdAt).getTime();
+          break;
+      }
+
+      if (left < right) return sortDirection === "asc" ? -1 : 1;
+      if (left > right) return sortDirection === "asc" ? 1 : -1;
+      return 0;
+    });
+    return items;
+  }, [users, sortColumn, sortDirection]);
+
+  const renderSortHead = (label: string, column: SortColumn) => (
+    <button
+      type="button"
+      className="inline-flex items-center gap-1 hover:text-foreground"
+      onClick={() => handleSort(column)}
+    >
+      <span>{label}</span>
+      <ArrowUpDown
+        className={`h-3.5 w-3.5 ${sortColumn === column ? "text-foreground" : "text-muted-foreground"}`}
+      />
+    </button>
+  );
 
   return (
     <div className="space-y-6">
@@ -327,18 +434,19 @@ export default function UsersPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead>Role</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Joined</TableHead>
+                <TableHead>{renderSortHead("Name", "name")}</TableHead>
+                <TableHead>{renderSortHead("Email", "email")}</TableHead>
+                <TableHead>{renderSortHead("Role", "role")}</TableHead>
+                <TableHead>{renderSortHead("Avg Rating", "averageRating")}</TableHead>
+                <TableHead>{renderSortHead("Status", "status")}</TableHead>
+                <TableHead>{renderSortHead("Joined", "joined")}</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {users.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="py-12 text-center">
+                  <TableCell colSpan={7} className="py-12 text-center">
                     <div className="flex flex-col items-center gap-2">
                       <Users className="h-12 w-12 text-muted-foreground" />
                       <p className="text-muted-foreground">
@@ -349,7 +457,7 @@ export default function UsersPage() {
                   </TableCell>
                 </TableRow>
               ) : (
-                users.map((user) => (
+                sortedUsers.map((user) => (
                   <TableRow key={user._id}>
                     <TableCell>
                       <div className="flex items-center gap-2">
@@ -367,6 +475,33 @@ export default function UsersPage() {
                     </TableCell>
                     <TableCell>{user.email}</TableCell>
                     <TableCell>{getRoleBadge(user)}</TableCell>
+                    <TableCell>
+                      {user.role === "company_user" || user.role === "employee" ? (
+                        (user.totalReviews || 0) > 0 ? (
+                          <div className="flex items-center gap-2">
+                            <div className="flex">
+                              {[1, 2, 3, 4, 5].map((star) => (
+                                <Star
+                                  key={star}
+                                  className={`h-3.5 w-3.5 ${
+                                    (user.averageRating || 0) >= star
+                                      ? "fill-primary text-primary"
+                                      : "text-muted-foreground"
+                                  }`}
+                                />
+                              ))}
+                            </div>
+                            <span className="text-xs text-muted-foreground">
+                              {(user.averageRating || 0).toFixed(1)} ({user.totalReviews})
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">No reviews</span>
+                        )
+                      ) : (
+                        <span className="text-xs text-muted-foreground">-</span>
+                      )}
+                    </TableCell>
                     <TableCell>
                       <div className="flex gap-1">
                         {user.isActive ? (

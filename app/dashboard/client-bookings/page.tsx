@@ -13,6 +13,7 @@ import {
   MapPin,
   Phone,
   ReceiptText,
+  Star,
   Upload,
   UserRound,
   X,
@@ -61,6 +62,7 @@ type ClientBooking = {
   _id: string;
   orderId: string;
   status: string;
+  technicianId?: string;
   bookingType: "previous" | "upcoming";
   startDateTime: string;
   endDateTime?: string;
@@ -457,6 +459,15 @@ export default function ClientBookingsPage() {
   const [deleteCardDialogOpen, setDeleteCardDialogOpen] = useState(false);
   const [cardPendingDeleteId, setCardPendingDeleteId] = useState<string>("");
   const [deletingCard, setDeletingCard] = useState(false);
+  const [feedbackSheetOpen, setFeedbackSheetOpen] = useState(false);
+  const [savingFeedback, setSavingFeedback] = useState(false);
+  const [selectedFeedbackBooking, setSelectedFeedbackBooking] = useState<ClientBooking | null>(null);
+  const [newReview, setNewReview] = useState({
+    rating: 5,
+    title: "",
+    text: "",
+    reviewer: "",
+  });
   const [passwordForm, setPasswordForm] = useState({
     oldPassword: "",
     newPassword: "",
@@ -494,6 +505,10 @@ export default function ClientBookingsPage() {
   const { data: meData } = useSWR<MeResponse>("/api/auth/me", fetcher, {
     revalidateOnFocus: false,
   });
+  const { data: myReviewsData } = useSWR<any[]>("/api/reviews?mine=1", fetcher, {
+    revalidateOnFocus: false,
+    dedupingInterval: 10_000,
+  });
   const bookingsQuery = useMemo(() => {
     const params = new URLSearchParams({
       bookingType: activeTab,
@@ -512,6 +527,29 @@ export default function ClientBookingsPage() {
     }
     return `/api/client/bookings?${params.toString()}`;
   }, [activeTab, page, appliedRange]);
+
+  const reviewerName = useMemo(() => {
+    const fullName = [meData?.user?.firstName, meData?.user?.lastName]
+      .filter(Boolean)
+      .join(" ")
+      .trim();
+    return fullName || meData?.user?.email || "Client";
+  }, [meData?.user?.email, meData?.user?.firstName, meData?.user?.lastName]);
+
+  useEffect(() => {
+    if (!reviewerName) return;
+    setNewReview((prev) => ({ ...prev, reviewer: reviewerName }));
+  }, [reviewerName]);
+
+  const reviewedBookingIds = useMemo(() => {
+    const ids = new Set<string>();
+    if (!Array.isArray(myReviewsData)) return ids;
+    for (const review of myReviewsData) {
+      const id = String(review?.bookingId || "").trim();
+      if (id) ids.add(id);
+    }
+    return ids;
+  }, [myReviewsData]);
 
   const { data: bookingsData, isLoading: bookingsLoading } = useSWR<BookingsResponse>(
     bookingsQuery,
@@ -1299,6 +1337,48 @@ export default function ClientBookingsPage() {
     }
   };
 
+  const handleSaveFeedback = async () => {
+    if (!selectedFeedbackBooking?._id || !selectedFeedbackBooking?.technicianId) {
+      toast.error("Booking details are missing for feedback.");
+      return;
+    }
+    if (!newReview.title.trim() || !newReview.text.trim()) return;
+
+    try {
+      setSavingFeedback(true);
+      const res = await fetch("/api/reviews", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          reviewTitle: newReview.title.trim(),
+          reviewNote: newReview.text.trim(),
+          starRating: newReview.rating,
+          bookingId: selectedFeedbackBooking._id,
+          technicianId: selectedFeedbackBooking.technicianId,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data?.error || "Failed to create review");
+      }
+
+      await mutate("/api/reviews?mine=1");
+      toast.success("Feedback submitted successfully.");
+      setFeedbackSheetOpen(false);
+      setSelectedFeedbackBooking(null);
+      setNewReview({
+        rating: 5,
+        title: "",
+        text: "",
+        reviewer: reviewerName,
+      });
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to create review");
+    } finally {
+      setSavingFeedback(false);
+    }
+  };
+
   if (bookingsLoading && displayBookings.length === 0) {
     return (
       <div className="flex h-[60vh] items-center justify-center">
@@ -1944,6 +2024,23 @@ export default function ClientBookingsPage() {
                                     Invoice
                                   </Button>
                                 )}
+                                {booking.status === "completed" &&
+                                  !!booking.technicianId &&
+                                  !reviewedBookingIds.has(booking._id) && (
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      size="sm"
+                                      className="gap-1.5"
+                                      onClick={() => {
+                                        setSelectedFeedbackBooking(booking);
+                                        setFeedbackSheetOpen(true);
+                                      }}
+                                    >
+                                      <Star className="h-4 w-4" />
+                                      Review
+                                    </Button>
+                                  )}
                               </div>
                             </div>
 
@@ -2188,6 +2285,73 @@ export default function ClientBookingsPage() {
               disabled={savingPassword}
             >
               Cancel
+            </Button>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
+
+      <Sheet
+        open={feedbackSheetOpen}
+        onOpenChange={(open) => {
+          setFeedbackSheetOpen(open);
+          if (!open) setSelectedFeedbackBooking(null);
+        }}
+      >
+        <SheetContent side="right" className="sm:max-w-2xl w-full p-0 flex flex-col">
+          <SheetHeader className="p-4 border-b gap-0">
+            <SheetTitle>Add New Review</SheetTitle>
+            <SheetDescription>Fill in review details and save.</SheetDescription>
+          </SheetHeader>
+          <div className="flex-1 overflow-y-auto p-6">
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label>Rating</Label>
+                <div className="flex gap-1">
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <Star
+                      key={star}
+                      className={`w-6 h-6 cursor-pointer ${(newReview.rating || 0) >= star ? "fill-primary text-primary" : "text-muted-foreground"}`}
+                      onClick={() => setNewReview((prev) => ({ ...prev, rating: star }))}
+                    />
+                  ))}
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label>Review Title</Label>
+                <Input
+                  placeholder="e.g. 100% Satisfied"
+                  value={newReview.title}
+                  onChange={(e) => setNewReview((prev) => ({ ...prev, title: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Review Text</Label>
+                <Textarea
+                  placeholder="Enter review content..."
+                  value={newReview.text}
+                  onChange={(e) => setNewReview((prev) => ({ ...prev, text: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Reviewer Name</Label>
+                <Input value={newReview.reviewer} readOnly />
+              </div>
+            </div>
+          </div>
+          <SheetFooter className="p-4 border-t bg-muted/30 flex justify-end gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setFeedbackSheetOpen(false)}
+              disabled={savingFeedback}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSaveFeedback}
+              disabled={savingFeedback || !newReview.title.trim() || !newReview.text.trim()}
+            >
+              {savingFeedback && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {savingFeedback ? "Saving..." : "Save Review"}
             </Button>
           </SheetFooter>
         </SheetContent>
