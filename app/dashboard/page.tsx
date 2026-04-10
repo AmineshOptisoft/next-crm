@@ -54,6 +54,11 @@ function mapBookingForDetails(b: any) {
     timesheetNotes: b.timesheet?.notes,
     gpsArrivalTime: b.timesheet?.arrivalTime,
     gpsDepartureTime: b.timesheet?.departureTime,
+    cleaningMedia: {
+      beforeImages: b.cleaningMedia?.beforeImages || [],
+      afterImages: b.cleaningMedia?.afterImages || [],
+      videos: b.cleaningMedia?.videos || [],
+    },
   };
 }
 

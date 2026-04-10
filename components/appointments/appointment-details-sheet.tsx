@@ -99,6 +99,11 @@ export interface AppointmentDetails {
 
   // Co-technicians on shared bookings
   coTechnicians?: string[];
+  cleaningMedia?: {
+    beforeImages?: string[];
+    afterImages?: string[];
+    videos?: string[];
+  };
 }
 
 const fetcher = (url: string) =>
@@ -145,6 +150,11 @@ export function AppointmentDetailsSheet({
   });
   const { data: myBookingReviews, mutate: mutateMyBookingReviews } = useSWR(
     appointment.bookingId ? `/api/reviews?bookingId=${appointment.bookingId}&mine=1` : null,
+    fetcher,
+    { revalidateOnFocus: false, dedupingInterval: 10_000 }
+  );
+  const { data: bookingDetailsData } = useSWR(
+    appointment.bookingId ? `/api/bookings/${appointment.bookingId}` : null,
     fetcher,
     { revalidateOnFocus: false, dedupingInterval: 10_000 }
   );
@@ -273,6 +283,24 @@ export function AppointmentDetailsSheet({
     });
   };
 
+  const beforeImages: string[] = Array.isArray(appointment.cleaningMedia?.beforeImages)
+    ? appointment.cleaningMedia!.beforeImages!
+    : Array.isArray(bookingDetailsData?.cleaningMedia?.beforeImages)
+    ? bookingDetailsData.cleaningMedia.beforeImages
+    : [];
+  const afterImages: string[] = Array.isArray(appointment.cleaningMedia?.afterImages)
+    ? appointment.cleaningMedia!.afterImages!
+    : Array.isArray(bookingDetailsData?.cleaningMedia?.afterImages)
+    ? bookingDetailsData.cleaningMedia.afterImages
+    : [];
+  const videos: string[] = Array.isArray(appointment.cleaningMedia?.videos)
+    ? appointment.cleaningMedia!.videos!
+    : Array.isArray(bookingDetailsData?.cleaningMedia?.videos)
+    ? bookingDetailsData.cleaningMedia.videos
+    : [];
+  const hasCleaningMedia =
+    beforeImages.length > 0 || afterImages.length > 0 || videos.length > 0;
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="sm:max-w-5xl w-full p-0 flex flex-col">
@@ -375,6 +403,74 @@ export function AppointmentDetailsSheet({
               <KeyValueRow label="Preferred Technician" value={appointment.preferredTechnician} />
             </div>
           </div>
+
+          {hasCleaningMedia && (
+            <>
+              <Separator />
+              <div className="space-y-3">
+                <div className="text-lg font-semibold">Cleaning Media</div>
+
+                {beforeImages.length > 0 && (
+                  <div className="space-y-2">
+                    <div className="text-sm font-medium">Before Images</div>
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                      {beforeImages.map((url, idx) => (
+                        <a
+                          key={`before-${idx}-${url}`}
+                          href={url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="rounded-md border overflow-hidden block"
+                        >
+                          <img
+                            src={url}
+                            alt={`Before image ${idx + 1}`}
+                            className="h-28 w-full object-cover"
+                          />
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {afterImages.length > 0 && (
+                  <div className="space-y-2">
+                    <div className="text-sm font-medium">After Images</div>
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                      {afterImages.map((url, idx) => (
+                        <a
+                          key={`after-${idx}-${url}`}
+                          href={url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="rounded-md border overflow-hidden block"
+                        >
+                          <img
+                            src={url}
+                            alt={`After image ${idx + 1}`}
+                            className="h-28 w-full object-cover"
+                          />
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {videos.length > 0 && (
+                  <div className="space-y-2">
+                    <div className="text-sm font-medium">Videos</div>
+                    <div className="space-y-2">
+                      {videos.map((url, idx) => (
+                        <div key={`video-${idx}-${url}`} className="rounded-md border overflow-hidden">
+                          <video src={url} controls className="w-full max-h-56 bg-black" />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </>
+          )}
         </div>
 
         {!readOnly && (

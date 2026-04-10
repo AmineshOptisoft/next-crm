@@ -152,6 +152,7 @@ export async function GET(req: NextRequest) {
                         specialRequestFromClient: 1,
                         pricing: 1,
                         timesheet: 1,
+                        cleaningMedia: 1,
                         shippingAddress: 1,
                         recurringGroupId: 1,
                         contact: { $arrayElemAt: ["$_contact", 0] },
@@ -350,8 +351,8 @@ export async function GET(req: NextRequest) {
                 textColor:       "#000000",
                 type:            "booking",
                 extendedProps: {
-                    bookingId:      booking._id,
-                    recurringGroupId: booking.recurringGroupId,
+                    bookingId:      booking._id?.toString?.() || "",
+                    recurringGroupId: booking.recurringGroupId?.toString?.() || booking.recurringGroupId,
                     bookingStatus:  booking.status,
                     appointmentNumber: booking.orderId,
                     service:        service.name,
@@ -392,6 +393,11 @@ export async function GET(req: NextRequest) {
                     // Staff
                     assignedStaff,
                     coTechnicians,
+                    cleaningMedia: {
+                        beforeImages: booking.cleaningMedia?.beforeImages || [],
+                        afterImages: booking.cleaningMedia?.afterImages || [],
+                        videos: booking.cleaningMedia?.videos || [],
+                    },
                 },
             };
 

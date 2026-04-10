@@ -52,6 +52,11 @@ interface BookingItem {
   timesheetNotes?: string;
   gpsArrivalTime?: string | Date;
   gpsDepartureTime?: string | Date;
+  cleaningMedia?: {
+    beforeImages?: string[];
+    afterImages?: string[];
+    videos?: string[];
+  };
 }
 
 interface TodaysBookingsProps {
@@ -66,6 +71,8 @@ export function TodaysBookings({ bookings }: TodaysBookingsProps) {
   const [beforeImages, setBeforeImages] = useState<File[]>([]);
   const [afterImages, setAfterImages] = useState<File[]>([]);
   const [serviceVideo, setServiceVideo] = useState<File | null>(null);
+  const [isUploadingMedia, setIsUploadingMedia] = useState(false);
+  const [mediaUploaded, setMediaUploaded] = useState(false);
   const [isCompleting, setIsCompleting] = useState(false);
   const router = useRouter();
 
@@ -150,19 +157,86 @@ export function TodaysBookings({ bookings }: TodaysBookingsProps) {
       gpsDepartureTime: booking.gpsDepartureTime
         ? new Date(booking.gpsDepartureTime).toLocaleString()
         : undefined,
+      cleaningMedia: {
+        beforeImages: booking.cleaningMedia?.beforeImages || [],
+        afterImages: booking.cleaningMedia?.afterImages || [],
+        videos: booking.cleaningMedia?.videos || [],
+      },
     };
 
     setSelectedAppointment(appointment);
     setBeforeImages([]);
     setAfterImages([]);
     setServiceVideo(null);
+    setMediaUploaded(false);
     setUploadModalOpen(false);
     setOpen(true);
   };
 
+  const uploadCleaningMedia = async () => {
+    if (!selectedAppointment?.bookingId) return false;
+    if (!mediaReady) {
+      toast.error("Please add 3 before images, 3 after images, and 1 video.");
+      return false;
+    }
+
+    try {
+      setIsUploadingMedia(true);
+      const formData = new FormData();
+      beforeImages.forEach((file) => formData.append("beforeImages", file));
+      afterImages.forEach((file) => formData.append("afterImages", file));
+      if (serviceVideo) formData.append("serviceVideo", serviceVideo);
+
+      const uploadRes = await fetch(
+        `/api/bookings/${selectedAppointment.bookingId}/cleaning-media`,
+        {
+          method: "POST",
+          body: formData,
+        }
+      );
+
+      if (!uploadRes.ok) {
+        const uploadError = await uploadRes.json().catch(() => ({}));
+        throw new Error(uploadError?.error || "Failed to upload cleaning media");
+      }
+      const uploadData = await uploadRes.json().catch(() => ({}));
+      const uploadedBeforeUrls = uploadData?.urls?.beforeImages || [];
+      const uploadedAfterUrls = uploadData?.urls?.afterImages || [];
+      const uploadedVideos = uploadData?.urls?.videos || [];
+
+      setSelectedAppointment((prev) =>
+        prev
+          ? {
+              ...prev,
+              cleaningMedia: {
+                beforeImages: uploadedBeforeUrls,
+                afterImages: uploadedAfterUrls,
+                videos: uploadedVideos,
+              },
+            }
+          : prev
+      );
+
+      setMediaUploaded(true);
+      toast.success("Media uploaded to cleaning-media-uploads.");
+      setUploadModalOpen(false);
+      return true;
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Failed to upload cleaning media."
+      );
+      return false;
+    } finally {
+      setIsUploadingMedia(false);
+    }
+  };
+
   const handleCompleteBooking = async () => {
     if (!selectedAppointment?.bookingId) return;
-    if (!mediaReady) return;
+    if (!mediaUploaded) {
+      toast.error("Please upload media first.");
+      return;
+    }
 
     try {
       setIsCompleting(true);
@@ -177,9 +251,13 @@ export function TodaysBookings({ bookings }: TodaysBookingsProps) {
       toast.success("Booking marked as completed.");
       setOpen(false);
       setUploadModalOpen(false);
+      setBeforeImages([]);
+      setAfterImages([]);
+      setServiceVideo(null);
+      setMediaUploaded(false);
       router.refresh();
     } catch (error) {
-      toast.error("Failed to mark booking as completed.");
+      toast.error(error instanceof Error ? error.message : "Failed to complete booking.");
     } finally {
       setIsCompleting(false);
     }
@@ -230,21 +308,25 @@ export function TodaysBookings({ bookings }: TodaysBookingsProps) {
             readOnly
             footerContent={
               <>
-                <Button
-                  variant="outline"
-                  onClick={() => setUploadModalOpen(true)}
-                  disabled={isCompleting}
-                >
-                  Upload
-                </Button>
-                <Button
-                  className="bg-gray-500 hover:bg-gray-600 disabled:opacity-60"
-                  disabled={!mediaReady || isCompleting}
-                  onClick={handleCompleteBooking}
-                >
-                  {isCompleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Complete
-                </Button>
+                {selectedAppointment.bookingStatus === "confirmed" && (
+                  <>
+                    <Button
+                      variant="outline"
+                      onClick={() => setUploadModalOpen(true)}
+                      disabled={isCompleting}
+                    >
+                      Upload
+                    </Button>
+                    <Button
+                      className="bg-green-500 hover:bg-green-600 disabled:opacity-60"
+                      disabled={!mediaUploaded || isCompleting}
+                      onClick={handleCompleteBooking}
+                    >
+                      {isCompleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                      Complete
+                    </Button>
+                  </>
+                )}
               </>
             }
           />
@@ -268,6 +350,7 @@ export function TodaysBookings({ bookings }: TodaysBookingsProps) {
                     onChange={(e) => {
                       const files = Array.from(e.target.files || []);
                       setBeforeImages((prev) => mergeImageSelections(prev, files));
+                      setMediaUploaded(false);
                       e.currentTarget.value = "";
                     }}
                   />
@@ -287,7 +370,10 @@ export function TodaysBookings({ bookings }: TodaysBookingsProps) {
                             type="button"
                             className="absolute top-1 right-1 rounded-full bg-black/70 text-white p-1"
                             onClick={() =>
-                              setBeforeImages((prev) => prev.filter((_, i) => i !== index))
+                              setBeforeImages((prev) => {
+                                setMediaUploaded(false);
+                                return prev.filter((_, i) => i !== index);
+                              })
                             }
                             aria-label="Remove image"
                           >
@@ -308,6 +394,7 @@ export function TodaysBookings({ bookings }: TodaysBookingsProps) {
                     onChange={(e) => {
                       const files = Array.from(e.target.files || []);
                       setAfterImages((prev) => mergeImageSelections(prev, files));
+                      setMediaUploaded(false);
                       e.currentTarget.value = "";
                     }}
                   />
@@ -327,7 +414,10 @@ export function TodaysBookings({ bookings }: TodaysBookingsProps) {
                             type="button"
                             className="absolute top-1 right-1 rounded-full bg-black/70 text-white p-1"
                             onClick={() =>
-                              setAfterImages((prev) => prev.filter((_, i) => i !== index))
+                              setAfterImages((prev) => {
+                                setMediaUploaded(false);
+                                return prev.filter((_, i) => i !== index);
+                              })
                             }
                             aria-label="Remove image"
                           >
@@ -347,6 +437,7 @@ export function TodaysBookings({ bookings }: TodaysBookingsProps) {
                     onChange={(e) => {
                       const file = e.target.files?.[0] || null;
                       setServiceVideo(file);
+                      setMediaUploaded(false);
                     }}
                   />
                   <p className="text-xs text-muted-foreground">
@@ -362,7 +453,10 @@ export function TodaysBookings({ bookings }: TodaysBookingsProps) {
                       <button
                         type="button"
                         className="absolute top-2 right-2 rounded-full bg-black/70 text-white p-1"
-                        onClick={() => setServiceVideo(null)}
+                        onClick={() => {
+                          setServiceVideo(null);
+                          setMediaUploaded(false);
+                        }}
                         aria-label="Remove video"
                       >
                         <X className="h-3 w-3" />
@@ -375,6 +469,13 @@ export function TodaysBookings({ bookings }: TodaysBookingsProps) {
               <DialogFooter>
                 <Button variant="outline" onClick={() => setUploadModalOpen(false)}>
                   Close
+                </Button>
+                <Button
+                  onClick={uploadCleaningMedia}
+                  disabled={!mediaReady || isUploadingMedia || isCompleting}
+                >
+                  {isUploadingMedia && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  {mediaUploaded ? "Uploaded" : "Upload"}
                 </Button>
               </DialogFooter>
             </DialogContent>

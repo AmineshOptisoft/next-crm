@@ -28,6 +28,12 @@ const fetcher = (url: string) =>
 
 // Pages that are always accessible even when profile is incomplete
 const ALWAYS_ACCESSIBLE = ["/dashboard/company-settings"];
+const ADMIN_ONLY_ROUTES = [
+  "/dashboard/company-settings",
+  "/dashboard/roles",
+  "/dashboard/users",
+  "/dashboard/services",
+];
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -50,10 +56,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const isLoading = loadingMe || loadingSettings;
   const isOnSettingsPage = ALWAYS_ACCESSIBLE.some((p) => pathname.startsWith(p));
   const isClientBookingsPage = pathname.startsWith("/dashboard/client-bookings");
+  const isAdminOnlyRoute = ADMIN_ONLY_ROUTES.some((p) => pathname.startsWith(p));
 
   // Derived values (safe with nullish defaults)
   const userRole = meData?.user?.role ?? "";
   const isSuperAdmin = userRole === "super_admin";
+  const isCompanyAdmin = userRole === "company_admin";
   
   let profileCompleted = true; // default true
   if (meData?.user?.companyId?.profileCompleted !== undefined) {
@@ -71,12 +79,25 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       router.replace("/login");
       return;
     }
+    if (isAdminOnlyRoute && !isSuperAdmin && !isCompanyAdmin) {
+      router.replace("/dashboard");
+      return;
+    }
     if (isSuperAdmin) return;              // super admins are never blocked
     if (isOnSettingsPage) return;          // already on the page they need to be on
     if (isProfileIncomplete) {
       router.replace("/dashboard/company-settings");
     }
-  }, [isLoading, meData?.user, isSuperAdmin, isOnSettingsPage, isProfileIncomplete, router]);
+  }, [
+    isLoading,
+    meData?.user,
+    isAdminOnlyRoute,
+    isSuperAdmin,
+    isCompanyAdmin,
+    isOnSettingsPage,
+    isProfileIncomplete,
+    router,
+  ]);
 
   // Must run before any conditional return — hooks order must be stable every render
   const clientBookNowHref = useMemo(() => {

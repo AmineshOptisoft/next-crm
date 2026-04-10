@@ -265,11 +265,6 @@ function CompanyProfile({
         const website = (formData?.website ?? "").trim();
         if (website && !isValidUrl(website)) next["website"] = "Enter a valid URL (must start with http:// or https://).";
 
-        if (industries.length > 0) {
-            const industry = (formData?.industry ?? "").trim();
-            if (!industry) next["industry"] = "Select industry.";
-        }
-
         const street = (formData?.address?.street ?? "").trim();
         if (!street) next["address.street"] = "Street is required.";
 
@@ -611,10 +606,15 @@ function CompanyProfile({
     const savedState = (formData?.address?.state ?? "").trim();
     const savedCity = (formData?.address?.city ?? "").trim();
     const rawIndustry = (formData?.industry ?? "").trim();
+    const normalizedRawIndustry = rawIndustry.toLowerCase();
     const matchedIndustry = industries.find(
-        (industry) => industry._id === rawIndustry || industry.name === rawIndustry
+        (industry) =>
+            industry._id === rawIndustry ||
+            industry._id.toLowerCase() === normalizedRawIndustry ||
+            industry.name.trim().toLowerCase() === normalizedRawIndustry
     );
     const industrySelectValue = matchedIndustry?.name || (rawIndustry ? rawIndustry : "none");
+    const hasStoredIndustryNotInList = Boolean(rawIndustry) && !matchedIndustry;
 
     useEffect(() => {
         if (hasSelectedLocation && !locationQuery && !isLocationManuallyCleared) {
@@ -782,6 +782,9 @@ function CompanyProfile({
                                 </SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="none">No Industry</SelectItem>
+                                    {hasStoredIndustryNotInList && (
+                                        <SelectItem value={rawIndustry}>{rawIndustry}</SelectItem>
+                                    )}
                                     {industries.map((industry) => (
                                         <SelectItem key={industry._id} value={industry.name}>
                                             {industry.name}
@@ -1219,17 +1222,17 @@ export default function CompanySettingsPage() {
 
             return {
                 ...prev,
-                name: company.name || "",
-                description: company.description || "",
-                industry: (company as any).industry || "",
-                website: (company as any).website || "",
-                email: (company as any).email || "",
-                phone: (company as any).phone || "",
-                logo: (company as any).logo || "",
-                subdomain: (company as any).subdomain || "",
-                publicTemplate: (company as any).publicTemplate || "templateA",
+                name: company.name ?? prev.name ?? "",
+                description: (company as any).description ?? prev.description ?? "",
+                industry: (company as any).industry ?? prev.industry ?? "",
+                website: (company as any).website ?? prev.website ?? "",
+                email: (company as any).email ?? prev.email ?? "",
+                phone: (company as any).phone ?? prev.phone ?? "",
+                logo: (company as any).logo ?? prev.logo ?? "",
+                subdomain: (company as any).subdomain ?? prev.subdomain ?? "",
+                publicTemplate: (company as any).publicTemplate ?? prev.publicTemplate ?? "templateA",
                 address: mergedAddress,
-                settings: (company as any).settings || {
+                settings: (company as any).settings ?? prev.settings ?? {
                     timezone: "UTC",
                     currency: "USD",
                 },

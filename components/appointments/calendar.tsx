@@ -168,7 +168,7 @@ export default function Calendar() {
       }
       const appointment: AppointmentDetails = {
         id: info.event.id,
-        bookingId: props.bookingId,
+        bookingId: typeof props.bookingId === "string" ? props.bookingId : String(props.bookingId || ""),
         title: info.event.title,
         start: info.event.start!,
         end: info.event.end!,
@@ -212,6 +212,11 @@ export default function Calendar() {
 
         // Co-technicians on shared bookings
         coTechnicians: props.coTechnicians,
+        cleaningMedia: {
+          beforeImages: props.cleaningMedia?.beforeImages || [],
+          afterImages: props.cleaningMedia?.afterImages || [],
+          videos: props.cleaningMedia?.videos || [],
+        },
       };
 
       setSelectedAppointment(appointment);

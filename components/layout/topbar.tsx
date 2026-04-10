@@ -108,6 +108,8 @@ export function Topbar() {
   });
   const isTechnicianRole =
     meData?.user?.role === "company_user" || meData?.user?.role === "employee";
+  const isAdminRole =
+    meData?.user?.role === "super_admin" || meData?.user?.role === "company_admin";
   const reviewsFeedUrl =
     isTechnicianRole && meData?.user?.id
       ? `/api/reviews?technicianId=${meData.user.id}&limit=10`
@@ -255,7 +257,7 @@ export function Topbar() {
 
         {/* Right: theme, settings, user menu */}
         <div className="flex items-center gap-3">
-          {isFreePlan && (
+          {isAdminRole && isFreePlan && (
             <Button
               size="sm"
               className="rounded-full px-4"

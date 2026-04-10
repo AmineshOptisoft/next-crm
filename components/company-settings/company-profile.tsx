@@ -79,11 +79,6 @@ export function CompanyProfile({ formData, setFormData, saving, handleSubmit, in
         const website = (formData?.website ?? "").trim();
         if (website && !isValidUrl(website)) next["website"] = "Enter a valid URL (must start with http:// or https://).";
 
-        if (industries.length > 0) {
-            const industry = (formData?.industry ?? "").trim();
-            if (!industry) next["industry"] = "Select industry.";
-        }
-
         const street = (formData?.address?.street ?? "").trim();
         if (!street) next["address.street"] = "Street is required.";
 
@@ -381,7 +376,7 @@ export function CompanyProfile({ formData, setFormData, saving, handleSubmit, in
                                 onValueChange={(value) => {
                                     setFormData({
                                         ...formData,
-                                        industry: value === "none" ? "" : value,
+                                        industry: value === "none" ? "no industry" : value,
                                     });
                                     clearError("industry");
                                 }}

@@ -75,6 +75,11 @@ export interface IBooking extends Document {
         teamMembers?: string[];
         notes?: string;
     };
+    cleaningMedia?: {
+        beforeImages: string[];
+        afterImages: string[];
+        videos: string[];
+    };
 
     status:
         | "unconfirmed"
@@ -246,6 +251,11 @@ const BookingSchema = new Schema({
         teamMembers: { type: [String], default: [] },
         notes: { type: String, default: "" },
     },
+    cleaningMedia: {
+        beforeImages: { type: [String], default: [] },
+        afterImages: { type: [String], default: [] },
+        videos: { type: [String], default: [] },
+    },
 
     status: {
         type: String,
@@ -287,6 +297,15 @@ if (existingBookingModel) {
     if (!existingSchema.path("specialRequestFromClient")) {
         existingSchema.add({
             specialRequestFromClient: { type: String },
+        });
+    }
+    if (!existingSchema.path("cleaningMedia")) {
+        existingSchema.add({
+            cleaningMedia: {
+                beforeImages: { type: [String], default: [] },
+                afterImages: { type: [String], default: [] },
+                videos: { type: [String], default: [] },
+            },
         });
     }
 }

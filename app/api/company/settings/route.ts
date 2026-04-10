@@ -114,7 +114,6 @@ export async function PUT(req: NextRequest) {
   const isProfileComplete = !!(
     mergedData.name &&
     mergedData.logo &&
-    mergedData.industry &&
     mergedData.email &&
     mergedData.phone &&
     mergedData.address?.street &&
