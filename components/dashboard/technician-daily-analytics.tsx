@@ -9,6 +9,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Clock, Timer, Coffee } from "lucide-react";
+import { formatDurationHours } from "@/lib/technician-daily-availability";
 
 export type TechnicianDailyAnalyticsRow = {
   technicianId: string;
@@ -17,6 +18,9 @@ export type TechnicianDailyAnalyticsRow = {
   workingLabel: string;
   vacantLabel: string;
   bookingsCount: number;
+  workingHours?: number;
+  vacantHours?: number;
+  offHours?: number;
 };
 
 export type TechnicianDailyAnalyticsSummary = {
@@ -42,6 +46,34 @@ export function TechnicianDailyAnalytics({
   headerActions,
   statusSlot,
 }: Props) {
+  const parsedHoursFromLabel = (label: string): number => {
+    if (!label) return 0;
+    const h = label.match(/(\d+)\s*h/i);
+    const m = label.match(/(\d+)\s*m/i);
+    const hours = h ? Number(h[1]) : 0;
+    const mins = m ? Number(m[1]) : 0;
+    if (!Number.isFinite(hours) || !Number.isFinite(mins)) return 0;
+    return hours + mins / 60;
+  };
+
+  const chartRows = rows.map((row) => {
+    const working = row.workingHours ?? parsedHoursFromLabel(row.workingLabel);
+    const vacant = row.vacantHours ?? parsedHoursFromLabel(row.vacantLabel);
+    const off = row.offHours ?? 0;
+    const total = Math.max(0, working + vacant + off);
+    const workingPct = total > 0 ? (working / total) * 100 : 0;
+    const offPct = total > 0 ? (off / total) * 100 : 0;
+    const vacantPct = total > 0 ? (vacant / total) * 100 : 0;
+
+    return {
+      ...row,
+      offLabel: formatDurationHours(off),
+      workingPct,
+      offPct,
+      vacantPct,
+    };
+  });
+
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -127,6 +159,67 @@ export function TechnicianDailyAnalytics({
                   ))}
                 </TableBody>
               </Table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Technician time split</CardTitle>
+          <p className="text-sm text-muted-foreground">
+            Single stacked bar per technician: Working (green), Off (red), Vacant (yellow).
+          </p>
+        </CardHeader>
+        <CardContent>
+          {chartRows.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-4 text-center">{emptyMessage}</p>
+          ) : (
+            <div className="space-y-4">
+              <div className="flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
+                <div className="flex items-center gap-2">
+                  <span className="h-2.5 w-2.5 rounded-sm bg-green-600" />
+                  Working time
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="h-2.5 w-2.5 rounded-sm bg-red-600" />
+                  Off time
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="h-2.5 w-2.5 rounded-sm bg-yellow-500" />
+                  Vacant time
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                {chartRows.map((row) => (
+                  <div key={`chart-${row.technicianId}`} className="space-y-1.5">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="text-sm font-medium">{row.name}</div>
+                      <div className="text-xs text-muted-foreground">
+                        W: {row.workingLabel} | O: {row.offLabel} | V: {row.vacantLabel}
+                      </div>
+                    </div>
+                    <div className="h-4 w-full overflow-hidden rounded-sm border bg-muted flex">
+                      <div
+                        className="h-full bg-green-600"
+                        style={{ width: `${row.workingPct}%` }}
+                        title={`Working: ${row.workingLabel}`}
+                      />
+                      <div
+                        className="h-full bg-red-600"
+                        style={{ width: `${row.offPct}%` }}
+                        title={`Off: ${row.offLabel}`}
+                      />
+                      <div
+                        className="h-full bg-yellow-500"
+                        style={{ width: `${row.vacantPct}%` }}
+                        title={`Vacant: ${row.vacantLabel}`}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
         </CardContent>

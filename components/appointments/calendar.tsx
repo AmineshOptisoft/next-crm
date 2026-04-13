@@ -19,6 +19,11 @@ import type { AppointmentDetails } from "./appointment-details-sheet";
 import { toast } from "sonner";
 import useSWR, { useSWRConfig } from "swr";
 import dynamic from "next/dynamic";
+import { formatDurationHours } from "@/lib/technician-daily-availability";
+import type {
+  TechnicianDailyAnalyticsRow,
+  TechnicianDailyAnalyticsSummary,
+} from "@/components/dashboard/technician-daily-analytics";
 
 const fetcher = (url: string) => fetch(url, { credentials: "include" }).then((res) => res.json());
 
@@ -42,7 +47,17 @@ const AddBookingForm = dynamic(
     ),
   }
 );
-export default function Calendar() {
+
+type CalendarTechnicianAnalytics = {
+  dateLabel: string;
+  rows: TechnicianDailyAnalyticsRow[];
+  summary: TechnicianDailyAnalyticsSummary;
+};
+
+type CalendarProps = {
+  onAnalyticsChange?: (analytics: CalendarTechnicianAnalytics) => void;
+};
+export default function Calendar({ onAnalyticsChange }: CalendarProps) {
   const {
     eventAddOpen,
     setEventAddOpen,
@@ -139,6 +154,183 @@ export default function Calendar() {
       return true;
     });
   }, [events, currentView, shouldRestrictToOwnSchedule, userId]);
+
+  const analyticsData = useMemo<CalendarTechnicianAnalytics>(() => {
+    const emptySummary: TechnicianDailyAnalyticsSummary = {
+      totalAvailableLabel: formatDurationHours(0),
+      totalWorkingLabel: formatDurationHours(0),
+      totalVacantLabel: formatDurationHours(0),
+    };
+
+    if (!visibleRange) {
+      return { dateLabel: "-", rows: [], summary: emptySummary };
+    }
+
+    const rangeStartMs = visibleRange.start.getTime();
+    const rangeEndMs = visibleRange.end.getTime();
+    const getCompanyWorkingRangeMs = (startMs: number, endMs: number) => {
+      let total = 0;
+      const cursor = new Date(startMs);
+      cursor.setHours(0, 0, 0, 0);
+      const endDate = new Date(endMs);
+      endDate.setHours(0, 0, 0, 0);
+
+      while (cursor.getTime() <= endDate.getTime()) {
+        const day = cursor.getDay(); // 0 Sun, 6 Sat
+        if (day !== 0 && day !== 6) {
+          // Company business window (9 AM - 6 PM)
+          const dayStart = new Date(cursor);
+          dayStart.setHours(9, 0, 0, 0);
+          const dayEnd = new Date(cursor);
+          dayEnd.setHours(18, 0, 0, 0);
+
+          const clippedStart = Math.max(dayStart.getTime(), startMs);
+          const clippedEnd = Math.min(dayEnd.getTime(), endMs);
+          total += Math.max(0, clippedEnd - clippedStart);
+        }
+        cursor.setDate(cursor.getDate() + 1);
+      }
+
+      return total;
+    };
+
+    const companyWorkingRangeMs = getCompanyWorkingRangeMs(rangeStartMs, rangeEndMs);
+
+    const technicians = resources.filter(
+      (resource: any) => !Boolean(resource?.isSubstituteTechnician)
+    );
+    const techIdSet = new Set(technicians.map((resource: any) => String(resource.id)));
+
+    const byTech = new Map<
+      string,
+      {
+        name: string;
+        workingMs: number;
+        offMs: number;
+        bookingsCount: number;
+      }
+    >();
+
+    for (const resource of technicians) {
+      byTech.set(String(resource.id), {
+        name: String(resource?.title || "Technician"),
+        workingMs: 0,
+        offMs: 0,
+        bookingsCount: 0,
+      });
+    }
+
+    const blockedStatuses = new Set(["cancelled", "no_show", "deleted", "rejected"]);
+    const overlapMs = (start: unknown, end: unknown) => {
+      const a = new Date(start as any).getTime();
+      const b = new Date(end as any).getTime();
+      if (!Number.isFinite(a) || !Number.isFinite(b) || b <= a) return 0;
+      const clippedStart = Math.max(a, rangeStartMs);
+      const clippedEnd = Math.min(b, rangeEndMs);
+      return Math.max(0, clippedEnd - clippedStart);
+    };
+
+    for (const event of events as any[]) {
+      const resourceId = String(event?.resourceId ?? "");
+      if (!techIdSet.has(resourceId)) continue;
+      const acc = byTech.get(resourceId);
+      if (!acc) continue;
+
+      if (event?.type === "booking") {
+        const status = String(event?.extendedProps?.bookingStatus ?? "").toLowerCase();
+        if (blockedStatuses.has(status)) continue;
+        const ms = overlapMs(event?.start, event?.end);
+        if (ms <= 0) continue;
+        acc.workingMs += ms;
+        acc.bookingsCount += 1;
+        continue;
+      }
+
+      // Off time only counts real approved time-off blocks, not generic non-working background.
+      if (event?.type === "unavailability" && event?.extendedProps?.type === "time_off") {
+        const ms = overlapMs(event?.start, event?.end);
+        if (ms <= 0) continue;
+        acc.offMs += ms;
+      }
+    }
+
+    let totalAvailableHours = 0;
+    let totalWorkingHours = 0;
+    let totalVacantHours = 0;
+
+    const rows: TechnicianDailyAnalyticsRow[] = [...byTech.entries()]
+      .map(([technicianId, acc]) => {
+        const availableMs = companyWorkingRangeMs;
+        const workingMs = Math.max(0, Math.min(availableMs, acc.workingMs));
+        const offMs = Math.max(0, Math.min(availableMs - workingMs, acc.offMs));
+        const vacantMs = Math.max(0, availableMs - workingMs - offMs);
+
+        const availableHours = availableMs / 3_600_000;
+        const workingHours = workingMs / 3_600_000;
+        const vacantHours = vacantMs / 3_600_000;
+        const offHours = offMs / 3_600_000;
+
+        totalAvailableHours += availableHours;
+        totalWorkingHours += workingHours;
+        totalVacantHours += vacantHours;
+
+        return {
+          technicianId,
+          name: acc.name,
+          bookingsCount: acc.bookingsCount,
+          availabilityLabel: formatDurationHours(availableHours),
+          workingLabel: formatDurationHours(workingHours),
+          vacantLabel: formatDurationHours(vacantHours),
+          workingHours,
+          vacantHours,
+          offHours,
+        };
+      })
+      .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }));
+
+    const formatRangeLabel = (start: Date, endExclusive: Date) => {
+      const endInclusive = new Date(endExclusive.getTime() - 1);
+      const opts: Intl.DateTimeFormatOptions = { month: "short", day: "numeric", year: "numeric" };
+      const startLabel = start.toLocaleDateString(undefined, opts);
+      const endLabel = endInclusive.toLocaleDateString(undefined, opts);
+      return startLabel === endLabel ? startLabel : `${startLabel} - ${endLabel}`;
+    };
+
+    return {
+      dateLabel: formatRangeLabel(visibleRange.start, visibleRange.end),
+      rows,
+      summary: {
+        totalAvailableLabel: formatDurationHours(totalAvailableHours),
+        totalWorkingLabel: formatDurationHours(totalWorkingHours),
+        totalVacantLabel: formatDurationHours(totalVacantHours),
+      },
+    };
+  }, [events, resources, visibleRange]);
+
+  const analyticsSignature = useMemo(() => {
+    return JSON.stringify({
+      dateLabel: analyticsData.dateLabel,
+      summary: analyticsData.summary,
+      rows: analyticsData.rows.map((row) => ({
+        technicianId: row.technicianId,
+        bookingsCount: row.bookingsCount,
+        availabilityLabel: row.availabilityLabel,
+        workingLabel: row.workingLabel,
+        vacantLabel: row.vacantLabel,
+        workingHours: row.workingHours ?? 0,
+        vacantHours: row.vacantHours ?? 0,
+        offHours: row.offHours ?? 0,
+      })),
+    });
+  }, [analyticsData]);
+  const lastAnalyticsSignatureRef = useRef<string>("");
+
+  useEffect(() => {
+    if (!onAnalyticsChange) return;
+    if (lastAnalyticsSignatureRef.current === analyticsSignature) return;
+    lastAnalyticsSignatureRef.current = analyticsSignature;
+    onAnalyticsChange(analyticsData);
+  }, [analyticsData, analyticsSignature, onAnalyticsChange]);
 
   const isTechnicianUnavailable = useCallback(
     (resourceId: string | undefined, start: Date, end: Date) => {
@@ -394,6 +586,9 @@ export default function Calendar() {
           nowIndicator={true}
           height="85vh" // Adjust height as needed
           slotMinWidth={70}
+          slotMinTime="09:00:00"
+          slotMaxTime="18:00:00"
+          scrollTime="09:00:00"
           resourceGroupField="group"
           select={handleDateSelect}
           eventClick={handleEventClick}

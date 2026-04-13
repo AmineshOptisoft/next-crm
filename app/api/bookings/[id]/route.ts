@@ -165,7 +165,7 @@ export async function PATCH(
             ...((booking as any).pricing || {}),
             billedHours,
         };
-        console.log("billedHours", billedHours);
+        
 
         await booking.save();
 

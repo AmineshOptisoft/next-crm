@@ -467,7 +467,7 @@ export function EditBookingDetailsDialog({
       <SheetContent className="p-0 sm:max-w-5xl">
         <div className="border-b text-black">
           <SheetHeader className="gap-0">
-            <SheetTitle className="text-lg text-black">Edit Booking Details</SheetTitle>
+            <SheetTitle className="text-lg text-primary">Edit Booking Details</SheetTitle>
           </SheetHeader>
         </div>
 

@@ -75,8 +75,13 @@ export interface AppointmentDetails {
   estimatedBilledHours?: DisplayValue;
   scheduledDuration?: DisplayValue;
   teamCleaningTime?: DisplayValue;
+  totalTeamTime?: DisplayValue;
+  generalTime?: DisplayValue;
+  drivingTime?: DisplayValue;
+  trainingTime?: DisplayValue;
   technicianTime?: DisplayValue;
   timesheetNotes?: DisplayValue;
+  teamMembers?: DisplayValue;
   gpsArrivalTime?: DisplayValue;
   gpsDepartureTime?: DisplayValue;
 
@@ -141,6 +146,7 @@ export function AppointmentDetailsSheet({
   const [loadingAction, setLoadingAction] = useState<string | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isFeedbackSheetOpen, setIsFeedbackSheetOpen] = useState(false);
+  const [isTimesheetDetailsSheetOpen, setIsTimesheetDetailsSheetOpen] = useState(false);
   const [savingFeedback, setSavingFeedback] = useState(false);
   const router = useRouter();
   const isLoading = loadingAction !== null;
@@ -283,6 +289,30 @@ export function AppointmentDetailsSheet({
     });
   };
 
+  const formatMinutesDisplay = (value: unknown) => {
+    if (value === null || value === undefined || value === "" || value === "-") return "-";
+    if (typeof value === "number" && Number.isFinite(value)) {
+      const hours = Math.floor(value / 60);
+      const minutes = Math.round(value % 60);
+      return `${hours}h ${minutes}m`;
+    }
+    return String(value);
+  };
+
+  const formatTimesheetDateValue = (value: unknown) => {
+    if (value === null || value === undefined || value === "" || value === "-") return "-";
+    if (value instanceof Date) return formatDateTime(value);
+    if (typeof value === "string") {
+      const parsed = new Date(value);
+      if (!Number.isNaN(parsed.getTime())) return formatDateTime(parsed);
+      return value;
+    }
+    return String(value);
+  };
+
+  const timesheetData = bookingDetailsData?.timesheet ?? {};
+  const pricingData = bookingDetailsData?.pricing ?? {};
+
   const beforeImages: string[] = Array.isArray(appointment.cleaningMedia?.beforeImages)
     ? appointment.cleaningMedia!.beforeImages!
     : Array.isArray(bookingDetailsData?.cleaningMedia?.beforeImages)
@@ -305,7 +335,7 @@ export function AppointmentDetailsSheet({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="sm:max-w-5xl w-full p-0 flex flex-col">
         <SheetHeader className="p-4 border-b gap-0 ">
-          <SheetTitle className="">Booking Details</SheetTitle>
+          <SheetTitle className="text-primary">Booking Details</SheetTitle>
           <SheetDescription>{appointment.title}</SheetDescription>
         </SheetHeader>
 
@@ -374,6 +404,13 @@ export function AppointmentDetailsSheet({
 
           {!readOnly && (
             <div className="flex justify-end gap-2">
+              <Button
+                variant="default"
+                className="w-fit"
+                onClick={() => setIsTimesheetDetailsSheetOpen(true)}
+              >
+                Time Sheet Details
+              </Button>
               <Button variant="default" className="w-fit">
                 Edit Timesheet Detail
               </Button>
@@ -750,6 +787,80 @@ export function AppointmentDetailsSheet({
               >
                 {savingFeedback && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 {savingFeedback ? "Saving..." : "Save Review"}
+              </Button>
+            </SheetFooter>
+          </SheetContent>
+        </Sheet>
+      )}
+
+      {!readOnly && (
+        <Sheet
+          open={isTimesheetDetailsSheetOpen}
+          onOpenChange={setIsTimesheetDetailsSheetOpen}
+        >
+          <SheetContent side="right" className="sm:max-w-2xl w-full p-0 flex flex-col">
+            <SheetHeader className="p-4 border-b gap-0">
+              <SheetTitle>Timesheet Details</SheetTitle>
+              <SheetDescription>
+                Detailed timesheet information for this booking.
+              </SheetDescription>
+            </SheetHeader>
+            <div className="flex-1 overflow-y-auto p-6 space-y-3">
+              <KeyValueRow
+                label="Arrival Time"
+                value={formatTimesheetDateValue(timesheetData.arrivalTime ?? appointment.gpsArrivalTime)}
+              />
+              <KeyValueRow
+                label="Departure Time"
+                value={formatTimesheetDateValue(timesheetData.departureTime ?? appointment.gpsDepartureTime)}
+              />
+              <KeyValueRow
+                label="Cleaning Time"
+                value={formatMinutesDisplay(timesheetData.cleaningTime ?? appointment.teamCleaningTime)}
+              />
+              <KeyValueRow
+                label="Total Team Time"
+                value={formatMinutesDisplay(timesheetData.totalTeamTime ?? appointment.totalTeamTime)}
+              />
+              <KeyValueRow
+                label="General Time"
+                value={formatMinutesDisplay(timesheetData.generalTime ?? appointment.generalTime)}
+              />
+              <KeyValueRow
+                label="Driving Time"
+                value={formatMinutesDisplay(timesheetData.drivingTime ?? appointment.drivingTime)}
+              />
+              <KeyValueRow
+                label="Training Time"
+                value={formatMinutesDisplay(timesheetData.trainingTime ?? appointment.trainingTime)}
+              />
+              <KeyValueRow
+                label="Technician Time"
+                value={formatMinutesDisplay(timesheetData.technicianTime ?? appointment.technicianTime)}
+              />
+              <KeyValueRow
+                label="Billed Hours"
+                value={pricingData.billedHours ?? appointment.billedHours}
+              />
+              <KeyValueRow
+                label="Team Members"
+                value={
+                  Array.isArray(timesheetData.teamMembers)
+                    ? timesheetData.teamMembers.join(", ")
+                    : appointment.teamMembers
+                }
+              />
+              <KeyValueRow
+                label="Timesheet Notes"
+                value={timesheetData.notes ?? appointment.timesheetNotes}
+              />
+            </div>
+            <SheetFooter className="p-4 border-t bg-muted/30 flex justify-end gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setIsTimesheetDetailsSheetOpen(false)}
+              >
+                Close
               </Button>
             </SheetFooter>
           </SheetContent>
