@@ -147,3 +147,150 @@
     @apply py-3;
   }
 }
+
+/* Linkify marketing animations */
+.gradient {
+  background: conic-gradient(
+    from 230.29deg at 51.63% 52.16%,
+    rgb(36, 0, 255) 0deg,
+    rgb(0, 135, 255) 67.5deg,
+    rgb(108, 39, 157) 198.75deg,
+    rgb(24, 38, 163) 251.25deg,
+    rgb(54, 103, 196) 301.88deg,
+    rgb(105, 30, 255) 360deg
+  );
+}
+
+.mask-gradient {
+  mask-image: linear-gradient(white, transparent 50%);
+}
+
+.animate-border-beam {
+  animation: border-beam calc(var(--duration) * 1s) infinite linear;
+}
+
+.animate-image-glow {
+  animation: image-glow 4s ease-out 0.6s forwards;
+}
+
+.animate-flip {
+  animation: flip 6s infinite steps(2, end);
+}
+
+.animate-rotate {
+  animation: rotate 3s linear infinite both;
+}
+
+@keyframes border-beam {
+  100% {
+    offset-distance: 100%;
+  }
+}
+
+@keyframes image-glow {
+  0% {
+    opacity: 0;
+    animation-timing-function: cubic-bezier(0.74, 0.25, 0.76, 1);
+  }
+  10% {
+    opacity: 0.5;
+    animation-timing-function: cubic-bezier(0.12, 0.01, 0.08, 0.99);
+  }
+  100% {
+    opacity: 0.7;
+  }
+}
+
+@keyframes flip {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes rotate {
+  to {
+    transform: rotate(90deg);
+  }
+}
+
+.before\:\[translate\:-50\%_-15\%\]:before {
+  content: var(--tw-content);
+  translate: -50% -15%;
+}
+
+.before\:\[inset\:0_auto_auto_50\%\]:before {
+  content: var(--tw-content);
+  inset: 0 auto auto 50%;
+}
+.before\:content-\[\'\'\]:before {
+  --tw-content: "";
+  content: var(--tw-content);
+}
+.before\:bg-\[conic-gradient\(from_0deg\2c transparent_0_340deg\2c white_360deg\)\]:before {
+  content: var(--tw-content);
+  background-image: conic-gradient(from 0deg, transparent 0 340deg, #fff 1turn);
+}
+.before\:animate-rotate:before {
+  content: var(--tw-content);
+  animation: rotate 3s linear infinite both;
+}
+.before\:rotate-\[-90deg\]:before {
+  content: var(--tw-content);
+  --tw-rotate: -90deg;
+  transform: translate(var(--tw-translate-x), var(--tw-translate-y)) rotate(var(--tw-rotate)) skewX(var(--tw-skew-x)) skewY(var(--tw-skew-y)) scaleX(var(--tw-scale-x)) scaleY(var(--tw-scale-y));
+}
+.before\:w-\[200\%\]:before {
+  content: var(--tw-content);
+  width: 200%;
+}
+.before\:aspect-square:before {
+  content: var(--tw-content);
+  aspect-ratio: 1 / 1;
+}
+.before\:absolute:before {
+  content: var(--tw-content);
+  position: absolute;
+}
+:after, :before {
+  --tw-content: "";
+}
+*, :after, :before {
+  box-sizing: border-box;
+  border: 0 solid #e5e7eb;
+}
+
+.after\:\[offset-path\:rect\(0_auto_auto_0_round_calc\(var\(--size\)\*1px\)\)\]:after {
+  content: var(--tw-content);
+  offset-path: rect(0 auto auto 0 round calc(var(--size) * 1px));
+}
+.after\:\[offset-anchor\:calc\(var\(--anchor\)\*1\%\)_50\%\]:after {
+  content: var(--tw-content);
+  offset-anchor: calc(var(--anchor) * 1%) 50%;
+}
+.after\:\[background\:linear-gradient\(to_left\2c var\(--color-from\)\2c var\(--color-to\)\2c transparent\)\]:after {
+  content: var(--tw-content);
+  background: linear-gradient(to left, var(--color-from), var(--color-to), transparent);
+}
+.after\:\[animation-delay\:var\(--delay\)\]:after {
+  content: var(--tw-content);
+  animation-delay: var(--delay);
+}
+.after\:animate-border-beam:after {
+  content: var(--tw-content);
+  animation: border-beam calc(var(--duration) * 1s) infinite linear;
+}
+.after\:w-\[calc\(var\(--size\)\*1px\)\]:after {
+  content: var(--tw-content);
+  width: calc(var(--size) * 1px);
+}
+.after\:aspect-square:after {
+  content: var(--tw-content);
+  aspect-ratio: 1 / 1;
+}
+.after\:absolute:after {
+  content: var(--tw-content);
+  position: absolute;
+}
+:after, :before {
+  --tw-content: "";
+}
