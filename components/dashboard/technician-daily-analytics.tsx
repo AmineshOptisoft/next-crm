@@ -42,7 +42,7 @@ export function TechnicianDailyAnalytics({
   dateLabel,
   summary,
   rows,
-  emptyMessage = "No technicians have bookings scheduled for this period.",
+  emptyMessage = "No technicians found for this period.",
   headerActions,
   statusSlot,
 }: Props) {
@@ -124,15 +124,15 @@ export function TechnicianDailyAnalytics({
         </Card>
       </div>
 
-      <Card>
+      <Card className="overflow-y-hidden max-h-screen">
         <CardHeader>
-          <CardTitle className="text-base">Technicians with bookings in this period</CardTitle>
+          <CardTitle className="text-base">Technicians in this period</CardTitle>
           <p className="text-sm text-muted-foreground">
             Availability is the sum of each day&apos;s window (company master hours intersected with each
             technician&apos;s schedule) across the selected range.
           </p>
         </CardHeader>
-        <CardContent>
+        <CardContent className="overflow-y-auto max-h-[80vh]">
           {rows.length === 0 ? (
             <p className="text-sm text-muted-foreground py-8 text-center">{emptyMessage}</p>
           ) : (
@@ -164,14 +164,14 @@ export function TechnicianDailyAnalytics({
         </CardContent>
       </Card>
 
-      <Card>
+      <Card className="overflow-hidden max-h-screen">
         <CardHeader>
           <CardTitle className="text-base">Technician time split</CardTitle>
           <p className="text-sm text-muted-foreground">
             Single stacked bar per technician: Working (green), Off (red), Vacant (yellow).
           </p>
         </CardHeader>
-        <CardContent>
+        <CardContent className="overflow-y-auto max-h-[80vh]">
           {chartRows.length === 0 ? (
             <p className="text-sm text-muted-foreground py-4 text-center">{emptyMessage}</p>
           ) : (

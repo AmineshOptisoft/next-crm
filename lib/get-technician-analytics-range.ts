@@ -71,22 +71,21 @@ export async function getTechnicianAnalyticsForRange(
     match.technicianId = new Types.ObjectId(onlyTechnicianId);
   }
 
-  const bookings = await Booking.find(match)
-    .select("technicianId startDateTime endDateTime")
-    .lean();
-
-  const byTech = new Map<string, { workingMs: number; count: number }>();
-  for (const b of bookings) {
-    const tid = String(b.technicianId);
-    const ms = new Date(b.endDateTime).getTime() - new Date(b.startDateTime).getTime();
-    if (ms <= 0) continue;
-    const prev = byTech.get(tid) ?? { workingMs: 0, count: 0 };
-    prev.workingMs += ms;
-    prev.count += 1;
-    byTech.set(tid, prev);
+  const technicianFilter: Record<string, unknown> = {
+    companyId: companyObjectId,
+    role: { $in: ["company_user", "employee"] },
+    isActive: true,
+    isTechnicianActive: true,
+  };
+  if (onlyTechnicianId) {
+    technicianFilter._id = new Types.ObjectId(onlyTechnicianId);
   }
 
-  const techIds = [...byTech.keys()];
+  const techUsers = await User.find(technicianFilter)
+    .select("firstName lastName availability")
+    .lean();
+
+  const techIds = techUsers.map((u) => u._id.toString());
   const fromDay = startOfDay(rangeStart);
   const toDay = startOfDay(rangeEnd);
   const calendarDays = eachDayOfInterval({ start: fromDay, end: toDay });
@@ -107,17 +106,27 @@ export async function getTechnicianAnalyticsForRange(
     totalVacantLabel: formatDurationHours(0),
   };
 
-  if (techIds.length === 0) {
+  if (techUsers.length === 0) {
     return { dateLabel, rows: [], summary: emptySummary };
   }
 
-  const techUsers = await User.find({
-    _id: { $in: techIds.map((id) => new Types.ObjectId(id)) },
+  const bookings = await Booking.find({
+    ...match,
+    technicianId: { $in: techIds.map((id) => new Types.ObjectId(id)) },
   })
-    .select("firstName lastName availability")
+    .select("technicianId startDateTime endDateTime")
     .lean();
 
-  const userById = new Map(techUsers.map((u) => [u._id.toString(), u]));
+  const byTech = new Map<string, { workingMs: number; count: number }>();
+  for (const b of bookings) {
+    const tid = String(b.technicianId);
+    const ms = new Date(b.endDateTime).getTime() - new Date(b.startDateTime).getTime();
+    if (ms <= 0) continue;
+    const prev = byTech.get(tid) ?? { workingMs: 0, count: 0 };
+    prev.workingMs += ms;
+    prev.count += 1;
+    byTech.set(tid, prev);
+  }
 
   let totalAvail = 0;
   let totalWork = 0;
@@ -125,15 +134,11 @@ export async function getTechnicianAnalyticsForRange(
 
   const rows: TechnicianAnalyticsPayload["rows"] = [];
 
-  for (const tid of techIds) {
-    const u = userById.get(tid) as
-      | { firstName?: string; lastName?: string; availability?: unknown }
-      | undefined;
+  for (const u of techUsers as Array<{ _id: Types.ObjectId; firstName?: string; lastName?: string; availability?: unknown }>) {
+    const tid = u._id.toString();
     const name =
-      u != null
-        ? `${u.firstName ?? ""} ${u.lastName ?? ""}`.trim() || "Technician"
-        : "Unknown technician";
-    const acc = byTech.get(tid)!;
+      `${u.firstName ?? ""} ${u.lastName ?? ""}`.trim() || "Technician";
+    const acc = byTech.get(tid) ?? { workingMs: 0, count: 0 };
     const workingHours = acc.workingMs / 3_600_000;
     const availabilityHours = totalAvailabilityHoursForTech(u?.availability);
     const vacantHours = Math.max(0, availabilityHours - workingHours);

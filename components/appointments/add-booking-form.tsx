@@ -594,22 +594,43 @@ export function AddBookingForm({ open, onOpenChange, initialData, technicians, c
     }, []);
 
     // Price calculation
-    const { total, subTotal, addonsTotal } = useMemo(() => {
-        if (!selectedService) return { total: 0, subTotal: 0, addonsTotal: 0 };
+    const { total, totalWithoutPercentage, subTotal, addonsTotal } = useMemo(() => {
+        if (!selectedService) return { total: 0, totalWithoutPercentage: 0, subTotal: 0, addonsTotal: 0 };
         const totalBookingHours = bookingStart && bookingEnd
             ? (bookingEnd.getTime() - bookingStart.getTime()) / 3_600_000 : 0;
         // Base price should be charged once per service line (not per unit).
         const calcPrice = (item: any, qty: number) => {
             const B     = Number(item.basePrice) || 0;
             const H     = Number(item.hourlyRate) || 0;
-            const R     = Number(item.rangePercentage) || 0;
+            const R     = Number(item.percentage) || 0;
             const hours = item.estimatedTime ? Number(item.estimatedTime) / 60 : totalBookingHours;
-            return (B + H * hours * qty) * (1 + R / 100);
+            const amountWithoutPercentage = B + H * hours * qty;
+            const amountWithPercentage = amountWithoutPercentage * (1 + R / 100);
+            return { amountWithoutPercentage, amountWithPercentage };
         };
-        let subTotal = 0, addonsTotal = 0;
-        filteredSubServices.forEach((sub: any) => { const qty = subServiceQuantities[sub._id] || 0; if (qty > 0) subTotal += calcPrice(sub, qty); });
-        filteredAddons.forEach((addon: any) => { const qty = addonQuantities[addon._id] || 0; if (qty > 0) addonsTotal += calcPrice(addon, qty); });
-        return { total: subTotal + addonsTotal, subTotal, addonsTotal };
+        let subTotal = 0, addonsTotal = 0, subTotalWithoutPercentage = 0, addonsTotalWithoutPercentage = 0;
+        filteredSubServices.forEach((sub: any) => {
+            const qty = subServiceQuantities[sub._id] || 0;
+            if (qty > 0) {
+                const { amountWithoutPercentage, amountWithPercentage } = calcPrice(sub, qty);
+                subTotalWithoutPercentage += amountWithoutPercentage;
+                subTotal += amountWithPercentage;
+            }
+        });
+        filteredAddons.forEach((addon: any) => {
+            const qty = addonQuantities[addon._id] || 0;
+            if (qty > 0) {
+                const { amountWithoutPercentage, amountWithPercentage } = calcPrice(addon, qty);
+                addonsTotalWithoutPercentage += amountWithoutPercentage;
+                addonsTotal += amountWithPercentage;
+            }
+        });
+        return {
+            total: subTotal + addonsTotal,
+            totalWithoutPercentage: subTotalWithoutPercentage + addonsTotalWithoutPercentage,
+            subTotal,
+            addonsTotal
+        };
     }, [selectedService, filteredSubServices, filteredAddons, subServiceQuantities, addonQuantities, bookingStart, bookingEnd]);
 
     useEffect(() => {
@@ -623,6 +644,10 @@ export function AddBookingForm({ open, onOpenChange, initialData, technicians, c
     const finalAmount     = total - discount;
     const durationInHours = bookingStart && bookingEnd ? (bookingEnd.getTime() - bookingStart.getTime()) / 3_600_000 : 0;
     const effectiveRate   = durationInHours > 0 ? finalAmount / durationInHours : 0;
+    const minEstimatedAmount = Math.min(totalWithoutPercentage, total);
+    const maxEstimatedAmount = Math.max(totalWithoutPercentage, total);
+    const estimatedBilledAmountRange = `$${minEstimatedAmount.toFixed(2)} - $${maxEstimatedAmount.toFixed(2)}`;
+    const estimatedBilledHours = durationInHours > 0 ? `${durationInHours.toFixed(2)} hrs` : "0 hrs";
 
     const contactSelectOptions = useMemo(() => contacts.map(c => (
         <SelectItem key={c._id} value={c._id}>{c.firstName} {c.lastName} – {c.email}</SelectItem>
@@ -791,7 +816,17 @@ export function AddBookingForm({ open, onOpenChange, initialData, technicians, c
                     startDateTimeLocalParts: bookingStartWallClock,
                     shippingAddress: { street: shippingData.shippingAddress, country: shippingData.shippingCountry, city: shippingData.shippingCity, state: shippingData.shippingState, zipCode: shippingData.shippingZipCode },
                     notes,
-                    pricing: { baseAmount: selectedService.basePrice || selectedService.hourlyRate || 0, subServicesAmount: subTotal, addonsAmount: addonsTotal, totalAmount: total, discount, finalAmount, billedHours: 0 },
+                    pricing: {
+                      baseAmount: selectedService.basePrice || selectedService.hourlyRate || 0,
+                      subServicesAmount: subTotal,
+                      addonsAmount: addonsTotal,
+                      totalAmount: total,
+                      discount,
+                      finalAmount,
+                      billedHours: 0,
+                      estimatedBilledAmount: estimatedBilledAmountRange,
+                      estimatedBilledHours,
+                    },
                     promoCode: selectedPromocode !== "none" ? selectedPromocode : undefined,
                 }),
             });
@@ -1253,6 +1288,22 @@ export function AddBookingForm({ open, onOpenChange, initialData, technicians, c
                                         <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
                                         <Input type="number" value={discount} readOnly className="pl-7 bg-muted" />
                                     </div>
+                                </div>
+                                <div className="space-y-2">
+                                    <Label>Estimated Billed Amount</Label>
+                                    <Input
+                                        value={estimatedBilledAmountRange}
+                                        readOnly
+                                        className="bg-muted text-muted-foreground"
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label>Estimated Billed Hours</Label>
+                                    <Input
+                                        value={estimatedBilledHours}
+                                        readOnly
+                                        className="bg-muted text-muted-foreground"
+                                    />
                                 </div>
                             </div>
                             <div className="pt-4 border-t border-dashed">

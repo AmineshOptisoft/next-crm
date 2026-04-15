@@ -61,6 +61,8 @@ export interface IBooking extends Document {
         discount: number;
         finalAmount: number;
         billedHours: number;
+        estimatedBilledAmount?: string;
+        estimatedBilledHours?: string;
     };
 
     timesheet?: {
@@ -236,6 +238,14 @@ const BookingSchema = new Schema({
         billedHours: {
             type: Number,
             default: 0
+        },
+        estimatedBilledAmount: {
+            type: String,
+            default: ""
+        },
+        estimatedBilledHours: {
+            type: String,
+            default: ""
         }
     },
 

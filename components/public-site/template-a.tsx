@@ -465,7 +465,7 @@ export function PublicTemplateA({
       const hours = minutes / 60;
 
       const raw = base + hourly * hours * qty;
-      return raw ;
+      return raw * (1 + percentage / 100);
     };
 
     let subTotal = 0;

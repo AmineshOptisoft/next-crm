@@ -68,6 +68,8 @@ type BookingRow = {
   };
   pricing?: {
     finalAmount?: number;
+    estimatedBilledAmount?: string;
+    estimatedBilledHours?: string;
   };
 };
 
@@ -313,6 +315,8 @@ export default function BookingsPage() {
           .filter(Boolean)
           .join(" ") || "-",
       bookingPrice: selectedBooking.pricing?.finalAmount ?? "-",
+      estimatedBilledAmount: selectedBooking.pricing?.estimatedBilledAmount ?? "-",
+      estimatedBilledHours: selectedBooking.pricing?.estimatedBilledHours ?? "-",
     };
   }, [selectedBooking]);
 

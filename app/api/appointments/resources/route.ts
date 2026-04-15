@@ -332,6 +332,15 @@ export async function GET(req: NextRequest) {
 
             const contact = booking.contact || {};
             const service = booking.service  || {};
+            const pricing = booking.pricing || {};
+            const totalAmountNum = Number(pricing?.totalAmount);
+            const fallbackEstimatedAmount = Number.isFinite(totalAmountNum)
+                ? `$${totalAmountNum.toFixed(2)}`
+                : "-";
+            const fallbackEstimatedHours =
+                booking.startDateTime && booking.endDateTime
+                    ? `${Math.max(0, (new Date(booking.endDateTime).getTime() - new Date(booking.startDateTime).getTime()) / 3_600_000).toFixed(2)} hrs`
+                    : "-";
 
             // Co-technicians on this booking (empty array = solo booking)
             const coTechnicians = coTechMap.get(booking._id.toString()) ?? [];
@@ -359,9 +368,11 @@ export async function GET(req: NextRequest) {
                     units,
                     addons,
                     notes:          booking.notes,
-                    bookingPrice:   booking.pricing?.finalAmount  ? `$${booking.pricing.finalAmount.toFixed(2)}`  : "-",
-                    bookingDiscount: booking.pricing?.discount    ? `$${booking.pricing.discount}`                : "-",
-                    billedHours:    booking.pricing?.billedHours ?? "-",
+                    bookingPrice:   pricing?.finalAmount  ? `$${pricing.finalAmount.toFixed(2)}`  : "-",
+                    bookingDiscount: pricing?.discount    ? `$${pricing.discount}`                : "-",
+                    estimatedBilledAmount: pricing?.estimatedBilledAmount || fallbackEstimatedAmount,
+                    estimatedBilledHours: pricing?.estimatedBilledHours || fallbackEstimatedHours,
+                    billedHours:    pricing?.billedHours ?? "-",
                     scheduledDuration:
                         booking.startDateTime && booking.endDateTime
                             ? Math.max(0, Math.round((new Date(booking.endDateTime).getTime() - new Date(booking.startDateTime).getTime()) / 60000))
@@ -439,6 +450,7 @@ export async function GET(req: NextRequest) {
         const response = NextResponse.json({
             resources,
             events: [...availabilityEvents, ...bookingEvents, ...timeOffEvents],
+            masterAvailability,
         });
         response.headers.set("X-Execution-Time-ms", durationMs.toString());
         console.log("[GET /api/appointments/resources]", durationMs, "ms");

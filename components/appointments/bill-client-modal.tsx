@@ -86,6 +86,12 @@ export function BillClientModal({
     const [items, setItems] = useState<InvoiceItem[]>([]);
     const [includeBookingDiscount, setIncludeBookingDiscount] = useState(true);
     const [customDiscounts, setCustomDiscounts] = useState<CustomDiscountLine[]>([]);
+    const bookingDurationHours = useMemo(() => {
+        const start = booking?.startDateTime ? new Date(booking.startDateTime).getTime() : NaN;
+        const end = booking?.endDateTime ? new Date(booking.endDateTime).getTime() : NaN;
+        if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) return 0;
+        return (end - start) / 3_600_000;
+    }, [booking?.startDateTime, booking?.endDateTime]);
 
     useEffect(() => {
         if (open && bookingId) {
@@ -98,9 +104,9 @@ export function BillClientModal({
     const calculateEffectiveUnitPrice = (service: any, qty: number): number => {
         const B = Number(service?.basePrice) || 0;
         const H = Number(service?.hourlyRate) || 0;
-        const R = Number(service?.rangePercentage) || 0;
+        const R = Number(service?.percentage ?? service?.rangePercentage) || 0;
         const minutes = Number(service?.estimatedTime) || 0;
-        const hoursPerUnit = minutes > 0 ? minutes / 60 : 0;
+        const hoursPerUnit = minutes > 0 ? minutes / 60 : bookingDurationHours;
         const q = Math.max(1, Number(qty) || 1);
         // base counted once, labor scales by qty; distribute base across units for unit display
         const unitSubtotal = (B / q) + H * hoursPerUnit;

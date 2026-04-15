@@ -31,6 +31,37 @@ function normalizeId(value: any): string {
   return "";
 }
 
+function normalizePricingWithEstimatedFields(
+  pricing: any,
+  startDateTime: string | Date,
+  endDateTime: string | Date
+) {
+  const basePricing = pricing && typeof pricing === "object" ? { ...pricing } : {};
+  const totalAmount = Number(basePricing.totalAmount);
+  const safeTotalAmount = Number.isFinite(totalAmount) ? totalAmount : 0;
+  const start = new Date(startDateTime);
+  const end = new Date(endDateTime);
+  const durationHours =
+    Number.isFinite(start.getTime()) && Number.isFinite(end.getTime()) && end > start
+      ? (end.getTime() - start.getTime()) / 3_600_000
+      : 0;
+
+  const estimatedAmount =
+    typeof basePricing.estimatedBilledAmount === "string" && basePricing.estimatedBilledAmount.trim()
+      ? basePricing.estimatedBilledAmount.trim()
+      : `$${safeTotalAmount.toFixed(2)}`;
+  const estimatedHours =
+    typeof basePricing.estimatedBilledHours === "string" && basePricing.estimatedBilledHours.trim()
+      ? basePricing.estimatedBilledHours.trim()
+      : `${durationHours.toFixed(2)} hrs`;
+
+  return {
+    ...basePricing,
+    estimatedBilledAmount: estimatedAmount,
+    estimatedBilledHours: estimatedHours,
+  };
+}
+
 async function isSubstituteTechnician(userDoc: any): Promise<boolean> {
   if (!userDoc) return false;
   if (userDoc.defaultRoleName === "Substitute Technician") return true;
@@ -308,7 +339,7 @@ export async function POST(req: NextRequest) {
           : undefined,
       hasPets: typeof hasPets === "boolean" ? hasPets : undefined,
       pets: Array.isArray(pets) ? pets.filter((p: any) => typeof p === "string") : [],
-      pricing,
+      pricing: normalizePricingWithEstimatedFields(pricing, startDateTime, endDateTime),
       companyId: companyObjId,
       status: "unconfirmed",
     });

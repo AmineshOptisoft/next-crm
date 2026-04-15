@@ -26,6 +26,26 @@ import type {
 } from "@/components/dashboard/technician-daily-analytics";
 
 const fetcher = (url: string) => fetch(url, { credentials: "include" }).then((res) => res.json());
+const MASTER_DAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+
+function parse12HourToMinutes(value: string | undefined): number {
+  if (!value) return 0;
+  const match = value.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+  if (!match) return 0;
+  let hours = Number(match[1]);
+  const minutes = Number(match[2]);
+  const period = match[3].toUpperCase();
+  if (period === "PM" && hours !== 12) hours += 12;
+  if (period === "AM" && hours === 12) hours = 0;
+  return hours * 60 + minutes;
+}
+
+function minutesToSlotTime(totalMinutes: number): string {
+  const safe = Math.max(0, Math.min(24 * 60, totalMinutes));
+  const hh = String(Math.floor(safe / 60)).padStart(2, "0");
+  const mm = String(safe % 60).padStart(2, "0");
+  return `${hh}:${mm}:00`;
+}
 
 // Lazy-load heavy sheets and modals so the main calendar bundle stays light
 const EventEditForm = dynamic(
@@ -135,6 +155,10 @@ export default function Calendar({ onAnalyticsChange }: CalendarProps) {
 
     return activeResources.filter((resource: any) => String(resource?.id) === userId);
   }, [data?.resources, shouldRestrictToOwnSchedule, userId]);
+  const masterAvailability = useMemo(
+    () => (Array.isArray(data?.masterAvailability) ? data.masterAvailability : []),
+    [data?.masterAvailability]
+  );
   const events = data?.events || [];
 
   // Filter events per view with useMemo to prevent unnecessary React re-renders 
@@ -154,6 +178,42 @@ export default function Calendar({ onAnalyticsChange }: CalendarProps) {
       return true;
     });
   }, [events, currentView, shouldRestrictToOwnSchedule, userId]);
+
+  const slotWindow = useMemo(() => {
+    // Day view: use selected day's master availability.
+    if (currentView === "resourceTimelineDay" && visibleRange?.start && masterAvailability.length > 0) {
+      const day = visibleRange.start.getDay(); // 0 Sun -> 6 Sat
+      const mondayFirstIndex = day === 0 ? 6 : day - 1;
+      const dayName = MASTER_DAY_NAMES[mondayFirstIndex];
+      const dayConfig = masterAvailability.find((item: any) => item?.day === dayName);
+
+      if (dayConfig) {
+        let minMinutes = parse12HourToMinutes(dayConfig.startTime);
+        let maxMinutes = parse12HourToMinutes(dayConfig.endTime);
+
+        if (!dayConfig.isOpen) {
+          // Closed day: show a minimal slot window and rely on unavailability blocks for visual context.
+          minMinutes = 0;
+          maxMinutes = 30;
+        } else if (maxMinutes <= minMinutes) {
+          maxMinutes = minMinutes + 30;
+        }
+
+        return {
+          min: minutesToSlotTime(minMinutes),
+          max: minutesToSlotTime(maxMinutes),
+          scroll: minutesToSlotTime(minMinutes),
+        };
+      }
+    }
+
+    // Fallback window when master availability is not yet loaded.
+    return {
+      min: "09:00:00",
+      max: "18:00:00",
+      scroll: "09:00:00",
+    };
+  }, [currentView, visibleRange, masterAvailability]);
 
   const analyticsData = useMemo<CalendarTechnicianAnalytics>(() => {
     const emptySummary: TechnicianDailyAnalyticsSummary = {
@@ -586,9 +646,9 @@ export default function Calendar({ onAnalyticsChange }: CalendarProps) {
           nowIndicator={true}
           height="85vh" // Adjust height as needed
           slotMinWidth={70}
-          slotMinTime="09:00:00"
-          slotMaxTime="18:00:00"
-          scrollTime="09:00:00"
+          slotMinTime={slotWindow.min}
+          slotMaxTime={slotWindow.max}
+          scrollTime={slotWindow.scroll}
           resourceGroupField="group"
           select={handleDateSelect}
           eventClick={handleEventClick}

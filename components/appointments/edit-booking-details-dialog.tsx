@@ -310,39 +310,6 @@ export function EditBookingDetailsDialog({
     return allServices.find(s => s._id === serviceId);
   }, [allServices, serviceId]);
 
-  // ── FIXED: Price calculation — mirrors AddBookingForm's calculateItemPrice:
-  //   price = (basePrice + hourlyRate × (estimatedTime_min / 60) × qty) × (1 + rangePercentage/100)
-  useEffect(() => {
-    if (fetching || !selectedService) return;
-
-    const calculateItemPrice = (item: any, quantity: number): number => {
-      const B = Number(item.basePrice) || 0;
-      const H = Number(item.hourlyRate) || 0;
-      const R = Number(item.rangePercentage) || 0;
-      const T_minutes = item.estimatedTime ? Number(item.estimatedTime) : 0;
-      const hoursPerUnit = T_minutes / 60;
-      const totalLaborCost = H * hoursPerUnit * quantity;
-      const subtotal = B + totalLaborCost;
-      return subtotal * (1 + R / 100);
-    };
-
-    let subTotal = 0;
-    let addonsTotal = 0;
-
-    availableSubServices.forEach((sub: any) => {
-      const qty = subServiceQuantities[sub._id] || 0;
-      if (qty > 0) subTotal += calculateItemPrice(sub, qty);
-    });
-
-    availableAddons.forEach((addon: any) => {
-      const qty = addonQuantities[addon._id] || 0;
-      if (qty > 0) addonsTotal += calculateItemPrice(addon, qty);
-    });
-
-    setBilledAmount((subTotal + addonsTotal).toFixed(2));
-
-  }, [selectedService, subServiceQuantities, addonQuantities, availableSubServices, availableAddons, fetching]);
-
   // ── End time calculation ─ divided by technician count (team sharing)
   const bookingEnd = useMemo(() => {
     if (!bookingStart) return undefined;
@@ -371,6 +338,89 @@ export function EditBookingDetailsDialog({
     }
     return addMinutes(bookingStart, 60);
   }, [bookingStart, availableSubServices, availableAddons, subServiceQuantities, addonQuantities, selectedService, technicianCount]);
+
+  // Price calculation aligned with AddBookingForm:
+  // price = (basePrice + hourlyRate × hours × qty) × (1 + percentage/100)
+  const computedPricing = useMemo(() => {
+    if (!selectedService) {
+      return {
+        totalWithPercentage: 0,
+        totalWithoutPercentage: 0,
+      };
+    }
+
+    const totalBookingHours =
+      bookingStart && bookingEnd
+        ? Math.max(0, (bookingEnd.getTime() - bookingStart.getTime()) / 3_600_000)
+        : 0;
+
+    const calculateItemTotals = (item: any, quantity: number) => {
+      const B = Number(item.basePrice) || 0;
+      const H = Number(item.hourlyRate) || 0;
+      const R = Number(item.percentage ?? item.rangePercentage) || 0;
+      const estimatedMinutes = item.estimatedTime ? Number(item.estimatedTime) : 0;
+      const hours = estimatedMinutes > 0 ? estimatedMinutes / 60 : totalBookingHours;
+      const amountWithoutPercentage = B + H * hours * quantity;
+      const amountWithPercentage = amountWithoutPercentage * (1 + R / 100);
+      return { amountWithoutPercentage, amountWithPercentage };
+    };
+
+    let subTotal = 0;
+    let addonsTotal = 0;
+    let subTotalWithoutPercentage = 0;
+    let addonsTotalWithoutPercentage = 0;
+
+    availableSubServices.forEach((sub: any) => {
+      const qty = subServiceQuantities[sub._id] || 0;
+      if (qty > 0) {
+        const { amountWithoutPercentage, amountWithPercentage } = calculateItemTotals(sub, qty);
+        subTotalWithoutPercentage += amountWithoutPercentage;
+        subTotal += amountWithPercentage;
+      }
+    });
+
+    availableAddons.forEach((addon: any) => {
+      const qty = addonQuantities[addon._id] || 0;
+      if (qty > 0) {
+        const { amountWithoutPercentage, amountWithPercentage } = calculateItemTotals(addon, qty);
+        addonsTotalWithoutPercentage += amountWithoutPercentage;
+        addonsTotal += amountWithPercentage;
+      }
+    });
+
+    return {
+      totalWithPercentage: subTotal + addonsTotal,
+      totalWithoutPercentage: subTotalWithoutPercentage + addonsTotalWithoutPercentage,
+    };
+  }, [
+    selectedService,
+    bookingStart,
+    bookingEnd,
+    availableSubServices,
+    availableAddons,
+    subServiceQuantities,
+    addonQuantities,
+  ]);
+
+  useEffect(() => {
+    if (fetching || !selectedService) return;
+    setBilledAmount(computedPricing.totalWithPercentage.toFixed(2));
+  }, [fetching, selectedService, computedPricing.totalWithPercentage]);
+
+  const minEstimatedAmount = Math.min(
+    computedPricing.totalWithoutPercentage,
+    computedPricing.totalWithPercentage
+  );
+  const maxEstimatedAmount = Math.max(
+    computedPricing.totalWithoutPercentage,
+    computedPricing.totalWithPercentage
+  );
+  const estimatedAmountRange = `$${minEstimatedAmount.toFixed(2)} - $${maxEstimatedAmount.toFixed(2)}`;
+  const estimatedTimeHours =
+    bookingStart && bookingEnd
+      ? Math.max(0, (bookingEnd.getTime() - bookingStart.getTime()) / 3_600_000)
+      : 0;
+  const estimatedTimeLabel = `${estimatedTimeHours.toFixed(2)} hrs`;
 
 
   const handleSubmit = async () => {
@@ -417,9 +467,12 @@ export function EditBookingDetailsDialog({
         endDateTime: bookingEnd,
         shippingAddress: addressData,
         pricing: {
+          totalAmount: baseAmountNum,
           finalAmount: finalAmountNum,
           discount: discountNum,
-          billedHours: Number(billedHours)
+          billedHours: Number(billedHours),
+          estimatedBilledAmount: estimatedAmountRange,
+          estimatedBilledHours: estimatedTimeLabel,
         },
         timesheet: {
           cleaningTime: hoursInputToMinutes(cleaningTime),
@@ -571,6 +624,14 @@ export function EditBookingDetailsDialog({
                 <div className="space-y-2">
                   <Label>Change Billed Hours</Label>
                   <Input value={billedHours} onChange={(e) => setBilledHours(e.target.value)} placeholder="03:30" />
+                </div>
+                <div className="space-y-2">
+                  <Label>Estimated Amount</Label>
+                  <Input value={estimatedAmountRange} readOnly className="bg-muted" />
+                </div>
+                <div className="space-y-2">
+                  <Label>Estimated Time</Label>
+                  <Input value={estimatedTimeLabel} readOnly className="bg-muted" />
                 </div>
               </div>
             </div>
