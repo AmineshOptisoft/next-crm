@@ -81,9 +81,21 @@ export async function getTechnicianAnalyticsForRange(
     technicianFilter._id = new Types.ObjectId(onlyTechnicianId);
   }
 
-  const techUsers = await User.find(technicianFilter)
-    .select("firstName lastName availability")
+  const techUsersRaw = await User.find(technicianFilter)
+    .populate("customRoleId", "name")
+    .select("firstName lastName availability defaultRoleName customRoleId")
     .lean();
+
+  const techUsers = (techUsersRaw as any[]).filter((tech) => {
+    const fullName = `${tech?.firstName || ""} ${tech?.lastName || ""}`.toLowerCase();
+    const customRoleName = String(tech?.customRoleId?.name || "").toLowerCase();
+    const defaultRoleName = String(tech?.defaultRoleName || "").toLowerCase();
+    const isSubstitute =
+      defaultRoleName === "substitute technician" ||
+      customRoleName === "substitute technician" ||
+      fullName.includes("substitute technician");
+    return !isSubstitute;
+  });
 
   const techIds = techUsers.map((u) => u._id.toString());
   const fromDay = startOfDay(rangeStart);
