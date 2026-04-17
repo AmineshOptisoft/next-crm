@@ -106,7 +106,7 @@ export const PLANS = [
       { text: "Email confirmations", tooltip: "Automatic customer confirmations" },
       { text: "Basic support" },
     ],
-    btn: { text: "Start free", href: "/" },
+    btn: { text: "Start free", href: "/plan/starter/signup" },
   },
   {
     name: "Growth",
@@ -118,7 +118,7 @@ export const PLANS = [
       { text: "Route planning", tooltip: "Optimize travel between jobs" },
       { text: "Priority support" },
     ],
-    btn: { text: "Upgrade to Growth", href: "/" },
+    btn: { text: "Upgrade to Growth", href: "/plan/growth/signup" },
   },
   {
     name: "Pro Teams",
@@ -130,6 +130,17 @@ export const PLANS = [
       { text: "Dedicated success manager" },
       { text: "Custom integrations" },
     ],
-    btn: { text: "Contact sales", href: "/" },
+    btn: { text: "Upgrade to Pro Teams", href: "/plan/pro-teams/signup" },
   },
 ] as const;
+
+export function planNameToSlug(planName: string) {
+  return planName
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+export function getPlanBySlug(slug: string) {
+  return PLANS.find((plan) => planNameToSlug(plan.name) === slug);
+}

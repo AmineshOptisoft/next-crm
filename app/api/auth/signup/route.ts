@@ -7,6 +7,7 @@ import { sendVerificationEmail } from "@/lib/mail";
 import { signupSchema } from "@/app/(auth)/signup/schema";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
+import jwt from "jsonwebtoken";
 import mongoose from "mongoose";
 
 function escapeRegex(value: string) {
@@ -35,6 +36,10 @@ export async function POST(req: NextRequest) {
   await connectDB();
 
   const body = await req.json();
+  const requestedPlanSlug =
+    typeof body?.planSlug === "string" ? body.planSlug.trim().toLowerCase() : "";
+  const requestedBillingPeriod =
+    body?.billingPeriod === "yearly" ? "yearly" : "monthly";
   const parseResult = signupSchema.safeParse({
     ...body,
     confirmPassword: body.password,
@@ -153,6 +158,20 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       message: "Company registered successfully. Check email to verify.",
+      companyId,
+      userId: user._id.toString(),
+      email: user.email,
+      signupCheckoutToken: jwt.sign(
+        {
+          userId: user._id.toString(),
+          companyId,
+          email: user.email,
+        },
+        process.env.JWT_SECRET as string,
+        { expiresIn: "30m" }
+      ),
+      planSlug: requestedPlanSlug || null,
+      billingPeriod: requestedBillingPeriod,
     });
   } catch (error) {
     await session.abortTransaction();

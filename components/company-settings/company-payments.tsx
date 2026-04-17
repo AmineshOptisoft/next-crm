@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
     Select,
     SelectContent,
@@ -12,10 +13,21 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Save } from "lucide-react";
+import { CheckCircleIcon, Save } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { Switch } from "@/components/ui/switch";
+import { cn } from "@/lib/utils";
+
+type DbPlan = {
+    _id: string;
+    title: string;
+    slug: string;
+    description: string;
+    price: number;
+    includedWithPlan: string[];
+    isActive: boolean;
+};
 
 export function CompanyPayments() {
     const [paymentSettings, setPaymentSettings] = useState({
@@ -38,9 +50,12 @@ export function CompanyPayments() {
         invoice: { enabled: false, prefix: "" },
         autoCapture: true
     });
+    const [plans, setPlans] = useState<DbPlan[]>([]);
+    const [plansLoading, setPlansLoading] = useState(true);
 
     useEffect(() => {
         fetchPaymentSettings();
+        fetchPlans();
     }, []);
 
     const fetchPaymentSettings = async () => {
@@ -64,6 +79,34 @@ export function CompanyPayments() {
             console.error("Error fetching payment settings:", error);
         }
     };
+
+    const fetchPlans = async () => {
+        try {
+            const response = await fetch("/api/plans", { cache: "no-store" });
+            if (!response.ok) throw new Error("Failed to fetch plans");
+
+            const data = (await response.json()) as DbPlan[];
+            const activePlans = Array.isArray(data)
+                ? data.filter((plan) => plan.isActive).sort((a, b) => a.price - b.price)
+                : [];
+
+            setPlans(activePlans);
+        } catch (error) {
+            console.error("Error fetching plans:", error);
+            toast.error("Could not load subscription plans");
+        } finally {
+            setPlansLoading(false);
+        }
+    };
+
+    const getCtaText = (slug: string) => {
+        if (slug === "starter") return "Start free";
+        if (slug === "growth") return "Upgrade to Growth";
+        if (slug === "pro-teams") return "Upgrade to Pro Teams";
+        return "Select plan";
+    };
+
+    const getYearlyPrice = (monthlyPrice: number) => Math.round(monthlyPrice * 12 * (1 - 0.12));
 
     const savePaymentSettings = async () => {
         try {
@@ -166,7 +209,7 @@ export function CompanyPayments() {
                                 value={paymentSettings.currency}
                                 onValueChange={(val) => setPaymentSettings({ ...paymentSettings, currency: val })}
                             >
-                                <SelectTrigger><SelectValue placeholder="Select Currency" /></SelectTrigger>
+                                <SelectTrigger className="w-full"><SelectValue placeholder="Select Currency" /></SelectTrigger>
                                 <SelectContent>
                                     {["USD", "EUR", "GBP", "INR", "JPY", "AUD", "CAD"].map(c => (
                                         <SelectItem key={c} value={c}>{c}</SelectItem>
@@ -181,7 +224,7 @@ export function CompanyPayments() {
                                 value={paymentSettings.paymentMode}
                                 onValueChange={(val) => setPaymentSettings({ ...paymentSettings, paymentMode: val })}
                             >
-                                <SelectTrigger><SelectValue placeholder="Mode" /></SelectTrigger>
+                                <SelectTrigger className="w-full"><SelectValue placeholder="Mode" /></SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="test">Test Mode</SelectItem>
                                     <SelectItem value="live">Live Mode</SelectItem>

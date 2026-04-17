@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, memo } from "react";
-import { useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { signupSchema, type SignupInput } from "./schema";
@@ -35,6 +35,7 @@ import Link from "next/link";
 import { Loader2, Check, ChevronsUpDown } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { getPlanBySlug } from "@/lib/landing-content";
 
 // ─── Lazy-load country-state-city + VirtualGeoSelect (same behaviour as bookings) ─────
 let geoCache: any = null;
@@ -217,7 +218,18 @@ const VirtualGeoSelect = memo(function VirtualGeoSelect({
 
 export default function SignupPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const params = useParams<{ plan?: string }>();
   const duplicateCompanyError = "Company name already exists";
+  const selectedPlan = useMemo(() => {
+    const slug = typeof params?.plan === "string" ? params.plan : "";
+    if (!slug) return null;
+    return getPlanBySlug(slug) ?? null;
+  }, [params?.plan]);
+  const selectedBillingPeriod = useMemo<"monthly" | "yearly">(() => {
+    const periodFromQuery = (searchParams.get("period") || "").toLowerCase();
+    return periodFromQuery === "yearly" ? "yearly" : "monthly";
+  }, [searchParams]);
 
   const form = useForm<SignupInput>({
     resolver: zodResolver(signupSchema),
@@ -351,12 +363,16 @@ export default function SignupPage() {
     const res = await fetch("/api/auth/signup", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
+      body: JSON.stringify({
+        ...payload,
+        planSlug: selectedPlan ? (typeof params?.plan === "string" ? params.plan : "") : undefined,
+        billingPeriod: selectedBillingPeriod,
+      }),
     });
     const data = await res.json();
-    setLoading(false);
 
     if (!res.ok) {
+      setLoading(false);
       const field = data.field as keyof SignupInput | undefined;
       if (field) {
         form.setError(field, { message: data.error });
@@ -366,7 +382,34 @@ export default function SignupPage() {
       return;
     }
 
-    // ✅ Open dialog BEFORE reset to prevent state being cleared
+    if (selectedPlan && selectedPlan.price.monthly > 0) {
+      try {
+        const checkoutRes = await fetch("/api/subscription/signup-checkout-session", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            signupCheckoutToken: data.signupCheckoutToken,
+            planSlug: typeof params?.plan === "string" ? params.plan : "",
+            period: selectedBillingPeriod,
+          }),
+        });
+        const checkoutData = await checkoutRes.json();
+        if (!checkoutRes.ok) {
+          throw new Error(checkoutData.error || "Unable to start Stripe checkout.");
+        }
+        if (!checkoutData.checkoutUrl) {
+          throw new Error("Stripe checkout session was not created.");
+        }
+        window.location.href = checkoutData.checkoutUrl;
+        return;
+      } catch (error: any) {
+        setLoading(false);
+        toast.error(error.message || "Failed to open payment checkout.");
+        return;
+      }
+    }
+
+    setLoading(false);
     setSuccessDialogOpen(true);
     form.reset();
   }
@@ -394,7 +437,8 @@ export default function SignupPage() {
                 Create account
               </CardTitle>
               <CardDescription className="mt-1 text-base text-muted-foreground">
-                Sign up to access your CRM dashboard.
+                Sign up to access your CRM dashboard
+                {selectedPlan ? ` on the ${selectedPlan.name} plan.` : "."}
               </CardDescription>
             </CardHeader>
             <CardContent className="px-0 pt-0">

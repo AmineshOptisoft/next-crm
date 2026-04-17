@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import Link from "next/link";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -30,8 +30,12 @@ export default function LoginPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const sourceSubdomain = searchParams.get("subdomain") || "";
+  const signupPaymentStatus = searchParams.get("signup_payment") || "";
+  const signupSessionId = searchParams.get("session_id") || "";
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [paymentInfo, setPaymentInfo] = useState("");
+  const handledSessionRef = useRef<string>("");
 
   const getDashboardPathByRole = (role?: string) => {
     if (role === "contact") return "/dashboard/client-bookings";
@@ -46,6 +50,45 @@ export default function LoginPage() {
       password: "",
     },
   });
+
+  useEffect(() => {
+    if (signupPaymentStatus === "cancelled") {
+      setPaymentInfo("Payment was cancelled. You can log in and complete upgrade later.");
+      return;
+    }
+
+    if (signupPaymentStatus !== "success" || !signupSessionId) return;
+    if (handledSessionRef.current === signupSessionId) return;
+    handledSessionRef.current = signupSessionId;
+
+    const confirmSignupPayment = async () => {
+      try {
+        const response = await fetch("/api/subscription/confirm-signup-session", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ sessionId: signupSessionId }),
+        });
+
+        const data = await response.json().catch(() => null);
+        if (!response.ok) {
+          throw new Error(data?.error || "Payment confirmation failed.");
+        }
+
+        setPaymentInfo("Payment confirmed successfully. Please log in to continue.");
+      } catch (err: any) {
+        setPaymentInfo(err.message || "Payment is successful but confirmation is pending.");
+      } finally {
+        if (typeof window !== "undefined") {
+          const url = new URL(window.location.href);
+          url.searchParams.delete("signup_payment");
+          url.searchParams.delete("session_id");
+          window.history.replaceState({}, "", url.toString());
+        }
+      }
+    };
+
+    confirmSignupPayment();
+  }, [signupPaymentStatus, signupSessionId]);
 
   async function onSubmit(values: LoginInput) {
     setLoading(true);
@@ -127,6 +170,11 @@ export default function LoginPage() {
               {error && (
                 <div className="mb-4 rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
                   {error}
+                </div>
+              )}
+              {paymentInfo && (
+                <div className="mb-4 rounded-md border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm text-emerald-700">
+                  {paymentInfo}
                 </div>
               )}
 

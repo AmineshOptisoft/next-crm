@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { CheckCircleIcon } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
@@ -29,9 +29,70 @@ import { cn } from "@/lib/utils";
 import { PLANS } from "@/lib/landing-content";
 
 type Tab = "monthly" | "yearly";
+type PricingPlan = (typeof PLANS)[number];
+type PlanApiResponse = {
+  title: string;
+  slug: string;
+  description: string;
+  price: number;
+  includedWithPlan: string[];
+};
+
+function buildPricingPlansFromApi(plans: PlanApiResponse[]): PricingPlan[] {
+  return plans.map((plan) => {
+    const isStarter = plan.slug === "starter";
+    const isGrowth = plan.slug === "growth";
+    const buttonText = isStarter
+      ? "Start free"
+      : isGrowth
+        ? "Upgrade to Growth"
+        : "Upgrade to Pro Teams";
+
+    return {
+      name: plan.title,
+      info: plan.description,
+      price: {
+        monthly: plan.price,
+        yearly: Math.round(plan.price * 12 * (1 - 0.12)),
+      },
+      features: plan.includedWithPlan.map((text) => ({ text })),
+      btn: {
+        text: buttonText,
+        href: `/plan/${plan.slug}/signup`,
+      },
+    } as PricingPlan;
+  });
+}
 
 export default function PricingCards() {
   const [activeTab, setActiveTab] = useState<Tab>("monthly");
+  const [pricingPlans, setPricingPlans] = useState<PricingPlan[]>([...PLANS]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const fetchPlans = async () => {
+      try {
+        const res = await fetch("/api/plans", { cache: "no-store" });
+        if (!res.ok) return;
+
+        const data = (await res.json()) as PlanApiResponse[];
+        if (!Array.isArray(data) || data.length === 0) return;
+
+        const mapped = buildPricingPlansFromApi(data);
+        if (isMounted && mapped.length > 0) {
+          setPricingPlans(mapped);
+        }
+      } catch {
+        // Keep static fallback plans if API fetch fails.
+      }
+    };
+
+    fetchPlans();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   return (
     <Tabs defaultValue="monthly" className="w-full flex flex-col items-center">
@@ -70,7 +131,7 @@ export default function PricingCards() {
         value="monthly"
         className="grid grid-cols-1 lg:grid-cols-3 gap-5 w-full md:gap-8 max-w-5xl mx-auto pt-6"
       >
-        {PLANS.map((plan) => (
+        {pricingPlans.map((plan) => (
           <Card
             key={plan.name}
             className={cn(
@@ -129,7 +190,7 @@ export default function PricingCards() {
             </CardContent>
             <CardFooter className="w-full mt-auto">
               <Link
-                href={plan.btn.href}
+                href={`${plan.btn.href}?period=monthly`}
                 style={{ width: "100%" }}
                 className={buttonVariants({
                   className:
@@ -149,7 +210,7 @@ export default function PricingCards() {
         value="yearly"
         className="grid grid-cols-1 lg:grid-cols-3 gap-5 w-full md:gap-8 max-w-5xl mx-auto pt-6"
       >
-        {PLANS.map((plan) => (
+        {pricingPlans.map((plan) => (
           <Card
             key={`${plan.name}-yearly`}
             className={cn(
@@ -196,7 +257,7 @@ export default function PricingCards() {
             </CardContent>
             <CardFooter className="w-full mt-auto">
               <Link
-                href={plan.btn.href}
+                href={`${plan.btn.href}?period=yearly`}
                 style={{ width: "100%" }}
                 className={buttonVariants({
                   className:
