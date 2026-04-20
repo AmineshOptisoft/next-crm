@@ -558,10 +558,19 @@ import useSWR from "swr";
 
 const fetcher = (url: string) => fetch(url, { credentials: "include" }).then((res) => res.json());
 
+function useHydrated() {
+  return React.useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false
+  );
+}
+
 export function AppSidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const { showAvatars } = useLayoutPreferences();
+  const hasHydrated = useHydrated();
   const [profileCompleted, setProfileCompleted] = useState<boolean>(true); // Default true to avoid flicker
 
   const { data: meData } = useSWR("/api/auth/me", fetcher, {
@@ -569,7 +578,8 @@ export function AppSidebar() {
     dedupingInterval: 60000,
   });
 
-  const me = meData?.user ?? null;
+  // Keep initial client render aligned with server render to avoid hydration mismatches.
+  const me = hasHydrated ? meData?.user ?? null : null;
 
   const { data: settingsData } = useSWR("/api/company/settings", fetcher, {
     revalidateOnFocus: false,

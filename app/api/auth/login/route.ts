@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
-import { User } from "../../../models/User";
+import { User } from "@/app/models/User";
 import { Company } from "@/app/models/Company";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
@@ -21,12 +21,15 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const { email, password } = parseResult.data;
+  const { email: emailRaw, password } = parseResult.data;
+  const email = emailRaw.trim();
   const sourceSubdomainRaw = (body as any).sourceSubdomain;
   const sourceSubdomain =
     typeof sourceSubdomainRaw === "string" ? sourceSubdomainRaw.trim().toLowerCase() : "";
 
+  // Case-insensitive email match — stored emails may differ in casing from what the user types.
   const user = await User.findOne({ email })
+    .collation({ locale: "en", strength: 2 })
     .select(
       "_id passwordHash email role companyId firstName lastName companyName leadSource isVerified isActive isTechnicianActive"
     )

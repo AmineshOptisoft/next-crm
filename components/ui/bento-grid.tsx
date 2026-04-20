@@ -61,7 +61,7 @@ export const CARDS = [
   {
     icon: WaypointsIcon,
     name: "Connect your stack",
-    description: "Sync messaging, docs, and AI tools so your team stays coordinated.",
+    description: "Manage your business, customers, and team in one place.",
     href: "#",
     cta: "Learn more",
     className: "col-span-3 lg:col-span-2 max-w-full overflow-hidden",

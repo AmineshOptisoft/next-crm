@@ -85,7 +85,13 @@ function ThemeSyncFromServer() {
         if (cancelled) return;
 
         const theme = data?.theme;
-        if (theme === "light" || theme === "dark" || theme === "system") {
+        // Prevent server sync from overriding a recent local user toggle.
+        const localTheme =
+          typeof window !== "undefined" ? window.localStorage.getItem("theme") : null;
+        const hasLocalPreference =
+          localTheme === "light" || localTheme === "dark" || localTheme === "system";
+
+        if (!hasLocalPreference && (theme === "light" || theme === "dark" || theme === "system")) {
           setTheme(theme);
         }
       } catch {

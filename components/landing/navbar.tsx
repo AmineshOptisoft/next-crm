@@ -20,6 +20,7 @@ const NAV_LINKS = [
 export default function LandingNavbar() {
   const [scroll, setScroll] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [savingTheme, setSavingTheme] = useState(false);
   const { resolvedTheme, setTheme } = useTheme();
 
   useEffect(() => {
@@ -34,6 +35,28 @@ export default function LandingNavbar() {
   }, []);
 
   const isDark = mounted && resolvedTheme === "dark";
+
+  async function handleThemeToggle(checked: boolean) {
+    const nextTheme = checked ? "dark" : "light";
+
+    // Apply immediately for responsive UI.
+    setTheme(nextTheme);
+    setSavingTheme(true);
+
+    try {
+      // Persist for authenticated users so landing and dashboard stay in sync.
+      await fetch("/api/settings/appearance", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ theme: nextTheme }),
+      });
+    } catch {
+      // Ignore errors for guests/offline; local theme still applies.
+    } finally {
+      setSavingTheme(false);
+    }
+  }
 
   return (
     <header
@@ -65,7 +88,8 @@ export default function LandingNavbar() {
               <SunIcon className="size-3.5 text-muted-foreground" />
               <Switch
                 checked={isDark}
-                onCheckedChange={(checked) => setTheme(checked ? "dark" : "light")}
+                onCheckedChange={(checked) => void handleThemeToggle(checked)}
+                disabled={!mounted || savingTheme}
                 aria-label="Toggle dark mode"
               />
               <MoonIcon className="size-3.5 text-muted-foreground" />

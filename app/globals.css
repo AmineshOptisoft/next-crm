@@ -256,7 +256,7 @@
 }
 *, :after, :before {
   box-sizing: border-box;
-  border: 0 solid #e5e7eb;
+  /* border: 0 solid #e5e7eb; */
 }
 
 .after\:\[offset-path\:rect\(0_auto_auto_0_round_calc\(var\(--size\)\*1px\)\)\]:after {

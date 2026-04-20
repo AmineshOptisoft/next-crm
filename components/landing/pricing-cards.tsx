@@ -29,7 +29,23 @@ import { cn } from "@/lib/utils";
 import { PLANS } from "@/lib/landing-content";
 
 type Tab = "monthly" | "yearly";
-type PricingPlan = (typeof PLANS)[number];
+type PricingFeature = {
+  text: string;
+  tooltip?: string;
+};
+type PricingPlan = {
+  name: string;
+  info: string;
+  price: {
+    monthly: number;
+    yearly: number;
+  };
+  features: readonly PricingFeature[];
+  btn: {
+    text: string;
+    href: `/plan/${string}/signup`;
+  };
+};
 type PlanApiResponse = {
   title: string;
   slug: string;
@@ -60,7 +76,7 @@ function buildPricingPlansFromApi(plans: PlanApiResponse[]): PricingPlan[] {
         text: buttonText,
         href: `/plan/${plan.slug}/signup`,
       },
-    } as PricingPlan;
+    };
   });
 }
 
@@ -161,7 +177,7 @@ export default function PricingCards() {
             <CardContent className="pt-6 space-y-4">
               {plan.features.map((feature, index) => (
                 (() => {
-                  const tooltip = (feature as { tooltip?: string }).tooltip;
+                  const tooltip = feature.tooltip;
                   return (
                 <div key={`${plan.name}-${index}`} className="flex items-center gap-2">
                   <CheckCircleIcon className="text-purple-500 w-4 h-4" />

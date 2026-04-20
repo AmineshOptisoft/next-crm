@@ -285,7 +285,7 @@ export function CompanyZipCodes() {
                             : "No zip codes match your search."}
                     </div>
                 ) : (
-                    <Table>
+                    <Table className="">
                         <TableHeader>
                             <TableRow>
                                 <TableHead>#</TableHead>
@@ -294,7 +294,7 @@ export function CompanyZipCodes() {
                                 <TableHead className="text-right">ACTION</TableHead>
                             </TableRow>
                         </TableHeader>
-                        <TableBody>
+                        <TableBody className="max-h-screen overflow-y-auto">
                             {filteredZipCodes.map((zip, index) => (
                                 <TableRow key={zip._id}>
                                     <TableCell className="font-medium">{index + 1}</TableCell>
@@ -313,6 +313,13 @@ export function CompanyZipCodes() {
                                 </TableRow>
                             ))}
                         </TableBody>
+                        <style>
+                            {
+                                `.relative.w-full.overflow-x-auto {
+                                    max-height: calc(100vh - 300px);
+                                }`
+                            }
+                        </style>
                     </Table>
                 )}
             </CardContent>

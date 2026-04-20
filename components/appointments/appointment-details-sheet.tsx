@@ -732,7 +732,7 @@ export function AppointmentDetailsSheet({
 
       {!readOnly && (
         <Sheet open={isFeedbackSheetOpen} onOpenChange={setIsFeedbackSheetOpen}>
-          <SheetContent side="right" className="sm:max-w-2xl w-full p-0 flex flex-col">
+          <SheetContent side="right" className="sm:max-w-5xl w-full p-0 flex flex-col">
             <SheetHeader className="p-4 border-b gap-0">
               <SheetTitle>Add New Review</SheetTitle>
               <SheetDescription>Fill in review details and save.</SheetDescription>
