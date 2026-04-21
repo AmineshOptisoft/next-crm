@@ -4,6 +4,7 @@ import { connectDB } from "@/lib/db";
 import { Booking } from "@/app/models/Booking";
 import { Service } from "@/app/models/Service";
 import { log } from "console";
+import { sendBookingConfirmedEmailToClient } from "@/lib/bookingConfirmationEmail";
 
 // ─── Helper ───────────────────────────────────────────────────────────────────
 // Fields that should be SYNCED to every co-technician document that shares
@@ -140,6 +141,7 @@ export async function PATCH(
         if (!booking) {
             return NextResponse.json({ error: "Booking not found" }, { status: 404 });
         }
+        const previousStatus = String((booking as any).status || "");
 
         // ── 2. Apply shared + personal fields to THIS document ──
         [...SHARED_FIELDS, ...PERSONAL_FIELDS].forEach((field) => {
@@ -252,6 +254,19 @@ export async function PATCH(
         }
 
         const refreshedBooking = await Booking.findOne({ _id: booking._id, companyId: user.companyId });
+
+        const nextStatusFromBody =
+            typeof body?.status === "string" ? body.status : undefined;
+        const didTransitionToConfirmed =
+            previousStatus === "unconfirmed" && nextStatusFromBody === "confirmed";
+
+        if (didTransitionToConfirmed) {
+            // Best-effort transactional send: status update should not fail on mail issues.
+            sendBookingConfirmedEmailToClient(String(booking._id)).catch((err) => {
+                console.error("[Booking PATCH] Confirmation email failed:", err);
+            });
+        }
+
         return NextResponse.json(refreshedBooking);
     } catch (error: any) {
         console.error("Error updating booking:", error);

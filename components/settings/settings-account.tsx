@@ -30,6 +30,34 @@ type MeUser = {
   avatarUrl?: string;
 };
 
+function normalizeCountryCode(rawCountry?: string): string {
+  const value = (rawCountry ?? "").trim();
+  if (!value) return "";
+
+  const countries = Country.getAllCountries();
+  const match = countries.find(
+    (country) =>
+      country.isoCode.toLowerCase() === value.toLowerCase() ||
+      country.name.toLowerCase() === value.toLowerCase()
+  );
+
+  return match?.isoCode ?? "";
+}
+
+function normalizeStateCode(rawState: string | undefined, countryCode: string): string {
+  const value = (rawState ?? "").trim();
+  if (!value || !countryCode) return "";
+
+  const states = State.getStatesOfCountry(countryCode);
+  const match = states.find(
+    (state) =>
+      state.isoCode.toLowerCase() === value.toLowerCase() ||
+      state.name.toLowerCase() === value.toLowerCase()
+  );
+
+  return match?.isoCode ?? "";
+}
+
 export function SettingsAccount() {
   const { mutate } = useSWRConfig();
   const [loading, setLoading] = useState(true);
@@ -41,6 +69,14 @@ export function SettingsAccount() {
   const [stateId, setStateId] = useState<string>("");
   const [cityId, setCityId] = useState<string>("");
   const [errors, setErrors] = useState<Record<string, string | undefined>>({});
+
+  const hydrateLocationFromUser = (nextUser?: MeUser | null) => {
+    const normalizedCountry = normalizeCountryCode(nextUser?.countryId);
+    const normalizedState = normalizeStateCode(nextUser?.stateId, normalizedCountry);
+    setCountryId(normalizedCountry);
+    setStateId(normalizedState);
+    setCityId(nextUser?.cityId || "");
+  };
 
   const clearError = (key: string) => {
     setErrors((prev) => (prev[key] ? { ...prev, [key]: undefined } : prev));
@@ -81,9 +117,7 @@ export function SettingsAccount() {
         const data = await res.json();
         setUser(data.user);
         setAvatarUrl(data.user?.avatarUrl || "");
-        setCountryId(data.user?.countryId || "");
-        setStateId(data.user?.stateId || "");
-        setCityId(data.user?.cityId || "");
+        hydrateLocationFromUser(data.user);
       } finally {
         setLoading(false);
       }
@@ -163,9 +197,7 @@ export function SettingsAccount() {
         const meData = await meRes.json();
         setUser(meData.user);
         setAvatarUrl(meData.user?.avatarUrl || "");
-        setCountryId(meData.user?.countryId || "");
-        setStateId(meData.user?.stateId || "");
-        setCityId(meData.user?.cityId || "");
+        hydrateLocationFromUser(meData.user);
       }
     } finally {
       setSaving(false);

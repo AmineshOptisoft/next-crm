@@ -176,14 +176,14 @@ export default function AppointmentsPage() {
             >
               My Bookings
             </Button>
-          {/* <Button
+          <Button
             size="lg"
             variant="outline"
             onClick={handleSendEmails}
             disabled={sending}
             >
             {sending ? "Sending emails..." : "Send Today's Emails"}
-          </Button> */}
+          </Button>
             </div>
         </div>
         <div className="flex-1">

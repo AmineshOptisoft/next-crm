@@ -912,7 +912,16 @@ export default function ServicesPage() {
                                                 <TableCell className="font-medium">
                                                     <div className="flex items-center gap-2">
                                                         <div className="w-2 h-2 rounded-full bg-blue-500" />
-                                                        {mainService.logo && <img src={mainService.logo} alt="" className="h-6 w-6 object-cover rounded" />}
+                                                        {mainService.logo && (
+                                                            <img
+                                                                src={mainService.logo}
+                                                                alt=""
+                                                                className="h-6 w-6 object-cover rounded"
+                                                                onError={(e) => {
+                                                                    e.currentTarget.style.display = "none";
+                                                                }}
+                                                            />
+                                                        )}
                                                         <span>{mainService.name}</span>
                                                     </div>
                                                 </TableCell>
@@ -961,7 +970,16 @@ export default function ServicesPage() {
                                                     <TableCell className="font-medium">
                                                         <div className="flex items-center gap-2 pl-6">
                                                             <div className="w-2 h-2 rounded-full bg-orange-400" />
-                                                            {child.logo && <img src={child.logo} alt="" className="h-6 w-6 object-cover rounded" />}
+                                                            {child.logo && (
+                                                                <img
+                                                                    src={child.logo}
+                                                                    alt=""
+                                                                    className="h-6 w-6 object-cover rounded"
+                                                                    onError={(e) => {
+                                                                        e.currentTarget.style.display = "none";
+                                                                    }}
+                                                                />
+                                                            )}
                                                             <span>{child.name}</span>
                                                         </div>
                                                     </TableCell>

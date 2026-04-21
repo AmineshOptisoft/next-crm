@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
 import { Booking } from "@/app/models/Booking";
 import EmailActivity from "@/app/models/EmailActivity";
+import { sendBookingConfirmedEmailToClient } from "@/lib/bookingConfirmationEmail";
 
 // POST - Confirm a booking
 export async function POST(request: NextRequest) {
@@ -42,6 +43,7 @@ export async function POST(request: NextRequest) {
       };
     }
 
+    const previousStatus = String(primaryBooking.status || "");
     await Booking.updateMany(updateFilter, { status: "confirmed" });
 
     const booking = primaryBooking;
@@ -61,6 +63,12 @@ export async function POST(request: NextRequest) {
         { new: true }
       );
       console.log("Email activity updated for confirm action");
+    }
+
+    if (previousStatus === "unconfirmed") {
+      sendBookingConfirmedEmailToClient(String(primaryBooking._id)).catch((err) => {
+        console.error("[Booking Confirm POST] Confirmation email failed:", err);
+      });
     }
 
     return NextResponse.json({
@@ -158,6 +166,7 @@ export async function GET(request: NextRequest) {
       };
     }
 
+    const previousStatus = String(primaryBooking.status || "");
     await Booking.updateMany(updateFilter, { status: "confirmed" });
 
     const booking = primaryBooking;
@@ -177,6 +186,12 @@ export async function GET(request: NextRequest) {
         { new: true }
       );
       console.log("Email activity updated for confirm action");
+    }
+
+    if (previousStatus === "unconfirmed") {
+      sendBookingConfirmedEmailToClient(String(primaryBooking._id)).catch((err) => {
+        console.error("[Booking Confirm GET] Confirmation email failed:", err);
+      });
     }
 
     // Return a simple HTML response for email links

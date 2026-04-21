@@ -344,7 +344,9 @@ export default function EmailBuilderListPage() {
             <Dialog open={isTemplateDialogOpen} onOpenChange={setIsTemplateDialogOpen}>
                 <DialogContent className="sm:max-w-[650px] p-0 overflow-hidden border-none rounded-[20px] shadow-xl bg-background dark:bg-zinc-900">
                     <div className="bg-muted px-4 sm:px-6 py-4 flex items-center justify-between">
-                        <h2 className="text-xl font-bold text-foreground tracking-tight">Choose your templates</h2>
+                        <DialogTitle className="text-xl font-bold text-foreground tracking-tight">
+                            Choose your templates
+                        </DialogTitle>
                     </div>
 
                     <div className="flex-1 overflow-y-auto px-4 sm:px-8 py-4 flex flex-col max-h-[80vh] space-y-1">

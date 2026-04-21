@@ -328,15 +328,15 @@ export function CompanyServiceAreas() {
                         </div>
 
                         <div className="p-6 border-t bg-muted/10 mt-auto">
-                            <SheetFooter className="flex-col sm:flex-row gap-3 sm:space-x-0">
+                            <SheetFooter className="flex-col sm:flex-row justify-end gap-3 sm:space-x-0">
                                 <Button
                                     variant="outline"
                                     onClick={() => setIsSheetOpen(false)}
-                                    className="w-full sm:w-1/2"
+                                    className="w-full sm:w-auto"
                                 >
                                     Cancel
                                 </Button>
-                                <Button onClick={handleSubmit} className="w-full sm:w-1/2">
+                                <Button onClick={handleSubmit} className="w-full sm:w-auto">
                                     {editingArea ? "Update" : "Add"} Service Area
                                 </Button>
                             </SheetFooter>

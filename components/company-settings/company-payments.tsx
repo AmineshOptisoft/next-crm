@@ -481,7 +481,7 @@ export function CompanyPayments() {
                     </div>
                 </div>
 
-                <div className="flex justify-end pt-6 sticky bottom-0 bg-background/95 backdrop-blur py-4 border-t mt-4">
+                <div className="flex justify-end pt-6 sticky bottom-0 backdrop-blur py-4 mt-4">
                     <Button onClick={savePaymentSettings} size="lg" className="shadow-lg">
                         <Save className="mr-2 h-4 w-4" />
                         Save Payment Configuration
