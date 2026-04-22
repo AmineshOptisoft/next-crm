@@ -57,6 +57,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { cn, normalizeAvatarUrl } from "@/lib/utils";
+import { useSearchParams } from "next/navigation";
 
 type ClientBooking = {
   _id: string;
@@ -429,6 +430,9 @@ const ProfileImageUploader = memo(function ProfileImageUploader({
 });
 
 export default function ClientBookingsPage() {
+  const searchParams = useSearchParams();
+  const deepLinkReviewBookingId = (searchParams.get("reviewBookingId") || "").trim();
+  const autoReviewHandledRef = useRef(false);
   const [activeTab, setActiveTab] = useState<"upcoming" | "previous">("upcoming");
   const [dashboardTab, setDashboardTab] = useState<"booking" | "payment" | "invoices" | "profile">("booking");
   const [page, setPage] = useState(1);
@@ -515,6 +519,10 @@ export default function ClientBookingsPage() {
       page: String(page),
       limit: "10",
     });
+    if (deepLinkReviewBookingId) {
+      params.set("reviewBookingId", deepLinkReviewBookingId);
+      params.set("page", "1");
+    }
     if (appliedRange?.from) {
       const start = new Date(appliedRange.from);
       start.setHours(0, 0, 0, 0);
@@ -526,7 +534,7 @@ export default function ClientBookingsPage() {
       params.set("endDate", end.toISOString());
     }
     return `/api/client/bookings?${params.toString()}`;
-  }, [activeTab, page, appliedRange]);
+  }, [activeTab, page, appliedRange, deepLinkReviewBookingId]);
 
   const reviewerName = useMemo(() => {
     const fullName = [meData?.user?.firstName, meData?.user?.lastName]
@@ -551,7 +559,11 @@ export default function ClientBookingsPage() {
     return ids;
   }, [myReviewsData]);
 
-  const { data: bookingsData, isLoading: bookingsLoading } = useSWR<BookingsResponse>(
+  const {
+    data: bookingsData,
+    isLoading: bookingsLoading,
+    isValidating: bookingsValidating,
+  } = useSWR<BookingsResponse>(
     bookingsQuery,
     fetcher,
     {
@@ -559,6 +571,17 @@ export default function ClientBookingsPage() {
       keepPreviousData: true,
     }
   );
+
+  useEffect(() => {
+    // New deep-link id should get a fresh handling attempt.
+    autoReviewHandledRef.current = false;
+  }, [deepLinkReviewBookingId]);
+
+  useEffect(() => {
+    if (!deepLinkReviewBookingId || autoReviewHandledRef.current) return;
+    setDashboardTab("booking");
+    setPage(1);
+  }, [deepLinkReviewBookingId]);
 
   useEffect(() => {
     if (!bookingsData) return;
@@ -582,6 +605,65 @@ export default function ClientBookingsPage() {
       setDisplayTotalPages(1);
     }
   }, [bookingsData, page]);
+
+  useEffect(() => {
+    if (!deepLinkReviewBookingId || autoReviewHandledRef.current) return;
+    if (!bookingsData || bookingsLoading || bookingsValidating) return;
+
+    const bookingsError = (bookingsData as any)?.error;
+    if (typeof bookingsError === "string" && bookingsError.trim()) {
+      autoReviewHandledRef.current = true;
+      if (/forbidden|unauthorized/i.test(bookingsError)) {
+        toast.error("Open this review link while logged in as the client account.");
+      } else {
+        toast.error(bookingsError);
+      }
+      return;
+    }
+
+    const candidates = Array.isArray(bookingsData.bookings)
+      ? bookingsData.bookings
+      : displayBookings;
+    const targetBooking = candidates.find(
+      (b) => String(b._id) === deepLinkReviewBookingId
+    );
+
+    if (targetBooking) {
+      autoReviewHandledRef.current = true;
+
+      if (reviewedBookingIds.has(targetBooking._id)) {
+        toast.info("You already submitted a review for this booking.");
+        return;
+      }
+
+      if (targetBooking.status !== "completed") {
+        toast.info("This booking is not completed yet, so review is unavailable.");
+        return;
+      }
+
+      if (!targetBooking.technicianId) {
+        toast.error("Unable to open review form for this booking.");
+        return;
+      }
+
+      setSelectedFeedbackBooking(targetBooking);
+      setFeedbackSheetOpen(true);
+      return;
+    }
+
+    // Stop retrying when deep-link booking wasn't returned by API.
+    if (!bookingsLoading && !bookingsValidating) {
+      autoReviewHandledRef.current = true;
+      toast.error("Could not find the booking for this review link.");
+    }
+  }, [
+    deepLinkReviewBookingId,
+    bookingsData,
+    displayBookings,
+    reviewedBookingIds,
+    bookingsLoading,
+    bookingsValidating,
+  ]);
 
   useEffect(() => {
     if (dashboardTab !== "booking") return;

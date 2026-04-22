@@ -80,7 +80,11 @@ export function personalizeEmail(html: string, user: any, bookingData?: any): st
     .replace(/\{\{\s*email\s*\}\}/gi, user.email || "")
     .replace(/\{\{\s*phone\s*\}\}/gi, user.phoneNumber || "")
     .replace(/\{\{\s*company\s*\}\}/gi, user.companyName || "")
-    .replace(/\{\{\s*service_name\s*\}\}/gi, user.serviceName || "")
+    .replace(
+      /\{\{\s*service_name\s*\}\}/gi,
+      user.serviceName || bookingData?.service_name || ""
+    )
+    .replace(/\{\{\s*company_logo\s*\}\}/gi, bookingData?.company_logo || "")
     .replace(/\{\{\s*price\s*\}\}/gi, user.price || "")
     .replace(/\{\{\s*units\s*\}\}/gi, user.units || "")
     // Booking-specific URLs with parameters
@@ -92,6 +96,25 @@ export function personalizeEmail(html: string, user: any, bookingData?: any): st
     // Verification links (support both old and new placeholders)
     .replace(/\{\{\s*VERIFICATION_LINK\s*\}\}/gi, verifyUrl)
     .replace(/\{\{\s*verify_url\s*\}\}/gi, verifyUrl);
+
+  // Minimal Handlebars-like support for {{#if key}}...{{/if}} blocks.
+  // Useful for templates imported from email builders that include conditional sections.
+  if (bookingData) {
+    result = result.replace(
+      /\{\{\s*#if\s+([a-zA-Z0-9_]+)\s*\}\}([\s\S]*?)\{\{\s*\/if\s*\}\}/gi,
+      (_match, key: string, inner: string) => {
+        const raw = (bookingData as any)?.[key];
+        const truthy =
+          raw === true ||
+          raw === 1 ||
+          (typeof raw === "string" &&
+            raw.trim() !== "" &&
+            raw.toLowerCase() !== "false" &&
+            raw !== "0");
+        return truthy ? inner : "";
+      }
+    );
+  }
 
 
   // Map common bookingData aliases to template placeholders (e.g. customer_name -> customerName)

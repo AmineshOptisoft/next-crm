@@ -114,7 +114,16 @@ export async function sendTransactionalEmail(
   templateIdOrName: string,
   to: string,
   data: any, // Contains bookingId, user details, etc.
-  companyId: string
+  companyId: string,
+  options?: {
+    attachments?: Array<{
+      filename?: string;
+      content?: string | Buffer;
+      contentType?: string;
+      encoding?: string;
+      cid?: string;
+    }>;
+  }
 ) {
   try {
     await connectDB();
@@ -170,6 +179,7 @@ export async function sendTransactionalEmail(
       to,
       subject: personalizeEmail(subject, recipientUser || { email: to, ...data }, data), // Also personalize subject
       html: personalizedHtml,
+      attachments: options?.attachments,
     });
 
     console.log(`[Transactional Mail] Sent ${templateIdOrName} to ${to}`);

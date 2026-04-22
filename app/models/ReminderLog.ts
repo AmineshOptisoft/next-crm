@@ -3,6 +3,7 @@ import mongoose, { Schema, Document } from 'mongoose';
 export interface IReminderLog extends Document {
     campaignId: mongoose.Types.ObjectId;
     contactId: mongoose.Types.ObjectId;
+    bookingId?: mongoose.Types.ObjectId;
     reminderLabel: string;
     sentAt: Date;
     status: 'sent' | 'failed';
@@ -13,6 +14,7 @@ export interface IReminderLog extends Document {
 const ReminderLogSchema = new Schema<IReminderLog>({
     campaignId: { type: Schema.Types.ObjectId, ref: 'EmailCampaign', required: true },
     contactId: { type: Schema.Types.ObjectId, ref: 'Contact', required: true },
+    bookingId: { type: Schema.Types.ObjectId, ref: 'Booking' },
     reminderLabel: { type: String, required: true },
     sentAt: { type: Date, default: Date.now },
     status: { type: String, enum: ['sent', 'failed'], required: true },
@@ -22,6 +24,7 @@ const ReminderLogSchema = new Schema<IReminderLog>({
 
 // Index for efficient querying
 ReminderLogSchema.index({ campaignId: 1, contactId: 1, reminderLabel: 1 });
+ReminderLogSchema.index({ campaignId: 1, bookingId: 1, contactId: 1, reminderLabel: 1 });
 
 const ReminderLog = mongoose.models.ReminderLog || mongoose.model<IReminderLog>('ReminderLog', ReminderLogSchema);
 export default ReminderLog;

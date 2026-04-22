@@ -20,6 +20,7 @@ export async function GET(req: NextRequest) {
     const pageRaw = Number(sp.get("page") || "1");
     const limitRaw = Number(sp.get("limit") || "10");
     const bookingType = (sp.get("bookingType") || "upcoming").toLowerCase();
+    const reviewBookingId = (sp.get("reviewBookingId") || "").trim();
     const query = (sp.get("query") || "").trim();
     const startDateRaw = sp.get("startDate");
     const endDateRaw = sp.get("endDate");
@@ -32,28 +33,33 @@ export async function GET(req: NextRequest) {
       contactId: user.userId,
     };
 
-    const hasCustomDateRange = Boolean(startDateRaw || endDateRaw);
-    if (hasCustomDateRange) {
-      const range: Record<string, Date> = {};
-      if (startDateRaw) {
-        const parsedStart = new Date(startDateRaw);
-        if (!Number.isNaN(parsedStart.getTime())) {
-          range.$gte = parsedStart;
-        }
-      }
-      if (endDateRaw) {
-        const parsedEnd = new Date(endDateRaw);
-        if (!Number.isNaN(parsedEnd.getTime())) {
-          range.$lte = parsedEnd;
-        }
-      }
-      if (Object.keys(range).length > 0) {
-        baseFilter.startDateTime = range;
-      }
-    } else if (bookingType === "previous") {
-      baseFilter.startDateTime = { $lt: now };
+    const hasReviewBookingId = reviewBookingId.length > 0;
+    if (hasReviewBookingId) {
+      baseFilter._id = reviewBookingId;
     } else {
-      baseFilter.startDateTime = { $gte: now };
+      const hasCustomDateRange = Boolean(startDateRaw || endDateRaw);
+      if (hasCustomDateRange) {
+        const range: Record<string, Date> = {};
+        if (startDateRaw) {
+          const parsedStart = new Date(startDateRaw);
+          if (!Number.isNaN(parsedStart.getTime())) {
+            range.$gte = parsedStart;
+          }
+        }
+        if (endDateRaw) {
+          const parsedEnd = new Date(endDateRaw);
+          if (!Number.isNaN(parsedEnd.getTime())) {
+            range.$lte = parsedEnd;
+          }
+        }
+        if (Object.keys(range).length > 0) {
+          baseFilter.startDateTime = range;
+        }
+      } else if (bookingType === "previous") {
+        baseFilter.startDateTime = { $lt: now };
+      } else {
+        baseFilter.startDateTime = { $gte: now };
+      }
     }
 
     if (query) {

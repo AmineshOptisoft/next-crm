@@ -4,6 +4,13 @@ import { Booking } from "@/app/models/Booking";
 import EmailActivity from "@/app/models/EmailActivity";
 import { sendBookingConfirmedEmailToClient } from "@/lib/bookingConfirmationEmail";
 
+function getRequestBaseUrl(req: NextRequest) {
+  const proto = req.headers.get("x-forwarded-proto") || "http";
+  const host = req.headers.get("x-forwarded-host") || req.headers.get("host") || "";
+  if (!host) return undefined;
+  return `${proto}://${host}`;
+}
+
 // POST - Confirm a booking
 export async function POST(request: NextRequest) {
   try {
@@ -66,7 +73,9 @@ export async function POST(request: NextRequest) {
     }
 
     if (previousStatus === "unconfirmed") {
-      sendBookingConfirmedEmailToClient(String(primaryBooking._id)).catch((err) => {
+      sendBookingConfirmedEmailToClient(String(primaryBooking._id), {
+        baseUrl: getRequestBaseUrl(request),
+      }).catch((err) => {
         console.error("[Booking Confirm POST] Confirmation email failed:", err);
       });
     }
@@ -189,7 +198,9 @@ export async function GET(request: NextRequest) {
     }
 
     if (previousStatus === "unconfirmed") {
-      sendBookingConfirmedEmailToClient(String(primaryBooking._id)).catch((err) => {
+      sendBookingConfirmedEmailToClient(String(primaryBooking._id), {
+        baseUrl: getRequestBaseUrl(request),
+      }).catch((err) => {
         console.error("[Booking Confirm GET] Confirmation email failed:", err);
       });
     }

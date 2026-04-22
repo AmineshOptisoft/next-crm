@@ -4,7 +4,18 @@ import { connectDB } from "@/lib/db";
 import { Booking } from "@/app/models/Booking";
 import { Service } from "@/app/models/Service";
 import { log } from "console";
-import { sendBookingConfirmedEmailToClient } from "@/lib/bookingConfirmationEmail";
+import {
+    sendBookingCancellationEmailToClient,
+    sendBookingCompletionThenReviewEmailsToClient,
+    sendBookingConfirmedEmailToClient,
+} from "@/lib/bookingConfirmationEmail";
+
+function getRequestBaseUrl(req: NextRequest) {
+    const proto = req.headers.get("x-forwarded-proto") || "http";
+    const host = req.headers.get("x-forwarded-host") || req.headers.get("host") || "";
+    if (!host) return undefined;
+    return `${proto}://${host}`;
+}
 
 // ─── Helper ───────────────────────────────────────────────────────────────────
 // Fields that should be SYNCED to every co-technician document that shares
@@ -259,11 +270,35 @@ export async function PATCH(
             typeof body?.status === "string" ? body.status : undefined;
         const didTransitionToConfirmed =
             previousStatus === "unconfirmed" && nextStatusFromBody === "confirmed";
+        const didTransitionToCancelledOrRejected =
+            (previousStatus === "unconfirmed" || previousStatus === "confirmed") &&
+            (nextStatusFromBody === "cancelled" || nextStatusFromBody === "rejected");
+        const didTransitionToCompleted =
+            nextStatusFromBody === "completed" && previousStatus !== "completed";
 
         if (didTransitionToConfirmed) {
             // Best-effort transactional send: status update should not fail on mail issues.
-            sendBookingConfirmedEmailToClient(String(booking._id)).catch((err) => {
+            sendBookingConfirmedEmailToClient(String(booking._id), {
+                baseUrl: getRequestBaseUrl(req),
+            }).catch((err) => {
                 console.error("[Booking PATCH] Confirmation email failed:", err);
+            });
+        }
+
+        if (didTransitionToCancelledOrRejected) {
+            sendBookingCancellationEmailToClient(String(booking._id), {
+                baseUrl: getRequestBaseUrl(req),
+                status: nextStatusFromBody as "cancelled" | "rejected",
+            }).catch((err) => {
+                console.error("[Booking PATCH] Cancellation email failed:", err);
+            });
+        }
+
+        if (didTransitionToCompleted) {
+            sendBookingCompletionThenReviewEmailsToClient(String(booking._id), {
+                baseUrl: getRequestBaseUrl(req),
+            }).catch((err) => {
+                console.error("[Booking PATCH] Completion/review emails failed:", err);
             });
         }
 

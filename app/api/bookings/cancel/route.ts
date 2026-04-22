@@ -2,6 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
 import { Booking } from "@/app/models/Booking";
 import EmailActivity from "@/app/models/EmailActivity";
+import { sendBookingCancellationEmailToClient } from "@/lib/bookingConfirmationEmail";
+
+function getRequestBaseUrl(req: NextRequest) {
+  const proto = req.headers.get("x-forwarded-proto") || "http";
+  const host = req.headers.get("x-forwarded-host") || req.headers.get("host") || "";
+  if (!host) return undefined;
+  return `${proto}://${host}`;
+}
 
 // POST - Cancel a booking
 export async function POST(request: NextRequest) {
@@ -42,6 +50,7 @@ export async function POST(request: NextRequest) {
       };
     }
 
+    const previousStatus = String(primaryBooking.status || "");
     await Booking.updateMany(updateFilter, { status: "cancelled" });
 
     const booking = primaryBooking;
@@ -61,6 +70,17 @@ export async function POST(request: NextRequest) {
         { new: true }
       );
       console.log("Email activity updated for cancel action");
+    }
+
+    const shouldSendCancellationEmail =
+      previousStatus === "unconfirmed" || previousStatus === "confirmed";
+    if (shouldSendCancellationEmail) {
+      sendBookingCancellationEmailToClient(String(primaryBooking._id), {
+        baseUrl: getRequestBaseUrl(request),
+        status: "cancelled",
+      }).catch((err) => {
+        console.error("[Booking Cancel POST] Cancellation email failed:", err);
+      });
     }
 
     return NextResponse.json({
@@ -158,6 +178,7 @@ export async function GET(request: NextRequest) {
       };
     }
 
+    const previousStatus = String(primaryBooking.status || "");
     await Booking.updateMany(updateFilter, { status: "cancelled" });
 
     const booking = primaryBooking;
@@ -177,6 +198,17 @@ export async function GET(request: NextRequest) {
         { new: true }
       );
       console.log("Email activity updated for cancel action");
+    }
+
+    const shouldSendCancellationEmail =
+      previousStatus === "unconfirmed" || previousStatus === "confirmed";
+    if (shouldSendCancellationEmail) {
+      sendBookingCancellationEmailToClient(String(primaryBooking._id), {
+        baseUrl: getRequestBaseUrl(request),
+        status: "cancelled",
+      }).catch((err) => {
+        console.error("[Booking Cancel GET] Cancellation email failed:", err);
+      });
     }
 
     // Return a simple HTML response for email links
