@@ -3117,7 +3117,7 @@
                     "deletable": true,
                     "hideable": true,
                     "locked": false,
-                    "text": "<p style=\"line-height: 140%;\">Dear {{firstname}} {{lastname}},<br><br>This is a friendly reminder about the service you have booked with us. Your scheduled service is coming up soon, and we look forward to assisting you as planned. Please ensure you are available at the selected time and keep any required details or documents ready. If you need to reschedule or have any questions, feel free to contact us in advance.<br><br><br><a rel=\"noopener\" href=\"http://CRMcleaning.com\" target=\"_blank\" data-u-link-value=\"eyJuYW1lIjoid2ViIiwiYXR0cnMiOnsiaHJlZiI6Int7aHJlZn19IiwidGFyZ2V0Ijoie3t0YXJnZXR9fSJ9LCJ2YWx1ZXMiOnsiaHJlZiI6Imh0dHA6Ly9ncmVlbmZyb2djbGVhbmluZy5jb20iLCJ0YXJnZXQiOiJfYmxhbmsifX0=\"></a></p>"
+                    "text": "<p style=\"line-height: 140%;\">Dear {{firstname}} {{lastname}},<br><br>This is a friendly reminder about the service you have booked with us. Your scheduled service is coming up soon, and we look forward to assisting you as planned. Please ensure you are available at the selected time and keep any required details or documents ready. If you need to reschedule or have any questions, feel free to contact us in advance.<br><br>Reschedule link: <a rel=\"noopener\" href=\"{{reschedule_link}}\" target=\"_blank\">Reschedule your booking</a>.<br><br><a rel=\"noopener\" href=\"http://CRMcleaning.com\" target=\"_blank\" data-u-link-value=\"eyJuYW1lIjoid2ViIiwiYXR0cnMiOnsiaHJlZiI6Int7aHJlZn19IiwidGFyZ2V0Ijoie3t0YXJnZXR9fSJ9LCJ2YWx1ZXMiOnsiaHJlZiI6Imh0dHA6Ly9ncmVlbmZyb2djbGVhbmluZy5jb20iLCJ0YXJnZXQiOiJfYmxhbmsifX0=\"></a></p>"
                   }
                 }
               ],

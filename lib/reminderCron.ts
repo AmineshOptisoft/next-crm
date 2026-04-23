@@ -3,6 +3,7 @@ import { connectDB } from "@/lib/db";
 import EmailCampaign from "@/app/models/EmailCampaign";
 import ReminderLog from "@/app/models/ReminderLog";
 import { Booking } from "@/app/models/Booking";
+import { Company } from "@/app/models/Company";
 import { personalizeEmail } from "@/lib/mail";
 
 type ReminderUnit = "Minutes" | "Hours" | "Days";
@@ -19,9 +20,15 @@ function reminderToMs(unit: ReminderUnit, value: number) {
     return value * 24 * 60 * 60 * 1000;
 }
 
-function formatBookingDateTime(value?: Date | string | null) {
+function toZonedDate(value: Date | string, timeZone: string) {
+    const source = value instanceof Date ? value : new Date(value);
+    // Convert to the company's wall-clock time by formatting in tz and parsing back.
+    return new Date(source.toLocaleString("en-US", { timeZone }));
+}
+
+function formatBookingDateTime(value?: Date | string | null, timeZone?: string) {
     if (!value) return "";
-    const d = new Date(value);
+    const d = timeZone ? toZonedDate(value, timeZone) : new Date(value);
     if (Number.isNaN(d.getTime())) return "";
     return d.toLocaleString("en-US", {
         year: "numeric",
@@ -30,6 +37,28 @@ function formatBookingDateTime(value?: Date | string | null) {
         hour: "2-digit",
         minute: "2-digit",
     });
+}
+
+function injectRescheduleLinkPlaceholder(html: string) {
+    const placeholder = "{{reschedule_link}}";
+    if (!html) return html;
+    if (html.includes(placeholder)) return html;
+
+    const sentence =
+        "If you need to reschedule or have any questions, feel free to contact us in advance.";
+    const cta =
+        `${sentence}<br><br>Reschedule link: <a rel="noopener" href="${placeholder}" target="_blank">Reschedule your booking</a>.`;
+
+    if (html.includes(sentence)) {
+        return html.replace(sentence, cta);
+    }
+
+    // Fallback: append CTA near the end so legacy templates still expose the link.
+    const fallbackCta = `<p style="line-height: 140%;">Reschedule link: <a rel="noopener" href="${placeholder}" target="_blank">Reschedule your booking</a>.</p>`;
+    if (html.includes("</body>")) {
+        return html.replace("</body>", `${fallbackCta}</body>`);
+    }
+    return `${html}${fallbackCta}`;
 }
 
 function buildBookingKey(booking: any) {
@@ -60,6 +89,16 @@ async function processReminders() {
 
         for (const campaign of campaigns) {
             try {
+                // Ensure referenced models are registered before populate("contactId"/"serviceId").
+                await import("@/app/models/User");
+                await import("@/app/models/Service");
+
+                const company = await Company.findById(campaign.companyId)
+                    .select("settings.timezone")
+                    .lean();
+                const companyTimeZone =
+                    (company as any)?.settings?.timezone || "UTC";
+
                 const enabledReminders = (campaign.reminders || []).filter(
                     (r: any) => r?.enabled
                 );
@@ -114,11 +153,19 @@ async function processReminders() {
                         const triggerAt = new Date(
                             new Date(booking.startDateTime).getTime() - offsetMs
                         );
+                        const zonedNow = toZonedDate(now, companyTimeZone);
+                        const zonedBookingStart = toZonedDate(
+                            new Date(booking.startDateTime),
+                            companyTimeZone
+                        );
+                        const zonedTriggerAt = new Date(
+                            zonedBookingStart.getTime() - offsetMs
+                        );
                         // Due if trigger time has passed (and booking hasn't started yet).
                         // This avoids missing reminders when the server restarts or cron ticks drift.
                         const dueNow =
-                            now.getTime() >= triggerAt.getTime() &&
-                            now.getTime() < new Date(booking.startDateTime).getTime();
+                            zonedNow.getTime() >= zonedTriggerAt.getTime() &&
+                            zonedNow.getTime() < zonedBookingStart.getTime();
                         if (!dueNow) continue;
 
                         const alreadySent = await ReminderLog.findOne({
@@ -139,7 +186,10 @@ async function processReminders() {
                             bookingId: String(booking._id),
                             campaignId: String(campaign._id),
                             booking_reference: booking.orderId || "",
-                            booking_date: formatBookingDateTime(booking.startDateTime),
+                            booking_date: formatBookingDateTime(
+                                booking.startDateTime,
+                                companyTimeZone
+                            ),
                             booking_status: booking.status || "",
                             service_name: (booking.serviceId as any)?.name || "Service",
                             technician_name: technicianName,
@@ -157,8 +207,11 @@ async function processReminders() {
                             contact,
                             personalizationData
                         );
+                        const reminderHtmlWithRescheduleSeed = injectRescheduleLinkPlaceholder(
+                            campaign.html || ""
+                        );
                         const html = personalizeEmail(
-                            campaign.html || "",
+                            reminderHtmlWithRescheduleSeed,
                             contact,
                             personalizationData
                         );
@@ -183,7 +236,7 @@ async function processReminders() {
                             console.log(
                                 `[Reminder Cron] SENT campaign=${campaign.name} booking=${String(
                                     booking._id
-                                )} contact=${contact.email} reminder=${reminder.label}`
+                                )} contact=${contact.email} reminder=${reminder.label} tz=${companyTimeZone} trigger=${zonedTriggerAt.toISOString()}`
                             );
                         } catch (error: any) {
                             await ReminderLog.create({

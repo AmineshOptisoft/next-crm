@@ -58,6 +58,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { cn, normalizeAvatarUrl } from "@/lib/utils";
 import { useSearchParams } from "next/navigation";
+import Link from "next/link";
 
 type ClientBooking = {
   _id: string;
@@ -2080,6 +2081,11 @@ export default function ClientBookingsPage() {
                     const statusClass =
                       statusClassMap[booking.status] ||
                       "bg-muted text-muted-foreground border-border";
+                    const canReschedule =
+                      booking.bookingType === "upcoming" &&
+                      !["cancelled", "rejected", "deleted", "completed", "no_show"].includes(
+                        String(booking.status || "").toLowerCase()
+                      );
 
                     return (
                       <Card key={booking._id} className="overflow-hidden relative">
@@ -2104,6 +2110,13 @@ export default function ClientBookingsPage() {
                                   >
                                     <ReceiptText className="h-4 w-4" />
                                     Invoice
+                                  </Button>
+                                )}
+                                {canReschedule && (
+                                  <Button asChild type="button" variant="outline" size="sm">
+                                    <Link href={`/dashboard/client-bookings/${booking._id}/reschedule`}>
+                                      Reschedule
+                                    </Link>
                                   </Button>
                                 )}
                                 {booking.status === "completed" &&

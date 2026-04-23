@@ -134,6 +134,9 @@ export async function sendBookingConfirmedEmailToClient(
         "[Booking Confirmed Email] company_logo resolves to localhost. External mail clients cannot load this URL."
       );
     }
+    const rescheduleLink = `${baseUrl}/dashboard/client-bookings/${encodeURIComponent(
+      String(booking._id)
+    )}/reschedule`;
     console.log("[Booking Confirmed Email] Logo debug:", {
       bookingId,
       companyId,
@@ -164,6 +167,8 @@ export async function sendBookingConfirmedEmailToClient(
       booking_reference: booking.orderId || "",
       bookingId: String(booking._id),
       booking_status: booking.status || "",
+      reschedule_link: rescheduleLink,
+      rescheduleLink,
     };
 
     const result = await sendTransactionalEmail(
