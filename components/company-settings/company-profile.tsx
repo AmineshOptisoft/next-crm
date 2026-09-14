@@ -36,7 +36,7 @@ export function CompanyProfile({ formData, setFormData, saving, handleSubmit, in
         (industry) => industry._id === rawIndustry || industry.name === rawIndustry
     );
     const industrySelectValue = matchedIndustry?.name || (rawIndustry ? rawIndustry : "none");
-
+    console.log("matchedIndustry", formData);
     const clearError = (key: string) => {
         setErrors((prev) => (prev[key] ? { ...prev, [key]: undefined } : prev));
     };
@@ -283,6 +283,7 @@ export function CompanyProfile({ formData, setFormData, saving, handleSubmit, in
         ? [{ name: savedCityRaw, stateCode: stateCode || "" }, ...citiesFromLibrary]
         : citiesFromLibrary;
     const savedCity = savedCityRaw;
+    console.log("industrySelectValue", industrySelectValue);
     return (
         <form onSubmit={onSubmit} noValidate>
             <input type="hidden" name="industry" value={(formData?.industry ?? "").trim()} />
@@ -493,10 +494,10 @@ export function CompanyProfile({ formData, setFormData, saving, handleSubmit, in
                                 id="street"
                                 value={formData.address.street}
                                 onChange={(e) =>
-                                    (setFormData({
-                                        ...formData,
-                                        address: { ...formData.address, street: e.target.value },
-                                    }), clearError("address.street"))
+                                (setFormData({
+                                    ...formData,
+                                    address: { ...formData.address, street: e.target.value },
+                                }), clearError("address.street"))
                                 }
                                 aria-invalid={Boolean(errors["address.street"])}
                                 aria-describedby={errors["address.street"] ? "street-error" : undefined}
@@ -508,30 +509,30 @@ export function CompanyProfile({ formData, setFormData, saving, handleSubmit, in
                             )}
                         </div>
                         <div className="grid gap-4 md:grid-cols-2">
-                           
 
-                        {/* Google Maps Section */}
-                        <div className="space-y-4">
-                            <div className="flex items-center gap-2">
-                                <MapPin className="h-5 w-5 text-primary" />
-                                <h4 className="font-semibold">Location on Map</h4>
-                            </div>
-                            <p className="text-sm text-muted-foreground">
-                                Click on the map to select your company location
-                            </p>
-                            {errors["address.location"] && (
-                                <p className="text-destructive text-sm">
-                                    {errors["address.location"]}
+
+                            {/* Google Maps Section */}
+                            <div className="space-y-4">
+                                <div className="flex items-center gap-2">
+                                    <MapPin className="h-5 w-5 text-primary" />
+                                    <h4 className="font-semibold">Location on Map</h4>
+                                </div>
+                                <p className="text-sm text-muted-foreground">
+                                    Click on the map to select your company location
                                 </p>
-                            )}
-                            <div
-                                ref={mapRef}
-                                className="w-full h-[400px] rounded-lg border-2 border-gray-200"
-                                style={{ minHeight: "400px" }}
-                            />
-                        </div>
+                                {errors["address.location"] && (
+                                    <p className="text-destructive text-sm">
+                                        {errors["address.location"]}
+                                    </p>
+                                )}
+                                <div
+                                    ref={mapRef}
+                                    className="w-full h-[400px] rounded-lg border-2 border-gray-200"
+                                    style={{ minHeight: "400px" }}
+                                />
+                            </div>
 
-                        <div className="space-y-2">
+                            <div className="space-y-2">
                                 <Label htmlFor="country">Country *</Label>
                                 <Select
                                     value={savedCountry}
@@ -618,15 +619,15 @@ export function CompanyProfile({ formData, setFormData, saving, handleSubmit, in
                                     // Normalize value so it matches SelectItem values (DB may contain trailing spaces)
                                     value={savedCity}
                                     onValueChange={(val) =>
-                                        (setFormData({
-                                            ...formData,
-                                            address: {
-                                                ...formData.address,
-                                                city: val.trim(),
-                                            },
-                                        }), clearError("address.city"))
+                                    (setFormData({
+                                        ...formData,
+                                        address: {
+                                            ...formData.address,
+                                            city: val.trim(),
+                                        },
+                                    }), clearError("address.city"))
                                     }
-                                    // disabled={!stateCode}
+                                // disabled={!stateCode}
                                 >
                                     <SelectTrigger
                                         id="city"
@@ -656,10 +657,10 @@ export function CompanyProfile({ formData, setFormData, saving, handleSubmit, in
                                     id="zipCode"
                                     value={formData.address.zipCode}
                                     onChange={(e) =>
-                                        (setFormData({
-                                            ...formData,
-                                            address: { ...formData.address, zipCode: e.target.value },
-                                        }), clearError("address.zipCode"))
+                                    (setFormData({
+                                        ...formData,
+                                        address: { ...formData.address, zipCode: e.target.value },
+                                    }), clearError("address.zipCode"))
                                     }
                                     aria-invalid={Boolean(errors["address.zipCode"])}
                                     aria-describedby={errors["address.zipCode"] ? "zipCode-error" : undefined}

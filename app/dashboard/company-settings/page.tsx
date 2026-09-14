@@ -206,6 +206,7 @@ interface CompanyProfileProps {
     selectedLogo: File | null;
     setSelectedLogo: (file: File | null) => void;
     isActiveTab: boolean;
+    companyData: any
 }
 
 declare const google: any;
@@ -219,6 +220,7 @@ function CompanyProfile({
     selectedLogo,
     setSelectedLogo,
     isActiveTab,
+    companyData,
 }: CompanyProfileProps) {
     const [errors, setErrors] = useState<Record<string, string | undefined>>({});
     const [locationQuery, setLocationQuery] = useState("");
@@ -610,7 +612,7 @@ function CompanyProfile({
     const savedCountry = (formData?.address?.country ?? "").trim();
     const savedState = (formData?.address?.state ?? "").trim();
     const savedCity = (formData?.address?.city ?? "").trim();
-    const rawIndustry = (formData?.industry ?? "").trim();
+    const rawIndustry = (formData?.industry || companyData?.industry || "").trim();
     const normalizedRawIndustry = rawIndustry.toLowerCase();
     const matchedIndustry = industries.find(
         (industry) =>
@@ -886,208 +888,208 @@ function CompanyProfile({
 
                     <div className="space-y-4">
                         <h3 className="font-semibold">Address</h3>
-                        
-                        <div className="grid gap-4 md:grid-cols-1">
-                            
 
-                        <div className="space-y-4">
-                            <div className="flex items-center gap-2">
-                                <MapPin className="h-5 w-5 text-primary" />
-                                <h4 className="font-semibold">Location on Map</h4>
-                            </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="selectLocation">Select Location *</Label>
+                        <div className="grid gap-4 md:grid-cols-1">
+
+
+                            <div className="space-y-4">
                                 <div className="flex items-center gap-2">
-                                    <Input
-                                        id="selectLocation"
-                                        ref={locationInputRef}
-                                        value={locationQuery}
-                                        onChange={(e) => {
-                                            const value = e.target.value;
-                                            setLocationQuery(value);
-                                            if (value.trim() === "") {
-                                                setIsLocationManuallyCleared(true);
-                                            } else {
-                                                setIsLocationManuallyCleared(false);
-                                            }
-                                        }}
-                                        placeholder="Search and select your location"
-                                        aria-invalid={Boolean(errors["address.location"])}
-                                        aria-describedby={errors["address.location"] ? "location-error" : undefined}
-                                    />
-                                    <Button
-                                        type="button"
-                                        variant="outline"
-                                        onClick={() => {
-                                            setLocationQuery("");
-                                            setIsLocationManuallyCleared(true);
-                                        }}
-                                        disabled={!locationQuery}
-                                    >
-                                        Clear
-                                    </Button>
+                                    <MapPin className="h-5 w-5 text-primary" />
+                                    <h4 className="font-semibold">Location on Map</h4>
                                 </div>
-                            </div>
-                            <p className="text-sm text-muted-foreground">
-                                Search above or click on the map to select your company location
-                            </p>
-                            {errors["address.location"] && (
-                                <p id="location-error" className="text-destructive text-sm">
-                                    {errors["address.location"]}
-                                </p>
-                            )}
-                            <div
-                                ref={mapRef}
-                                className="w-full h-[400px] rounded-lg border-2 border-gray-200"
-                                style={{ minHeight: "400px" }}
-                            />
-                            {hasSelectedLocation && (
                                 <div className="space-y-2">
-                                    <Label htmlFor="addressInstructions">Current Address (Instructions)</Label>
-                                    <Textarea
-                                        id="addressInstructions"
-                                        value={formData.address.addressInstructions || ""}
-                                        onChange={(e) =>
-                                            setFormData({
+                                    <Label htmlFor="selectLocation">Select Location *</Label>
+                                    <div className="flex items-center gap-2">
+                                        <Input
+                                            id="selectLocation"
+                                            ref={locationInputRef}
+                                            value={locationQuery}
+                                            onChange={(e) => {
+                                                const value = e.target.value;
+                                                setLocationQuery(value);
+                                                if (value.trim() === "") {
+                                                    setIsLocationManuallyCleared(true);
+                                                } else {
+                                                    setIsLocationManuallyCleared(false);
+                                                }
+                                            }}
+                                            placeholder="Search and select your location"
+                                            aria-invalid={Boolean(errors["address.location"])}
+                                            aria-describedby={errors["address.location"] ? "location-error" : undefined}
+                                        />
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            onClick={() => {
+                                                setLocationQuery("");
+                                                setIsLocationManuallyCleared(true);
+                                            }}
+                                            disabled={!locationQuery}
+                                        >
+                                            Clear
+                                        </Button>
+                                    </div>
+                                </div>
+                                <p className="text-sm text-muted-foreground">
+                                    Search above or click on the map to select your company location
+                                </p>
+                                {errors["address.location"] && (
+                                    <p id="location-error" className="text-destructive text-sm">
+                                        {errors["address.location"]}
+                                    </p>
+                                )}
+                                <div
+                                    ref={mapRef}
+                                    className="w-full h-[400px] rounded-lg border-2 border-gray-200"
+                                    style={{ minHeight: "400px" }}
+                                />
+                                {hasSelectedLocation && (
+                                    <div className="space-y-2">
+                                        <Label htmlFor="addressInstructions">Current Address (Instructions)</Label>
+                                        <Textarea
+                                            id="addressInstructions"
+                                            value={formData.address.addressInstructions || ""}
+                                            onChange={(e) =>
+                                                setFormData({
+                                                    ...formData,
+                                                    address: {
+                                                        ...formData.address,
+                                                        addressInstructions: e.target.value,
+                                                    },
+                                                })
+                                            }
+                                            placeholder="e.g. Building name, floor, landmark, unit number"
+                                            rows={2}
+                                        />
+                                    </div>
+                                )}
+                            </div>
+
+                            {hasSelectedLocation && (
+                                <div className="grid md:grid-cols-2 gap-4">
+                                    <div className="space-y-2 col-span-2">
+                                        <Label htmlFor="street">Street *</Label>
+                                        <Textarea
+                                            id="street"
+                                            value={formData.address.street}
+                                            onChange={(e) =>
+                                            (setFormData({
+                                                ...formData,
+                                                address: { ...formData.address, street: e.target.value },
+                                            }), clearError("address.street"))
+                                            }
+                                            aria-invalid={Boolean(errors["address.street"])}
+                                            aria-describedby={errors["address.street"] ? "street-error" : undefined}
+                                        />
+                                        {errors["address.street"] && (
+                                            <p id="street-error" className="text-destructive text-sm">
+                                                {errors["address.street"]}
+                                            </p>
+                                        )}
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <Label htmlFor="country">Country *</Label>
+                                        <VirtualGeoSelect
+                                            id="country"
+                                            value={savedCountry}
+                                            options={countryOptions}
+                                            placeholder="Select Country"
+                                            disabled={!geoLib}
+                                            onChange={(val) => {
+                                                setFormData({
+                                                    ...formData,
+                                                    address: {
+                                                        ...formData.address,
+                                                        country: val,
+                                                        state: "",
+                                                        city: "",
+                                                    },
+                                                });
+                                                clearError("address.country");
+                                                clearError("address.state");
+                                                clearError("address.city");
+                                            }}
+                                        />
+                                        {errors["address.country"] && (
+                                            <p id="country-error" className="text-destructive text-sm">
+                                                {errors["address.country"]}
+                                            </p>
+                                        )}
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="state">State *</Label>
+                                        <VirtualGeoSelect
+                                            id="state"
+                                            value={savedState}
+                                            options={stateOptions}
+                                            placeholder="Select State"
+                                            disabled={!geoLib || !savedCountry}
+                                            onChange={(val) => {
+                                                setFormData({
+                                                    ...formData,
+                                                    address: {
+                                                        ...formData.address,
+                                                        state: val,
+                                                        city: "",
+                                                    },
+                                                });
+                                                clearError("address.state");
+                                                clearError("address.city");
+                                            }}
+                                        />
+                                        {errors["address.state"] && (
+                                            <p id="state-error" className="text-destructive text-sm">
+                                                {errors["address.state"]}
+                                            </p>
+                                        )}
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="city">City *</Label>
+                                        <VirtualGeoSelect
+                                            id="city"
+                                            value={savedCity}
+                                            options={cityOptions}
+                                            placeholder="Select City"
+                                            disabled={!geoLib || !savedState}
+                                            onChange={(val) =>
+                                            (setFormData({
                                                 ...formData,
                                                 address: {
                                                     ...formData.address,
-                                                    addressInstructions: e.target.value,
+                                                    city: val.trim(),
                                                 },
-                                            })
-                                        }
-                                        placeholder="e.g. Building name, floor, landmark, unit number"
-                                        rows={2}
-                                    />
+                                            }), clearError("address.city"))
+                                            }
+                                        />
+                                        {errors["address.city"] && (
+                                            <p id="city-error" className="text-destructive text-sm">
+                                                {errors["address.city"]}
+                                            </p>
+                                        )}
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="zipCode">Zip Code *</Label>
+                                        <Input
+                                            id="zipCode"
+                                            value={formData.address.zipCode}
+                                            onChange={(e) =>
+                                            (setFormData({
+                                                ...formData,
+                                                address: { ...formData.address, zipCode: e.target.value },
+                                            }), clearError("address.zipCode"))
+                                            }
+                                            aria-invalid={Boolean(errors["address.zipCode"])}
+                                            aria-describedby={errors["address.zipCode"] ? "zipCode-error" : undefined}
+                                        />
+                                        {errors["address.zipCode"] && (
+                                            <p id="zipCode-error" className="text-destructive text-sm">
+                                                {errors["address.zipCode"]}
+                                            </p>
+                                        )}
+                                    </div>
                                 </div>
                             )}
-                        </div>
-
-                        {hasSelectedLocation && (
-                        <div className="grid md:grid-cols-2 gap-4">
-                        <div className="space-y-2 col-span-2">
-                            <Label htmlFor="street">Street *</Label>
-                            <Textarea
-                                id="street"
-                                value={formData.address.street}
-                                onChange={(e) =>
-                                    (setFormData({
-                                        ...formData,
-                                        address: { ...formData.address, street: e.target.value },
-                                    }), clearError("address.street"))
-                                }
-                                aria-invalid={Boolean(errors["address.street"])}
-                                aria-describedby={errors["address.street"] ? "street-error" : undefined}
-                            />
-                            {errors["address.street"] && (
-                                <p id="street-error" className="text-destructive text-sm">
-                                    {errors["address.street"]}
-                                </p>
-                            )}
-                        </div>
-
-                        <div className="space-y-2">
-                                <Label htmlFor="country">Country *</Label>
-                                <VirtualGeoSelect
-                                    id="country"
-                                    value={savedCountry}
-                                    options={countryOptions}
-                                    placeholder="Select Country"
-                                    disabled={!geoLib}
-                                    onChange={(val) => {
-                                        setFormData({
-                                            ...formData,
-                                            address: {
-                                                ...formData.address,
-                                                country: val,
-                                                state: "",
-                                                city: "",
-                                            },
-                                        });
-                                        clearError("address.country");
-                                        clearError("address.state");
-                                        clearError("address.city");
-                                    }}
-                                />
-                                {errors["address.country"] && (
-                                    <p id="country-error" className="text-destructive text-sm">
-                                        {errors["address.country"]}
-                                    </p>
-                                )}
-                            </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="state">State *</Label>
-                                <VirtualGeoSelect
-                                    id="state"
-                                    value={savedState}
-                                    options={stateOptions}
-                                    placeholder="Select State"
-                                    disabled={!geoLib || !savedCountry}
-                                    onChange={(val) => {
-                                        setFormData({
-                                            ...formData,
-                                            address: {
-                                                ...formData.address,
-                                                state: val,
-                                                city: "",
-                                            },
-                                        });
-                                        clearError("address.state");
-                                        clearError("address.city");
-                                    }}
-                                />
-                                {errors["address.state"] && (
-                                    <p id="state-error" className="text-destructive text-sm">
-                                        {errors["address.state"]}
-                                    </p>
-                                )}
-                            </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="city">City *</Label>
-                                <VirtualGeoSelect
-                                    id="city"
-                                    value={savedCity}
-                                    options={cityOptions}
-                                    placeholder="Select City"
-                                    disabled={!geoLib || !savedState}
-                                    onChange={(val) =>
-                                        (setFormData({
-                                            ...formData,
-                                            address: {
-                                                ...formData.address,
-                                                city: val.trim(),
-                                            },
-                                        }), clearError("address.city"))
-                                    }
-                                />
-                                {errors["address.city"] && (
-                                    <p id="city-error" className="text-destructive text-sm">
-                                        {errors["address.city"]}
-                                    </p>
-                                )}
-                            </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="zipCode">Zip Code *</Label>
-                                <Input
-                                    id="zipCode"
-                                    value={formData.address.zipCode}
-                                    onChange={(e) =>
-                                        (setFormData({
-                                            ...formData,
-                                            address: { ...formData.address, zipCode: e.target.value },
-                                        }), clearError("address.zipCode"))
-                                    }
-                                    aria-invalid={Boolean(errors["address.zipCode"])}
-                                    aria-describedby={errors["address.zipCode"] ? "zipCode-error" : undefined}
-                                />
-                                {errors["address.zipCode"] && (
-                                    <p id="zipCode-error" className="text-destructive text-sm">
-                                        {errors["address.zipCode"]}
-                                    </p>
-                                )}
-                            </div>
-                        </div>
-                        )}
                         </div>
 
                         <div style={{ display: "none" }} className="hidden md:grid gap-4 md:grid-cols-2">
@@ -1178,7 +1180,12 @@ export default function CompanySettingsPage() {
         { revalidateOnFocus: false, dedupingInterval: 300_000 }
     );
 
-    const industries = industriesData || [];
+    const { data: rawServiceAreas } = useSWR('/api/service-areas', fetcher, { revalidateOnFocus: false });
+    const { data: rawZipCodes } = useSWR('/api/zip-codes', fetcher, { revalidateOnFocus: false });
+
+    const industries = Array.isArray(industriesData) ? industriesData : [];
+    const serviceAreas = Array.isArray(rawServiceAreas) ? rawServiceAreas : [];
+    const zipCodes = Array.isArray(rawZipCodes) ? rawZipCodes : [];
 
     const [formData, setFormData] = useState({
         name: "",
@@ -1225,11 +1232,16 @@ export default function CompanySettingsPage() {
                 longitude: apiAddress.longitude ?? prev.address.longitude,
             };
 
+            // For `industry`, always prefer the server value when it exists (including "").
+            // Only fall back to prev if the field is absent from the response (undefined).
+            const apiIndustry = (company as any).industry;
+            const resolvedIndustry = apiIndustry !== undefined ? apiIndustry : prev.industry ?? "";
+
             return {
                 ...prev,
                 name: company.name ?? prev.name ?? "",
                 description: (company as any).description ?? prev.description ?? "",
-                industry: (company as any).industry ?? prev.industry ?? "",
+                industry: resolvedIndustry,
                 website: (company as any).website ?? prev.website ?? "",
                 email: (company as any).email ?? prev.email ?? "",
                 phone: (company as any).phone ?? prev.phone ?? "",
@@ -1244,6 +1256,75 @@ export default function CompanySettingsPage() {
             };
         });
     }, [company]);
+
+    const isProfileBasicComplete = useMemo(() => {
+        return !!(
+            formData.name.trim() &&
+            formData.logo.trim() &&
+            formData.email.trim() &&
+            formData.phone.trim() &&
+            formData.address?.street.trim() &&
+            formData.address?.city.trim() &&
+            formData.address?.state.trim() &&
+            formData.address?.country.trim() &&
+            formData.address?.zipCode.trim() &&
+            formData.address?.latitude !== undefined && formData.address?.latitude !== null &&
+            formData.address?.longitude !== undefined && formData.address?.longitude !== null
+        );
+    }, [formData]);
+
+    const hasPreferences = useMemo(() => {
+        return !!(
+            formData.settings?.timezone &&
+            formData.settings?.currency
+        );
+    }, [formData.settings]);
+
+    const hasServiceAreas = serviceAreas.length > 0;
+    const hasZipCodes = zipCodes.length > 0;
+
+    const hasMailSending = useMemo(() => {
+        const mailConfig = (company as any)?.mailConfig;
+        const isSmtp = !!(
+            mailConfig?.provider === "smtp" &&
+            mailConfig?.smtp?.host &&
+            mailConfig?.smtp?.fromEmail &&
+            mailConfig?.smtp?.username &&
+            mailConfig?.smtp?.password
+        );
+        const isGmail = !!(
+            mailConfig?.provider === "gmail" &&
+            mailConfig?.gmail?.email
+        );
+        return isSmtp || isGmail;
+    }, [company]);
+
+    const completedCount = (isProfileBasicComplete ? 1 : 0) + (hasPreferences ? 1 : 0) + (hasServiceAreas ? 1 : 0) + (hasZipCodes ? 1 : 0) + (hasMailSending ? 1 : 0);
+
+    const [initialIncompleteTracked, setInitialIncompleteTracked] = useState(false);
+    const [hasTriggeredRedirect, setHasTriggeredRedirect] = useState(false);
+
+    useEffect(() => {
+        if (company && company.profileCompleted === false) {
+            setInitialIncompleteTracked(true);
+        }
+    }, [company]);
+
+    useEffect(() => {
+        if (
+            initialIncompleteTracked &&
+            (company?.profileCompleted === true || completedCount === 5) &&
+            !hasTriggeredRedirect
+        ) {
+            setHasTriggeredRedirect(true);
+            setIsRedirectDialogOpen(true);
+            toast.success("🎉 Setup complete! Redirecting to Dashboard...");
+            const timer = setTimeout(() => {
+                window.location.href = "/dashboard";
+            }, 1500);
+            return () => clearTimeout(timer);
+        }
+    }, [initialIncompleteTracked, company?.profileCompleted, completedCount, hasTriggeredRedirect]);
 
     // Basic front-end validation to avoid obviously invalid payloads
     const validateFormData = () => {
@@ -1386,7 +1467,7 @@ export default function CompanySettingsPage() {
             </div>
         );
     }
-console.log("company",company?.address);
+    console.log("company", company);
     return (
         <div className="space-y-6">
             <div>
@@ -1396,23 +1477,144 @@ console.log("company",company?.address);
                 </p>
             </div>
 
+            <div className="bg-card border rounded-xl p-4 shadow-sm space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div>
+                        <div className="flex items-center gap-2">
+                            <h2 className="font-semibold text-base">Company Setup Status</h2>
+                            <span className={cn(
+                                "text-xs font-semibold px-2.5 py-0.5 rounded-full border",
+                                completedCount === 5
+                                    ? "bg-green-500/10 text-green-600 border-green-500/30"
+                                    : "bg-amber-500/10 text-amber-600 border-amber-500/30"
+                            )}>
+                                {completedCount === 5 ? "Fully Setup ✓" : `${completedCount} of 5 Required Steps Done`}
+                            </span>
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                            {completedCount === 5
+                                ? "All 5 required sections are complete! Your company is ready."
+                                : "Please complete all 5 required sections below to complete your company onboarding."}
+                        </p>
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2 pt-1">
+                    <button
+                        type="button"
+                        onClick={() => setActiveTab("profile")}
+                        className={cn(
+                            "flex items-center gap-2.5 p-3 rounded-lg border text-xs text-left transition-all",
+                            isProfileBasicComplete
+                                ? "bg-green-500/10 border-green-500/30 text-green-700 dark:text-green-300 font-medium"
+                                : "bg-muted/30 border-border text-muted-foreground hover:bg-muted/50"
+                        )}
+                    >
+                        <CheckCircle2 className={cn("h-4 w-4 shrink-0", isProfileBasicComplete ? "text-green-500" : "text-muted-foreground/40")} />
+                        <div>
+                            <p className="font-semibold text-xs">1. Profile Details</p>
+                            <p className="text-[10px] opacity-80">{isProfileBasicComplete ? "Complete" : "Incomplete"}</p>
+                        </div>
+                    </button>
+
+                    <button
+                        type="button"
+                        onClick={() => setActiveTab("preferences")}
+                        className={cn(
+                            "flex items-center gap-2.5 p-3 rounded-lg border text-xs text-left transition-all",
+                            hasPreferences
+                                ? "bg-green-500/10 border-green-500/30 text-green-700 dark:text-green-300 font-medium"
+                                : "bg-muted/30 border-border text-muted-foreground hover:bg-muted/50"
+                        )}
+                    >
+                        <CheckCircle2 className={cn("h-4 w-4 shrink-0", hasPreferences ? "text-green-500" : "text-muted-foreground/40")} />
+                        <div>
+                            <p className="font-semibold text-xs">2. Preferences</p>
+                            <p className="text-[10px] opacity-80">{hasPreferences ? "Configured" : "Missing"}</p>
+                        </div>
+                    </button>
+
+                    <button
+                        type="button"
+                        onClick={() => setActiveTab("service-areas")}
+                        className={cn(
+                            "flex items-center gap-2.5 p-3 rounded-lg border text-xs text-left transition-all",
+                            hasServiceAreas
+                                ? "bg-green-500/10 border-green-500/30 text-green-700 dark:text-green-300 font-medium"
+                                : "bg-muted/30 border-border text-muted-foreground hover:bg-muted/50"
+                        )}
+                    >
+                        <CheckCircle2 className={cn("h-4 w-4 shrink-0", hasServiceAreas ? "text-green-500" : "text-muted-foreground/40")} />
+                        <div>
+                            <p className="font-semibold text-xs">3. Service Areas</p>
+                            <p className="text-[10px] opacity-80">{hasServiceAreas ? `${serviceAreas.length} area(s)` : "Missing"}</p>
+                        </div>
+                    </button>
+
+                    <button
+                        type="button"
+                        onClick={() => setActiveTab("zip-codes")}
+                        className={cn(
+                            "flex items-center gap-2.5 p-3 rounded-lg border text-xs text-left transition-all",
+                            hasZipCodes
+                                ? "bg-green-500/10 border-green-500/30 text-green-700 dark:text-green-300 font-medium"
+                                : "bg-muted/30 border-border text-muted-foreground hover:bg-muted/50"
+                        )}
+                    >
+                        <CheckCircle2 className={cn("h-4 w-4 shrink-0", hasZipCodes ? "text-green-500" : "text-muted-foreground/40")} />
+                        <div>
+                            <p className="font-semibold text-xs">4. Zip Codes</p>
+                            <p className="text-[10px] opacity-80">{hasZipCodes ? `${zipCodes.length} code(s)` : "Missing"}</p>
+                        </div>
+                    </button>
+
+                    <button
+                        type="button"
+                        onClick={() => setActiveTab("mail-sending")}
+                        className={cn(
+                            "flex items-center gap-2.5 p-3 rounded-lg border text-xs text-left transition-all",
+                            hasMailSending
+                                ? "bg-green-500/10 border-green-500/30 text-green-700 dark:text-green-300 font-medium"
+                                : "bg-muted/30 border-border text-muted-foreground hover:bg-muted/50"
+                        )}
+                    >
+                        <CheckCircle2 className={cn("h-4 w-4 shrink-0", hasMailSending ? "text-green-500" : "text-muted-foreground/40")} />
+                        <div>
+                            <p className="font-semibold text-xs">5. Mail Sending</p>
+                            <p className="text-[10px] opacity-80">{hasMailSending ? "Configured" : "Missing"}</p>
+                        </div>
+                    </button>
+                </div>
+            </div>
+
             <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
                 <TabsList className="w-full justify-start overflow-x-auto h-auto flex-nowrap p-1">
-                    <TabsTrigger value="profile">Profile</TabsTrigger>
+                    <TabsTrigger value="profile" className="gap-1.5">
+                        Profile {isProfileBasicComplete && <CheckCircle2 className="h-3.5 w-3.5 text-green-500" />}
+                    </TabsTrigger>
                     <TabsTrigger value="subscription">Subscription</TabsTrigger>
-                    <TabsTrigger value="preferences">Preferences</TabsTrigger>
+                    <TabsTrigger value="preferences" className="gap-1.5">
+                        Preferences {hasPreferences && <CheckCircle2 className="h-3.5 w-3.5 text-green-500" />}
+                    </TabsTrigger>
                     <TabsTrigger value="availability">Availability</TabsTrigger>
                     <TabsTrigger value="payments">Payments</TabsTrigger>
                     <TabsTrigger value="promocodes">Promocodes</TabsTrigger>
-                    <TabsTrigger value="service-areas">Service Areas</TabsTrigger>
-                    <TabsTrigger value="zip-codes">Zip Codes</TabsTrigger>
-                    <TabsTrigger value="mail-sending">Mail Sending</TabsTrigger>
+                    <TabsTrigger value="service-areas" className="gap-1.5">
+                        Service Areas {hasServiceAreas && <CheckCircle2 className="h-3.5 w-3.5 text-green-500" />}
+                    </TabsTrigger>
+                    <TabsTrigger value="zip-codes" className="gap-1.5">
+                        Zip Codes {hasZipCodes && <CheckCircle2 className="h-3.5 w-3.5 text-green-500" />}
+                    </TabsTrigger>
+                    <TabsTrigger value="mail-sending" className="gap-1.5">
+                        Mail Sending {hasMailSending && <CheckCircle2 className="h-3.5 w-3.5 text-green-500" />}
+                    </TabsTrigger>
                     <TabsTrigger value="subdomain">Sub Domain</TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="profile">
                     <CompanyProfile
                         formData={formData}
+                        companyData={company}
                         setFormData={setFormData}
                         saving={saving}
                         handleSubmit={handleSubmit}
@@ -1473,12 +1675,12 @@ console.log("company",company?.address);
                             <DialogTitle>Setup Complete!</DialogTitle>
                         </div>
                         <DialogDescription className="pt-2">
-                            🎉 Company profile completed successfully! You are now ready to access your dashboard.
+                            🎉 All 5 required company setup steps are complete! You are now being automatically redirected to your dashboard.
                         </DialogDescription>
                     </DialogHeader>
                     <DialogFooter className="sm:justify-end">
-                        <Button onClick={handleRedirect} className="w-full sm:w-auto">
-                            Go to Dashboard
+                        <Button onClick={handleRedirect} className="w-full sm:w-auto bg-primary">
+                            Go to Dashboard Now
                         </Button>
                     </DialogFooter>
                 </DialogContent>

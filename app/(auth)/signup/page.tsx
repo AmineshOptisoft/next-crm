@@ -424,7 +424,7 @@ export default function SignupPage() {
             <div className="flex h-9 w-9 items-center justify-center rounded-full bg-black text-white text-xl font-semibold">
               m
             </div>
-            <span className="text-xl font-semibold tracking-tight text-foreground">Greenfrog.</span>
+            <span className="text-xl font-semibold tracking-tight text-foreground">BookingCRM.</span>
           </div>
 
           <Button asChild variant="outline" className="mt-4 h-11 w-full rounded-lg">

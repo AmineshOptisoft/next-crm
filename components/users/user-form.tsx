@@ -233,8 +233,11 @@ interface UserFormProps {
 
 
 export function UserForm({ user, onSave, loading }: UserFormProps) {
+    const initialZone = user.zone || (Array.isArray((user as any).workingArea) && (user as any).workingArea.length > 0 ? (user as any).workingArea[0] : "") || "";
+
     const [formData, setFormData] = useState<Partial<UserData>>({
         ...user,
+        zone: initialZone,
         // Initialize toggles if undefined
         timesheetEnabled: user.timesheetEnabled ?? false,
         bookingEnabled: user.bookingEnabled ?? false,
@@ -246,6 +249,18 @@ export function UserForm({ user, onSave, loading }: UserFormProps) {
             ? (user.customRoleId as any)._id
             : (user.customRoleId || ""),
     });
+
+    useEffect(() => {
+        if (user) {
+            const resolvedZone = user.zone || (Array.isArray((user as any).workingArea) && (user as any).workingArea.length > 0 ? (user as any).workingArea[0] : "") || "";
+            setFormData((prev) => ({
+                ...user,
+                ...prev,
+                zone: resolvedZone || prev.zone || "",
+            }));
+        }
+    }, [user]);
+
     const [newTag, setNewTag] = useState("");
     const [roles, setRoles] = useState<{ _id: string; name: string }[]>([]);
     const [availableServices, setAvailableServices] = useState<{ _id: string; name: string }[]>([]);
@@ -427,6 +442,28 @@ export function UserForm({ user, onSave, loading }: UserFormProps) {
         fetchServiceAreas();
         fetchZipCodes();
     }, []);
+
+    // Auto-select zip codes for pre-selected zone on initial load
+    useEffect(() => {
+        if (!formData.zone || serviceAreas.length === 0 || availableZipCodes.length === 0) return;
+        if (!formData.workingZipCodes || formData.workingZipCodes.length === 0) {
+            const selectedZone = serviceAreas.find((area) => area.name === formData.zone);
+            const selectedZoneId = selectedZone?._id;
+            if (selectedZoneId) {
+                const zoneZipCodeIds = availableZipCodes
+                    .filter((zipCode) => {
+                        const serviceAreaId = typeof zipCode.serviceAreaId === "object"
+                            ? zipCode.serviceAreaId._id
+                            : zipCode.serviceAreaId;
+                        return serviceAreaId === selectedZoneId;
+                    })
+                    .map((zipCode) => zipCode._id);
+                if (zoneZipCodeIds.length > 0) {
+                    setFormData((prev) => ({ ...prev, workingZipCodes: zoneZipCodeIds }));
+                }
+            }
+        }
+    }, [formData.zone, serviceAreas, availableZipCodes]);
 
 
     // ── Geo options — memoized, built from lazy lib (same as bookings form) ────

@@ -131,7 +131,7 @@ export default function HomePage() {
               Run Operations Like a Pro
             </h2>
             <p className="mt-4 text-center text-lg text-muted-foreground max-w-lg">
-              CleanFlow helps you manage bookings, crews, and customer communication in one place.
+              BookingCRM helps you manage bookings, crews, and customer communication in one place.
             </p>
           </div>
         </AnimationContainer>
@@ -223,7 +223,7 @@ export default function HomePage() {
               What cleaning teams are saying
             </h2>
             <p className="mt-4 text-center text-lg text-muted-foreground max-w-lg">
-              Real feedback from businesses using CleanFlow for daily booking operations.
+              Real feedback from businesses using BookingCRM for daily booking operations.
             </p>
           </div>
         </AnimationContainer>

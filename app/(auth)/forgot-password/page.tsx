@@ -150,7 +150,7 @@ export default function ForgotPasswordPage() {
               m
             </div>
             <span className="text-xl font-semibold tracking-tight text-foreground">
-              Greenfrog.
+              BookingCRM.
             </span>
           </div>
 

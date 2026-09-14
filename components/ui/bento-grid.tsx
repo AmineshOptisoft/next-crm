@@ -33,7 +33,7 @@ export const CARDS = [
         <CardContent className="-mt-4">
           <Input
             type="text"
-            placeholder="https://cleanflow.app/book/your-company"
+            placeholder="https://bookingcrm.app/book/your-company"
             className="w-full focus-visible:ring-0 focus-visible:ring-transparent"
           />
         </CardContent>

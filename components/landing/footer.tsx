@@ -48,7 +48,7 @@ export default function LandingFooter() {
       <div className="mt-8 border-t border-border/40 pt-6 w-full">
         <AnimationContainer delay={0.4}>
           <p className="text-sm text-muted-foreground">
-            &copy; {new Date().getFullYear()} CleanFlow INC. All rights reserved.
+            © {new Date().getFullYear()} BookingCRM INC. All rights reserved.
           </p>
         </AnimationContainer>
       </div>

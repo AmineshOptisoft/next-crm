@@ -205,14 +205,14 @@ export function CompanyMailSending({ company }: CompanyMailSendingProps) {
                         className={`relative flex items-center gap-3 px-5 py-3 border-2 rounded-lg transition-all ${
                             // If Gmail is active, show disabled state
                             isGmailConnected && company?.mailConfig?.provider === "gmail"
-                                ? "opacity-50 cursor-not-allowed border-zinc-200 bg-zinc-50 text-zinc-400"
+                                ? "opacity-50 cursor-not-allowed border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 text-zinc-400"
                                 : sendingMethod === "smtp"
-                                    ? "cursor-pointer border-cyan-500 bg-cyan-50 text-cyan-900"
-                                    : "cursor-pointer border-zinc-200 hover:border-zinc-300 text-zinc-600"
+                                    ? "cursor-pointer border-cyan-500 bg-cyan-500/10 text-cyan-700 dark:text-cyan-400"
+                                    : "cursor-pointer border-border hover:border-zinc-400 text-foreground"
                             }`}
                     >
                         <div className={`w-4 h-4 shrink-0 rounded-full border flex items-center justify-center ${isGmailConnected && company?.mailConfig?.provider === "gmail"
-                            ? "border-zinc-300"
+                            ? "border-zinc-300 dark:border-zinc-700"
                             : sendingMethod === "smtp" ? "border-cyan-500" : "border-zinc-400"
                             }`}>
                             {sendingMethod === "smtp" && !(isGmailConnected && company?.mailConfig?.provider === "gmail") && (
@@ -222,12 +222,12 @@ export function CompanyMailSending({ company }: CompanyMailSendingProps) {
                         <Server className="h-4 w-4" />
                         <span className="font-medium text-sm">SMTP Server</span>
                         {company?.mailConfig?.provider === "smtp" && company?.mailConfig?.smtp?.host && (
-                            <span className="ml-auto text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-medium">
+                            <span className="ml-auto text-xs bg-green-500/15 text-green-600 dark:text-green-400 px-2 py-0.5 rounded-full font-medium">
                                 Active
                             </span>
                         )}
                         {isGmailConnected && company?.mailConfig?.provider === "gmail" && (
-                            <span className="ml-auto text-xs bg-zinc-200 text-zinc-500 px-2 py-0.5 rounded-full font-medium">
+                            <span className="ml-auto text-xs bg-zinc-200 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 px-2 py-0.5 rounded-full font-medium">
                                 Disabled
                             </span>
                         )}
@@ -246,14 +246,14 @@ export function CompanyMailSending({ company }: CompanyMailSendingProps) {
                         className={`relative flex items-center gap-3 px-5 py-3 border-2 rounded-lg transition-all ${
                             // If SMTP is active, show disabled state
                             company?.mailConfig?.provider === "smtp" && company?.mailConfig?.smtp?.host
-                                ? "opacity-50 cursor-not-allowed border-zinc-200 bg-zinc-50 text-zinc-400"
+                                ? "opacity-50 cursor-not-allowed border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 text-zinc-400"
                                 : sendingMethod === "gmail"
-                                    ? "cursor-pointer border-cyan-500 bg-cyan-50 text-cyan-900"
-                                    : "cursor-pointer border-zinc-200 hover:border-zinc-300 text-zinc-600"
+                                    ? "cursor-pointer border-cyan-500 bg-cyan-500/10 text-cyan-700 dark:text-cyan-400"
+                                    : "cursor-pointer border-border hover:border-zinc-400 text-foreground"
                             }`}
                     >
                         <div className={`w-4 h-4 shrink-0 rounded-full border flex items-center justify-center ${company?.mailConfig?.provider === "smtp" && company?.mailConfig?.smtp?.host
-                            ? "border-zinc-300"
+                            ? "border-zinc-300 dark:border-zinc-700"
                             : sendingMethod === "gmail" ? "border-cyan-500" : "border-zinc-400"
                             }`}>
                             {sendingMethod === "gmail" && !(company?.mailConfig?.provider === "smtp" && company?.mailConfig?.smtp?.host) && (
@@ -263,12 +263,12 @@ export function CompanyMailSending({ company }: CompanyMailSendingProps) {
                         <Mail className="h-4 w-4" />
                         <span className="font-medium text-sm">Gmail / Google</span>
                         {isGmailConnected && company?.mailConfig?.provider === "gmail" && (
-                            <span className="ml-auto text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-medium">
+                            <span className="ml-auto text-xs bg-green-500/15 text-green-600 dark:text-green-400 px-2 py-0.5 rounded-full font-medium">
                                 Active
                             </span>
                         )}
                         {company?.mailConfig?.provider === "smtp" && company?.mailConfig?.smtp?.host && (
-                            <span className="ml-auto text-xs bg-zinc-200 text-zinc-500 px-2 py-0.5 rounded-full font-medium">
+                            <span className="ml-auto text-xs bg-zinc-200 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 px-2 py-0.5 rounded-full font-medium">
                                 Disabled
                             </span>
                         )}
@@ -381,9 +381,9 @@ export function CompanyMailSending({ company }: CompanyMailSendingProps) {
                             </div>
                             {isGmailConnected ? (
                                 <div className="text-center">
-                                    <h3 className="text-lg font-medium text-zinc-900">Connected to Google</h3>
-                                    <p className="text-sm text-zinc-500 mb-4">{connectedGmailEmail}</p>
-                                    <Button variant="outline" className="text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200" onClick={handleDisconnectGmail} disabled={isSaving}>
+                                    <h3 className="text-lg font-medium text-zinc-900 dark:text-zinc-100">Connected to Google</h3>
+                                    <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-4">{connectedGmailEmail}</p>
+                                    <Button variant="outline" className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/50 border-red-200 dark:border-red-900" onClick={handleDisconnectGmail} disabled={isSaving}>
                                         {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                                         Disconnect Account
                                     </Button>
@@ -391,8 +391,11 @@ export function CompanyMailSending({ company }: CompanyMailSendingProps) {
                             ) : (
                                 <div className="text-center">
                                     <h3 className="text-lg font-medium text-primary">Connect your Google Account</h3>
-                                    <p className="text-sm text-zinc-500 mb-4">Allow CRM to send emails on your behalf</p>
-                                    
+                                    <p className="text-sm text-muted-foreground mb-4">Allow CRM to send emails on your behalf</p>
+                                    <Button onClick={handleConnectGmail} disabled={isSaving} className="bg-primary hover:bg-primary/90">
+                                        {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                        Connect Google Account
+                                    </Button>
                                 </div>
                             )}
                         </div>

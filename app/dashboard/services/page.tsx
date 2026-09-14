@@ -550,30 +550,42 @@ export default function ServicesPage() {
 
                                                                     {isChildSelected && (
                                                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pl-7">
-                                                                            <Input
-                                                                                type="number"
-                                                                                placeholder="Base Price"
-                                                                                value={childSelection?.basePrice ?? 0}
-                                                                                onChange={(e) => updateDefaultPricing(child._id, "basePrice", parseFloat(e.target.value) || 0)}
-                                                                            />
-                                                                            <Input
-                                                                                type="number"
-                                                                                placeholder="Hourly Rate"
-                                                                                value={childSelection?.hourlyRate ?? 0}
-                                                                                onChange={(e) => updateDefaultPricing(child._id, "hourlyRate", parseFloat(e.target.value) || 0)}
-                                                                            />
-                                                                            <Input
-                                                                                type="number"
-                                                                                placeholder="Estimated Time (min)"
-                                                                                value={childSelection?.estimatedTime ?? 0}
-                                                                                onChange={(e) => updateDefaultPricing(child._id, "estimatedTime", parseInt(e.target.value) || 0)}
-                                                                            />
-                                                                            <Input
-                                                                                type="number"
-                                                                                placeholder="Range Percentage"
-                                                                                value={childSelection?.percentage ?? 0}
-                                                                                onChange={(e) => updateDefaultPricing(child._id, "percentage", parseFloat(e.target.value) || 0)}
-                                                                            />
+                                                                            <div className="space-y-1">
+                                                                                <label className="text-xs font-medium text-muted-foreground">Base Price ($)</label>
+                                                                                <Input
+                                                                                    type="number"
+                                                                                    placeholder="0.00"
+                                                                                    value={childSelection?.basePrice ?? 0}
+                                                                                    onChange={(e) => updateDefaultPricing(child._id, "basePrice", parseFloat(e.target.value) || 0)}
+                                                                                />
+                                                                            </div>
+                                                                            <div className="space-y-1">
+                                                                                <label className="text-xs font-medium text-muted-foreground">Hourly Rate ($/hr)</label>
+                                                                                <Input
+                                                                                    type="number"
+                                                                                    placeholder="0.00"
+                                                                                    value={childSelection?.hourlyRate ?? 0}
+                                                                                    onChange={(e) => updateDefaultPricing(child._id, "hourlyRate", parseFloat(e.target.value) || 0)}
+                                                                                />
+                                                                            </div>
+                                                                            <div className="space-y-1">
+                                                                                <label className="text-xs font-medium text-muted-foreground">Estimated Time (min)</label>
+                                                                                <Input
+                                                                                    type="number"
+                                                                                    placeholder="0"
+                                                                                    value={childSelection?.estimatedTime ?? 0}
+                                                                                    onChange={(e) => updateDefaultPricing(child._id, "estimatedTime", parseInt(e.target.value) || 0)}
+                                                                                />
+                                                                            </div>
+                                                                            <div className="space-y-1">
+                                                                                <label className="text-xs font-medium text-muted-foreground">Range Percentage (%)</label>
+                                                                                <Input
+                                                                                    type="number"
+                                                                                    placeholder="0"
+                                                                                    value={childSelection?.percentage ?? 0}
+                                                                                    onChange={(e) => updateDefaultPricing(child._id, "percentage", parseFloat(e.target.value) || 0)}
+                                                                                />
+                                                                            </div>
                                                                         </div>
                                                                     )}
                                                                 </div>

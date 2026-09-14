@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
@@ -28,6 +28,7 @@ import {
 } from "@/components/ui/sheet";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
   SelectContent,
@@ -35,7 +36,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Pencil, Trash2, Users, UserCheck, UserX, Loader2, Star, ArrowUpDown } from "lucide-react";
+import { Plus, Pencil, Trash2, Users, UserCheck, UserX, Loader2, Star, ArrowUpDown, Upload, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import useSWR from "swr";
@@ -74,9 +75,13 @@ export default function UsersPage() {
   const { data: rawRoles } = useSWR('/api/roles', fetcher, {
     revalidateOnFocus: false,
   });
+  const { data: rawServiceAreas } = useSWR('/api/service-areas', fetcher, {
+    revalidateOnFocus: false,
+  });
 
   const users: User[] = rawUsers || [];
   const roles: Role[] = rawRoles ? rawRoles.filter((r: any) => r.isActive) : [];
+  const serviceAreas: { _id: string; name: string }[] = Array.isArray(rawServiceAreas) ? rawServiceAreas : [];
   const loading = loadingUsers;
 
   const [isSheetOpen, setIsSheetOpen] = useState(false);
@@ -93,16 +98,67 @@ export default function UsersPage() {
     email: "",
     password: "",
     customRoleId: "",
+    workingArea: [] as string[],
   });
+  const [profileImage, setProfileImage] = useState<File | null>(null);
+  const [profileImagePreview, setProfileImagePreview] = useState<string>("");
+  const [workingAreaError, setWorkingAreaError] = useState<string>("");
+  const imageInputRef = useRef<HTMLInputElement>(null);
 
   const fetchUsers = async () => {
     await mutateUsers();
   };
 
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) {
+        toast.error("Image size must be less than 5MB");
+        return;
+      }
+      setProfileImage(file);
+      setProfileImagePreview(URL.createObjectURL(file));
+    }
+  };
+
+  const toggleWorkingArea = (areaName: string) => {
+    setWorkingAreaError("");
+    setFormData((prev) => ({
+      ...prev,
+      workingArea: prev.workingArea.includes(areaName)
+        ? prev.workingArea.filter((a) => a !== areaName)
+        : [...prev.workingArea, areaName],
+    }));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Validate working area (required)
+    if (!editingUser && formData.workingArea.length === 0) {
+      setWorkingAreaError("Please select at least one working area");
+      return;
+    }
+
     setIsSaving(true);
     try {
+      // Upload profile image first if selected
+      let avatarUrl = "";
+      if (profileImage) {
+        const imgFormData = new FormData();
+        imgFormData.append("file", profileImage);
+        const uploadRes = await fetch("/api/upload?subfolder=avatars", {
+          method: "POST",
+          body: imgFormData,
+        });
+        if (uploadRes.ok) {
+          const uploadData = await uploadRes.json();
+          avatarUrl = uploadData.url;
+        } else {
+          toast.error("Failed to upload profile image");
+        }
+      }
+
       const url = editingUser ? `/api/users/${editingUser._id}` : "/api/users";
       const method = editingUser ? "PUT" : "POST";
 
@@ -111,7 +167,11 @@ export default function UsersPage() {
         lastName: formData.lastName,
         email: formData.email,
         customRoleId: formData.customRoleId || null,
+        workingArea: formData.workingArea,
+        zone: Array.isArray(formData.workingArea) && formData.workingArea.length > 0 ? formData.workingArea[0] : "",
       };
+
+      if (avatarUrl) payload.avatarUrl = avatarUrl;
 
       // Only include password for new users or if it's being changed
       if (!editingUser || formData.password) {
@@ -125,10 +185,14 @@ export default function UsersPage() {
       });
 
       if (response.ok) {
+        const savedData = await response.json();
         fetchUsers();
         setIsSheetOpen(false);
         resetForm();
         toast.success(editingUser ? "User updated successfully" : "User added successfully");
+        if (!editingUser && savedData?._id) {
+          router.push(`/dashboard/users/${savedData._id}`);
+        }
       } else {
         const error = await response.json();
         toast.error(error.error || `Failed to ${editingUser ? "update" : "add"} user`);
@@ -186,7 +250,12 @@ export default function UsersPage() {
       email: "",
       password: "",
       customRoleId: "",
+      workingArea: [],
     });
+    setProfileImage(null);
+    setProfileImagePreview("");
+    setWorkingAreaError("");
+    if (imageInputRef.current) imageInputRef.current.value = "";
   };
 
   const getRoleBadge = (user: User) => {
@@ -331,6 +400,46 @@ export default function UsersPage() {
 
           <div className="flex-1 overflow-y-auto p-6">
             <form id="user-form" onSubmit={handleSubmit} className="space-y-6">
+
+              {/* Profile Image */}
+              <div className="space-y-2">
+                <Label>Profile Image</Label>
+                <div className="flex items-center gap-4">
+                  <div className="relative h-20 w-20 rounded-full border-2 border-dashed border-border flex items-center justify-center overflow-hidden bg-muted/30 cursor-pointer"
+                    onClick={() => imageInputRef.current?.click()}>
+                    {profileImagePreview ? (
+                      <>
+                        <img src={profileImagePreview} alt="Preview" className="h-full w-full object-cover" />
+                        <button
+                          type="button"
+                          className="absolute -top-1 -right-1 bg-destructive text-white rounded-full p-0.5"
+                          onClick={(ev) => { ev.stopPropagation(); setProfileImage(null); setProfileImagePreview(""); if (imageInputRef.current) imageInputRef.current.value = ""; }}
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </>
+                    ) : (
+                      <Upload className="h-6 w-6 text-muted-foreground" />
+                    )}
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium">Upload Image</p>
+                    <p className="text-xs text-muted-foreground">PNG, JPG up to 5MB</p>
+                    <input
+                      ref={imageInputRef}
+                      type="file"
+                      accept="image/png,image/jpeg,image/jpg"
+                      className="hidden"
+                      onChange={handleImageChange}
+                    />
+                    <Button type="button" variant="outline" size="sm" className="mt-1"
+                      onClick={() => imageInputRef.current?.click()}>
+                      Choose file
+                    </Button>
+                  </div>
+                </div>
+              </div>
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="firstName">First Name *</Label>
@@ -410,6 +519,42 @@ export default function UsersPage() {
                   Assign a role to grant specific permissions
                 </p>
               </div>
+
+              {/* Working Area (required multi-select) */}
+              <div className="space-y-2">
+                <Label>
+                  Working Area *
+                </Label>
+                {serviceAreas.length === 0 ? (
+                  <p className="text-xs text-muted-foreground border rounded-md p-3">
+                    No service areas found. Add service areas in Company Settings → Service Areas first.
+                  </p>
+                ) : (
+                  <div className="border rounded-md p-3 max-h-44 overflow-y-auto space-y-2">
+                    {serviceAreas.map((area) => (
+                      <div key={area._id} className="flex items-center gap-2">
+                        <Checkbox
+                          id={`area-${area._id}`}
+                          checked={formData.workingArea.includes(area.name)}
+                          onCheckedChange={() => toggleWorkingArea(area.name)}
+                        />
+                        <Label htmlFor={`area-${area._id}`} className="font-normal cursor-pointer">
+                          {area.name}
+                        </Label>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {workingAreaError && (
+                  <p className="text-destructive text-xs">{workingAreaError}</p>
+                )}
+                {formData.workingArea.length > 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    Selected: {formData.workingArea.join(", ")}
+                  </p>
+                )}
+              </div>
+
             </form>
           </div>
 

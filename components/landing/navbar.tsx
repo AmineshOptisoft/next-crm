@@ -68,7 +68,7 @@ export default function LandingNavbar() {
       <AnimationContainer reverse delay={0.1} className="size-full">
         <MaxWidthWrapper className="h-full flex items-center justify-between">
           <Link href="#home" className="text-lg font-bold leading-none">
-            CleanFlow
+            BookingCRM
           </Link>
 
           <nav className="hidden md:flex items-center gap-7 text-sm text-muted-foreground">

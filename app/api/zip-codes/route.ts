@@ -3,6 +3,8 @@ import { connectDB } from "@/lib/db";
 import { ZipCode } from "@/app/models/ZipCode";
 import { getCurrentUser } from "@/lib/auth";
 
+import { checkAndUpdateCompanyProfileCompletion } from "@/lib/companyCompletion";
+
 export async function GET() {
     try {
         const user = await getCurrentUser();
@@ -53,6 +55,8 @@ export async function POST(req: Request) {
 
         // Populate service area name before returning
         await newZipCode.populate('serviceAreaId', 'name');
+
+        await checkAndUpdateCompanyProfileCompletion(user.companyId);
 
         return NextResponse.json(newZipCode, { status: 201 });
     } catch (error) {

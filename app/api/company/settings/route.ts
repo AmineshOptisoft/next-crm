@@ -3,6 +3,7 @@ import { connectDB } from "@/lib/db";
 import { Company } from "@/app/models/Company";
 import { getCurrentUser, requireCompanyAdmin } from "@/lib/auth";
 import { validateCompanyAccess } from "@/lib/permissions";
+import { checkAndUpdateCompanyProfileCompletion } from "@/lib/companyCompletion";
 
 export async function GET(req: NextRequest) {
   const user = await getCurrentUser();
@@ -18,6 +19,9 @@ export async function GET(req: NextRequest) {
   }
 
   await connectDB();
+
+  // Recalculate profile completion status (Profile + Service Areas + Zip Codes + Mail Sending)
+  await checkAndUpdateCompanyProfileCompletion(user?.companyId);
 
   const company = await Company.findById(user.companyId).lean();
 
@@ -53,7 +57,7 @@ export async function PUT(req: NextRequest) {
 
   await connectDB();
 
-  // Get current company to preserve fields and check completeness
+  // Get current company to preserve fields
   const currentCompany = await Company.findById(user.companyId);
   if (!currentCompany) {
     return NextResponse.json({ error: "Company not found" }, { status: 404 });
@@ -103,43 +107,22 @@ export async function PUT(req: NextRequest) {
     body.subdomain = rawSubdomain;
   }
 
-  // Merge current data with update data for completeness check
-  // This ensures that if we only update mailConfig, other fields like name/logo are still counted
-  const mergedData = {
-    ...currentCompany.toObject(),
-    ...body,
-  };
-
-  // Check if all required fields are present for profile completion
-  const isProfileComplete = !!(
-    mergedData.name &&
-    mergedData.logo &&
-    mergedData.email &&
-    mergedData.phone &&
-    mergedData.address?.street &&
-    mergedData.address?.city &&
-    mergedData.address?.state &&
-    mergedData.address?.country &&
-    mergedData.address?.zipCode &&
-    mergedData.address?.latitude &&
-    mergedData.address?.longitude
+  // Save the updated settings
+  await Company.findByIdAndUpdate(
+    user.companyId,
+    { $set: body },
+    { new: true, runValidators: false }
   );
 
-  // Update company with profileCompleted status
-  // We use the body for the update but include the calculated profileCompleted
-  const updateData = {
-    ...body,
-    profileCompleted: isProfileComplete,
-  };
+  // Recalculate complete status across Profile, Service Areas, Zip Codes, and Mail Sending
+  await checkAndUpdateCompanyProfileCompletion(user.companyId);
 
-  // Apply changes directly on the loaded document so complex fields like
-  // publicSites are always persisted correctly.
-  currentCompany.set(updateData);
+  const savedCompany = await Company.findById(user.companyId).lean();
 
-  const savedCompany = await currentCompany.save();
+  if (!savedCompany) {
+    return NextResponse.json({ error: "Company not found after update" }, { status: 404 });
+  }
 
-  // Convert to plain object to ensure all fields are returned
-  const companyObject = savedCompany.toObject();
-
-  return NextResponse.json(companyObject);
+  return NextResponse.json(savedCompany);
 }
+

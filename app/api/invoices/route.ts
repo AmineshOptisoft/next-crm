@@ -1,38 +1,60 @@
 import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
 import { Invoice } from "@/app/models/Invoice";
+import "@/app/models/Product"; // register Product schema for populate
 import { getCurrentUser } from "@/lib/auth";
 import { checkPermission, buildCompanyFilter, validateCompanyAccess } from "@/lib/permissions";
+import { Types } from "mongoose";
 
 export async function GET(req: NextRequest) {
-  const permCheck = await checkPermission("invoices", "view");
-  if (!permCheck.authorized) {
-    return permCheck.response;
+  try {
+    const permCheck = await checkPermission("invoices", "view");
+    if (!permCheck.authorized) {
+      return permCheck.response;
+    }
+    const user = permCheck.user;
+
+    const { searchParams } = new URL(req.url);
+    const status = searchParams.get("status");
+    const contactId = searchParams.get("contactId");
+    const recurringGroupId = searchParams.get("recurringGroupId");
+    const bookingStartDateTime = searchParams.get("bookingStartDateTime");
+
+    await connectDB();
+
+    let filter: any = {};
+    try {
+      filter = buildCompanyFilter(user);
+    } catch (e) {
+      return NextResponse.json({ error: "No company associated with user" }, { status: 400 });
+    }
+
+    if (status) filter.status = status;
+    const rawBookingId = searchParams.get("bookingId");
+    if (contactId && Types.ObjectId.isValid(contactId)) filter.contactId = new Types.ObjectId(contactId);
+    if (rawBookingId && Types.ObjectId.isValid(rawBookingId)) filter.bookingId = new Types.ObjectId(rawBookingId);
+    if (recurringGroupId) filter.recurringGroupId = recurringGroupId;
+    if (bookingStartDateTime) {
+      const parsedDate = new Date(bookingStartDateTime);
+      if (!isNaN(parsedDate.getTime())) {
+        filter.bookingStartDateTime = parsedDate;
+      }
+    }
+
+    const invoices = await Invoice.find(filter)
+      .populate("contactId", "firstName lastName name email company")
+      .populate("items.productId", "name sku")
+      .sort({ createdAt: -1 })
+      .lean();
+
+    return NextResponse.json(invoices);
+  } catch (error) {
+    console.error("[GET /api/invoices] Error:", error);
+    return NextResponse.json(
+      { error: "Failed to fetch invoices", details: (error as Error).message },
+      { status: 500 }
+    );
   }
-  const user = permCheck.user;
-
-  const { searchParams } = new URL(req.url);
-  const status = searchParams.get("status");
-  const contactId = searchParams.get("contactId");
-  const recurringGroupId = searchParams.get("recurringGroupId");
-  const bookingStartDateTime = searchParams.get("bookingStartDateTime");
-
-  await connectDB();
-
-  const filter: any = buildCompanyFilter(user);
-  if (status) filter.status = status;
-  if (contactId) filter.contactId = contactId;
-  if (searchParams.get("bookingId")) filter.bookingId = searchParams.get("bookingId");
-  if (recurringGroupId) filter.recurringGroupId = recurringGroupId;
-  if (bookingStartDateTime) filter.bookingStartDateTime = new Date(bookingStartDateTime);
-
-  const invoices = await Invoice.find(filter)
-    .populate("contactId", "firstName lastName name email company")
-    .populate("items.productId", "name sku")
-    .sort({ createdAt: -1 })
-    .lean();
-
-  return NextResponse.json(invoices);
 }
 
 export async function POST(req: NextRequest) {

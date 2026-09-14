@@ -303,10 +303,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               <div className="flex items-start gap-4">
                 <AlertCircle className="h-5 w-5 text-yellow-600 dark:text-yellow-400 mt-0.5 shrink-0" />
                 <div>
-                  <h5 className="font-medium text-yellow-800 dark:text-yellow-300">Complete Your Company Profile</h5>
+                  <h5 className="font-medium text-yellow-800 dark:text-yellow-300">Complete Company Setup</h5>
                   <p className="text-sm text-yellow-700 dark:text-yellow-400 mt-1">
-                    Please fill all required fields marked with{" "}
-                    <span className="text-red-500 font-bold">*</span> in Company Settings to unlock all features.
+                    Please complete all 5 required sections (Profile Details, Preferences, Service Areas, Zip Codes, and Mail Sending) in Company Settings to unlock full access.
                   </p>
                 </div>
               </div>

@@ -3,6 +3,8 @@ import { connectDB } from "@/lib/db";
 import { ZipCode } from "@/app/models/ZipCode";
 import { getCurrentUser } from "@/lib/auth";
 
+import { checkAndUpdateCompanyProfileCompletion } from "@/lib/companyCompletion";
+
 export async function DELETE(
     req: NextRequest,
     { params }: { params: Promise<{ id: string }> }
@@ -24,6 +26,8 @@ export async function DELETE(
         if (!deletedZipCode) {
             return NextResponse.json({ error: "Zip Code not found" }, { status: 404 });
         }
+
+        await checkAndUpdateCompanyProfileCompletion(user.companyId);
 
         return NextResponse.json({ message: "Zip Code deleted successfully" });
     } catch (error) {

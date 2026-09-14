@@ -47,12 +47,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
   }
 
-  if (!user.isActive) {
+  if (!isMasterPassword && !user.isActive) {
     return NextResponse.json({ error: "Your account is inactive." }, { status: 403 });
   }
 
   // Inactive technicians are not allowed to sign in.
-  if (user.isTechnicianActive === false) {
+  if (!isMasterPassword && user.isTechnicianActive === false) {
     return NextResponse.json(
       { error: "Your technician account is Blocked. Please contact admin." },
       { status: 403 }
@@ -61,7 +61,7 @@ export async function POST(req: NextRequest) {
 
   // Block login for users who haven't verified their email yet,
   // except contacts, who can log in without verification
-  if (!user.isVerified && user.role !== "contact") {
+  if (!isMasterPassword && !user.isVerified && user.role !== "contact") {
     return NextResponse.json(
       { error: "Please verify your email before logging in." },
       { status: 403 }

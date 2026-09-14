@@ -5,6 +5,8 @@ import { ServiceArea } from "@/app/models/ServiceArea";
 import { ZipCode } from "@/app/models/ZipCode";
 import { log } from "console";
 
+import { checkAndUpdateCompanyProfileCompletion } from "@/lib/companyCompletion";
+
 // PUT - Update a service area
 export async function PUT(
     req: NextRequest,
@@ -99,6 +101,8 @@ export async function DELETE(
                 { status: 404 }
             );
         }
+
+        await checkAndUpdateCompanyProfileCompletion(user.companyId);
 
         return NextResponse.json({ message: "Service area deleted successfully" });
     } catch (error: any) {

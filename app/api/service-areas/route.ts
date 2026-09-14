@@ -4,6 +4,8 @@ import { connectDB } from "@/lib/db";
 import { ServiceArea } from "@/app/models/ServiceArea";
 import { ZipCode } from "@/app/models/ZipCode";
 
+import { checkAndUpdateCompanyProfileCompletion } from "@/lib/companyCompletion";
+
 // GET - Fetch all service areas for the company
 export async function GET(req: NextRequest) {
     try {
@@ -96,6 +98,8 @@ export async function POST(req: NextRequest) {
 
         const totalSavedZipCodes =
             (zipWriteResult.upsertedCount ?? 0) + (zipWriteResult.modifiedCount ?? 0);
+
+        await checkAndUpdateCompanyProfileCompletion(user.companyId);
 
         return NextResponse.json(
             {
