@@ -47,6 +47,108 @@ import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
 
+// ------ Default Key Points Suggestions by service name keywords ------
+const KEY_POINT_SUGGESTIONS: Record<string, string[]> = {
+    "house cleaning": [
+        "Deep cleaning of all rooms",
+        "Dusting & vacuuming",
+        "Kitchen & bathroom sanitisation",
+        "Mopping & floor care",
+        "Window sill & baseboard wiping"
+    ],
+    "initial cleaning": [
+        "First-time detailed clean",
+        "Ceiling fans & light fixtures",
+        "Removal of cobwebs",
+        "Stovetop & appliances",
+        "Vacuuming & mopping"
+    ],
+    "maintenance cleaning": [
+        "Regular upkeep clean",
+        "Dusting all surfaces",
+        "Toilet & shower cleaning",
+        "Vacuuming all floors",
+        "Making beds"
+    ],
+    "deep cleaning": [
+        "Inside oven cleaned",
+        "Interior of refrigerator",
+        "Cabinet interiors washed",
+        "Behind appliances cleaned",
+        "Heavy dust build-up attention"
+    ],
+    "move": [
+        "Inside of oven cleaned",
+        "Cabinets & drawers washed",
+        "Refrigerator interior & behind",
+        "Electric range pulled out",
+        "All surfaces sanitised"
+    ],
+    "garden": [
+        "Lawn mowing & edging",
+        "Plant trimming",
+        "Leaf blowing",
+        "Weed removal",
+        "General garden tidying"
+    ],
+    "office": [
+        "Desk & surface wiping",
+        "Appliance cleaning",
+        "Window cleaning",
+        "Waste bin emptying",
+        "Floor vacuuming & mopping"
+    ],
+    "garage": [
+        "Vehicle cleaning",
+        "Tool & equipment cleaning",
+        "Stain & grease removal",
+        "Sweep & dust floor",
+        "Organise storage areas"
+    ],
+    "carpet": [
+        "Deep steam cleaning",
+        "Stain removal treatment",
+        "Edge & crevice vacuuming",
+        "Odour elimination",
+        "Drying & finishing"
+    ],
+    "kitchen": [
+        "Stovetop & drip pans",
+        "Countertops & backsplashes",
+        "Cabinet fingerprints wiped",
+        "Sink sanitised",
+        "Microwave interior cleaned"
+    ],
+    "bathroom": [
+        "Toilet & seat cleaned",
+        "Shower & tub scrubbed",
+        "Mirror polished",
+        "Counters & fixtures wiped",
+        "Floor mopped & sanitised"
+    ],
+    "window": [
+        "Glass cleaned inside & out",
+        "Sill & track wiped",
+        "Streak-free finish",
+        "Frame dusted",
+        "Screen cleaned"
+    ],
+};
+
+function getSuggestionsForName(name: string): string[] {
+    const lower = name.toLowerCase();
+    for (const [key, suggestions] of Object.entries(KEY_POINT_SUGGESTIONS)) {
+        if (lower.includes(key)) return suggestions;
+    }
+    return [
+        "Professional service",
+        "Trained staff",
+        "Quality assured",
+        "Eco-friendly products",
+        "Satisfaction guaranteed"
+    ];
+}
+
 interface SubService {
     name: string;
     description?: string;
@@ -108,6 +210,8 @@ export default function ServicesPage() {
     const [isUploading, setIsUploading] = useState(false);
     const [isDragging, setIsDragging] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
+    const [keyPoints, setKeyPoints] = useState<string[]>([]);
+    const [newKeyPoint, setNewKeyPoint] = useState("");
     const [deletingId, setDeletingId] = useState<string | null>(null);
     const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
     const [serviceToDelete, setServiceToDelete] = useState<string | null>(null);
@@ -310,6 +414,8 @@ export default function ServicesPage() {
         });
         setSubServices([]);
         setNewSubService({ name: "", price: 0 });
+        setKeyPoints([]);
+        setNewKeyPoint("");
     }
 
     function handleEdit(service: Service) {
@@ -330,6 +436,7 @@ export default function ServicesPage() {
             estimatedTime: service.estimatedTime || 0
         });
         setSubServices(service.subServices || []);
+        setKeyPoints((service as any).keyPoints || []);
         setIsSheetOpen(true);
     }
 
@@ -350,8 +457,13 @@ export default function ServicesPage() {
 
     async function handleSubmit(e: React.FormEvent) {
         e.preventDefault();
-        if (!formData.name) {
-            toast.error("Service name is required");
+        if (!formData.name || !formData.name.trim()) {
+            toast.error("Service title is required");
+            return;
+        }
+
+        if (!formData.description || !formData.description.trim()) {
+            toast.error("Service description is required");
             return;
         }
 
@@ -365,6 +477,7 @@ export default function ServicesPage() {
             ...formData,
             parentId: formData.category !== "main" ? formData.parentId : null,
             subServices,
+            keyPoints,
         };
 
         setIsSaving(true);
@@ -700,13 +813,131 @@ export default function ServicesPage() {
                                 </div>
 
                                 <div className="space-y-3">
-                                    <Label htmlFor="description" className="text-base font-semibold">Description</Label>
+                                    <Label htmlFor="description" className="text-base font-semibold">
+                                        Description <span className="text-destructive">*</span>
+                                    </Label>
                                     <Textarea
                                         id="description"
                                         value={formData.description}
                                         onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                                        placeholder="Enter short description for this service..."
                                         className="h-35"
+                                        required
                                     />
+                                </div>
+
+                                {/* Key Points */}
+                                <div className="space-y-3">
+                                    <div className="flex items-center justify-between">
+                                        <Label className="text-base font-semibold">
+                                            Key Points
+                                            <span className="ml-2 text-xs font-normal text-muted-foreground">(Optional — shown on public site)</span>
+                                        </Label>
+                                        {formData.name.trim() && (
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    const suggestions = getSuggestionsForName(formData.name);
+                                                    const existing = new Set(keyPoints);
+                                                    const toAdd = suggestions.filter(s => !existing.has(s));
+                                                    if (toAdd.length > 0) setKeyPoints(prev => [...prev, ...toAdd]);
+                                                    else toast.info("All suggestions already added");
+                                                }}
+                                                className="text-xs text-primary hover:underline"
+                                            >
+                                                + Add all suggestions
+                                            </button>
+                                        )}
+                                    </div>
+
+                                    {/* Existing key-point chips */}
+                                    {keyPoints.length > 0 && (
+                                        <div className="flex flex-wrap gap-2 p-3 rounded-lg border bg-muted/20 min-h-[48px]">
+                                            {keyPoints.map((point, idx) => (
+                                                <span
+                                                    key={idx}
+                                                    className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 border border-primary/20 text-primary px-3 py-1 text-xs font-medium"
+                                                >
+                                                    {point}
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setKeyPoints(prev => prev.filter((_, i) => i !== idx))}
+                                                        className="ml-0.5 hover:text-destructive transition-colors"
+                                                    >
+                                                        <X className="h-3 w-3" />
+                                                    </button>
+                                                </span>
+                                            ))}
+                                        </div>
+                                    )}
+
+                                    {/* Suggestion chips */}
+                                    <div className="space-y-1.5">
+                                        <p className="text-[11px] text-muted-foreground">Quick suggestions:</p>
+                                        <div className="flex flex-wrap gap-1.5">
+                                            {getSuggestionsForName(formData.name).map((suggestion, idx) => {
+                                                const alreadyAdded = keyPoints.includes(suggestion);
+                                                return (
+                                                    <button
+                                                        key={idx}
+                                                        type="button"
+                                                        disabled={alreadyAdded}
+                                                        onClick={() => {
+                                                            if (!alreadyAdded) setKeyPoints(prev => [...prev, suggestion]);
+                                                        }}
+                                                        className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs transition-colors ${
+                                                            alreadyAdded
+                                                                ? "border-primary/20 bg-primary/10 text-primary/50 cursor-default"
+                                                                : "border-border bg-background text-muted-foreground hover:border-primary hover:text-primary cursor-pointer"
+                                                        }`}
+                                                    >
+                                                        {!alreadyAdded && <Plus className="h-2.5 w-2.5" />}
+                                                        {suggestion}
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+
+                                    {/* Custom input */}
+                                    <div className="flex gap-2">
+                                        <Input
+                                            value={newKeyPoint}
+                                            onChange={(e) => setNewKeyPoint(e.target.value)}
+                                            onKeyDown={(e) => {
+                                                if (e.key === "Enter") {
+                                                    e.preventDefault();
+                                                    const trimmed = newKeyPoint.trim();
+                                                    if (trimmed && !keyPoints.includes(trimmed)) {
+                                                        setKeyPoints(prev => [...prev, trimmed]);
+                                                        setNewKeyPoint("");
+                                                    } else if (keyPoints.includes(trimmed)) {
+                                                        toast.error("Key point already added");
+                                                    }
+                                                }
+                                            }}
+                                            placeholder="Type a custom key point & press Enter..."
+                                            className="h-9 text-sm"
+                                        />
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="sm"
+                                            className="shrink-0 h-9 px-3"
+                                            onClick={() => {
+                                                const trimmed = newKeyPoint.trim();
+                                                if (!trimmed) return;
+                                                if (!keyPoints.includes(trimmed)) {
+                                                    setKeyPoints(prev => [...prev, trimmed]);
+                                                    setNewKeyPoint("");
+                                                } else {
+                                                    toast.error("Key point already added");
+                                                }
+                                            }}
+                                        >
+                                            <Plus className="h-3.5 w-3.5 mr-1" /> Add
+                                        </Button>
+                                    </div>
                                 </div>
 
                                 <div className="space-y-3">

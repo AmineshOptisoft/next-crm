@@ -46,8 +46,12 @@ export async function POST(req: NextRequest) {
         estimatedTime
     } = body;
 
-    if (!name) {
-        return NextResponse.json({ error: "Name is required" }, { status: 400 });
+    if (!name || !name.trim()) {
+        return NextResponse.json({ error: "Service title is required" }, { status: 400 });
+    }
+
+    if (!description || !description.trim()) {
+        return NextResponse.json({ error: "Service description is required" }, { status: 400 });
     }
 
     await connectDB();

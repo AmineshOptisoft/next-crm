@@ -44,6 +44,14 @@ export async function PUT(
         return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
 
+    if (name !== undefined && !String(name).trim()) {
+        return NextResponse.json({ error: "Service title is required" }, { status: 400 });
+    }
+
+    if (description !== undefined && !String(description).trim()) {
+        return NextResponse.json({ error: "Service description is required" }, { status: 400 });
+    }
+
     // Update all fields
     service.name = name || service.name;
     service.description = description !== undefined ? description : service.description;

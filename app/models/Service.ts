@@ -10,6 +10,7 @@ export interface IService extends Document {
     name: string; // Service Title
     logo?: string; // Service Logo
     description?: string;
+    keyPoints?: string[];
     availability: "new_client" | "existing_client" | "both" | "admin_service";
     percentage?: number; // Service Percentage (%)
 
@@ -45,6 +46,7 @@ const ServiceSchema = new Schema({
     name: { type: String, required: true }, // Service Title
     logo: { type: String }, // URL to image/logo
     description: { type: String },
+    keyPoints: { type: [String], default: [] },
 
     availability: {
         type: String,

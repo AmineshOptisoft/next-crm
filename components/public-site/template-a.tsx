@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { Calendar } from "@/components/ui/calendar";
 import { toast } from "sonner";
 import { ClientBookingTopbar } from "@/components/public-site/client-booking-topbar";
+import { cn } from "@/lib/utils";
 
 let geoCache: any = null;
 async function loadGeo() {
@@ -51,6 +52,117 @@ function normalizeId(value: any): string {
   const asString = typeof value?.toString === "function" ? value.toString() : "";
   if (asString && asString !== "[object Object]") return asString;
   return "";
+}
+
+const DEFAULT_CLEANING_PACKAGES = [
+  {
+    name: "Initial Cleaning",
+    description: "Our Initial Cleaning service is perfect for giving your home a fresh start. We meticulously clean every area to create a spotless environment. This package includes:",
+    items: [
+      "Dusting of ceiling fans & light fixtures",
+      "Removal of cobwebs",
+      "Dusting of blinds, windowsills, & lock ledges",
+      "Dusting of moldings & woodwork",
+      "Dusting of baseboards",
+      "Dusting of lamps & lampshades",
+      "Dusting of pictures & knick-knacks",
+      "Dusting of furniture",
+      "Cleaning the top of the refrigerator",
+      "Cleaning the outside of appliances",
+      "Cleaning stovetop and drip pans",
+      "Cleaning countertops and backsplashes",
+      "Cleaning all sinks",
+      "Cleaning mirrors",
+      "Cleaning tub/shower and tile",
+      "Cleaning all bathroom counters and fixtures",
+      "Emptying and relining wastebaskets",
+      "Making beds and changing sheets upon request",
+      "Vacuuming stairs",
+      "Vacuuming and/or mopping floors"
+    ]
+  },
+  {
+    name: "Top to Bottom Deluxe Cleaning",
+    description: "For a thorough, deep clean, our Top to Bottom Deluxe Cleaning includes everything in the Initial Cleaning plus extra care in those hard-to-reach and often-neglected areas. This package includes:",
+    items: [
+      "Washing ceiling fan blades",
+      "Washing light fixtures in place",
+      "Removal of cobwebs",
+      "Vacuuming blinds",
+      "Vacuuming curtain tops",
+      "Washing doors and door frames",
+      "Washing picture frame paneling and trim",
+      "Washing cabinets from top to bottom",
+      "Washing light switch plates",
+      "Vacuuming lower air return vents",
+      "Washing window sills",
+      "Washing baseboards",
+      "Vacuuming carpet edges and crevices",
+      "Special attention to heavy dust build-up",
+      "Special attention to build-up in the kitchen",
+      "Special attention to build-up in bathrooms"
+    ]
+  },
+  {
+    name: "Move-In and Move-Out Cleaning",
+    description: "For a thorough, deep clean, our Move-in and Move-out Deluxe Cleaning includes everything in the Top To Bottom Deluxe Cleaning plus extra care in those hard-to-reach and often-neglected areas. This package includes:",
+    items: [
+      "Washing light switch plates",
+      "Vacuuming lower air return vents",
+      "Washing window sills",
+      "Washing baseboards",
+      "Vacuuming carpet edges and crevices",
+      "Special attention to heavy dust build-up",
+      "Special attention to build-up in the kitchen",
+      "Special attention to build-up in bathrooms",
+      "Inside of oven cleaned",
+      "Interiors of all cabinets and drawers washed",
+      "Electric range pulled out and cleaned behind",
+      "Washing ceiling fan blades",
+      "Washing light fixtures in place",
+      "Removal of cobwebs",
+      "Vacuuming blinds",
+      "Vacuuming curtain tops",
+      "Washing doors and door frames",
+      "Washing picture frame paneling and trim",
+      "Washing cabinets from top to bottom",
+      "Interior of refrigerator cleaned",
+      "Refrigerator pulled-out and cleaned behind"
+    ]
+  },
+  {
+    name: "Maintenance Cleaning",
+    description: "Our Maintenance Cleaning service ensures your home stays clean and fresh on a regular basis. This package includes:",
+    items: [
+      "Dusting blinds and window sills",
+      "Dusting baseboards",
+      "Dusting pictures and knick-knacks",
+      "Dusting furniture",
+      "Dusting the top of the refrigerator",
+      "Cleaning the exterior of all appliances",
+      "Cleaning the interior of the microwave",
+      "Cleaning cabinet fingerprints",
+      "Cleaning stovetop, drip pans, and grates",
+      "Cleaning countertops, backsplash, and sinks",
+      "Cleaning and polishing all mirrors",
+      "Vacuuming all floors",
+      "Mopping all hard surface floors",
+      "Emptying wastebaskets",
+      "Making beds",
+      "Vacuuming and/or mopping stairs",
+      "Cleaning toilets, showers, and bathtubs"
+    ]
+  }
+];
+
+function RedCircleBulletIcon() {
+  return (
+    <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#be123c] text-white shadow-sm">
+      <svg className="h-3 w-3 fill-current" viewBox="0 0 24 24">
+        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1.25 14.25l-3.5-3.5 1.41-1.41 2.09 2.09 5.09-5.09 1.41 1.41-6.5 6.5z"/>
+      </svg>
+    </div>
+  );
 }
 
 function isSubstituteTech(tech: any): boolean {
@@ -180,6 +292,26 @@ export function PublicTemplateA({
   const [geoLib, setGeoLib] = useState<any>(null);
   const [searchZip, setSearchZip] = useState("");
   const [showThankYou, setShowThankYou] = useState(false);
+  const [zipDetailsModalOpen, setZipDetailsModalOpen] = useState(false);
+  const [createdBookingDetails, setCreatedBookingDetails] = useState<{
+    id?: string;
+    orderId?: string;
+    serviceName?: string;
+    subServicesNames?: string[];
+    addonsNames?: string[];
+    technicianName?: string;
+    startDateTime?: string;
+    endDateTime?: string;
+    customerName?: string;
+    customerEmail?: string;
+    customerPhone?: string;
+    address?: string;
+    finalAmount?: number;
+    subTotal?: number;
+    addonsTotal?: number;
+    discount?: number;
+    notes?: string;
+  } | null>(null);
 
   const closeThankYouAndRefresh = () => {
     setShowThankYou(false);
@@ -721,6 +853,53 @@ export function PublicTemplateA({
           return;
         }
 
+        const createdData = await res.json().catch(() => null);
+        const selectedTechObj = activeTechnicians.find(
+          (t: any) => normalizeId(t.id || t._id) === normalizeId(techId)
+        );
+        const techName = selectedTechObj
+          ? `${selectedTechObj.firstName || ""} ${selectedTechObj.lastName || ""}`.trim()
+          : "Assigned Technician";
+
+        const subNames = subServices.map((sub: any) => {
+          const match = visibleSubServices.find(
+            (s: any) => normalizeId(s._id) === normalizeId(sub.serviceId)
+          );
+          return `${match?.name || "Sub Service"} (x${sub.quantity})`;
+        });
+
+        const addonNames = addons.map((add: any) => {
+          const match = visibleAddons.find(
+            (a: any) => normalizeId(a._id) === normalizeId(add.serviceId)
+          );
+          return `${match?.name || "Addon"} (x${add.quantity})`;
+        });
+
+        setCreatedBookingDetails({
+          id: createdData?.id,
+          orderId: createdData?.orderId || `ORD-${Date.now().toString().slice(-6)}`,
+          serviceName: selectedServiceName || "Cleaning Service",
+          subServicesNames: subNames,
+          addonsNames: addonNames,
+          technicianName: techName,
+          startDateTime: start.toLocaleString("en-US", { dateStyle: "full", timeStyle: "short" }),
+          endDateTime: end.toLocaleString("en-US", { timeStyle: "short" }),
+          customerName:
+            [newUserForm.firstName, newUserForm.lastName].filter(Boolean).join(" ") ||
+            existingEmail ||
+            "Client",
+          customerEmail: newUserForm.email || existingEmail,
+          customerPhone: newUserForm.phone || "",
+          address: [newUserForm.address, newUserForm.city, newUserForm.state, searchZip]
+            .filter(Boolean)
+            .join(", "),
+          finalAmount,
+          subTotal,
+          addonsTotal,
+          discount,
+          notes: appointmentNotes,
+        });
+
         await loadResources();
         toast.success("Booking submitted successfully");
         setShowThankYou(true);
@@ -740,6 +919,23 @@ export function PublicTemplateA({
 
   const loadResources = async () => {
     try {
+      const companyIdStr = company?._id?.toString?.() || company?._id;
+      const publicUrl = companyIdStr
+        ? `/api/public/resources?companyId=${companyIdStr}`
+        : subdomain
+        ? `/api/public/resources?subdomain=${subdomain}`
+        : null;
+
+      if (publicUrl) {
+        const pubRes = await fetch(publicUrl);
+        if (pubRes.ok) {
+          const pubData = await pubRes.json();
+          if (pubData?.resources) setTechnicians(pubData.resources);
+          if (pubData?.events) setCalendarEvents(pubData.events);
+          return;
+        }
+      }
+
       const res = await fetch("/api/appointments/resources", { credentials: "include" });
       if (!res.ok) return;
       const data = await res.json();
@@ -1138,16 +1334,37 @@ export function PublicTemplateA({
                       <div className="text-sm font-semibold text-foreground">Service area</div>
                       <div className="grid gap-2 text-xs sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] sm:text-sm">
                         <div className="space-y-1">
-                          <div className="text-[11px] font-medium uppercase tracking-[0.15em] text-muted-foreground">
-                            Zip code
+                          <div className="flex items-center justify-between">
+                            <div className="text-[11px] font-medium uppercase tracking-[0.15em] text-muted-foreground">
+                              Zip code
+                            </div>
+                            {searchZip.trim() && (
+                              <button
+                                type="button"
+                                onClick={() => setZipDetailsModalOpen(true)}
+                                className="text-[11px] font-semibold text-primary hover:underline inline-flex items-center gap-1"
+                              >
+                                View Area Details →
+                              </button>
+                            )}
                           </div>
-                          <input
-                            type="text"
-                            value={searchZip}
-                            onChange={(e) => setSearchZip(e.target.value)}
-                            placeholder="Enter service zip code"
-                            className="w-full rounded-md border border-input bg-background px-3 py-2 text-xs text-foreground outline-none ring-0 placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/20"
-                          />
+                          <div className="flex gap-2">
+                            <input
+                              type="text"
+                              value={searchZip}
+                              onChange={(e) => setSearchZip(e.target.value)}
+                              placeholder="Enter service zip code (e.g. 110042)"
+                              className="w-full rounded-md border border-input bg-background px-3 py-2 text-xs text-foreground outline-none ring-0 placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/20"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setZipDetailsModalOpen(true)}
+                              disabled={!searchZip.trim()}
+                              className="shrink-0 rounded-md border border-primary/40 bg-primary/10 px-3 py-2 text-xs font-semibold text-primary hover:bg-primary/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm"
+                            >
+                              View Details
+                            </button>
+                          </div>
                         </div>
                         <div className="flex items-end">
                           <p className="text-[11px] text-muted-foreground">
@@ -1198,111 +1415,112 @@ export function PublicTemplateA({
                     {selectedServiceConfig && (
                       <div className="space-y-4">
                         {visibleSubServices.length > 0 && (
-                            <div className="space-y-2">
-                              <div className="text-[11px] font-medium uppercase tracking-[0.15em] text-muted-foreground">
-                                Sub services
-                              </div>
-                              <div className="space-y-2 rounded-xl border bg-muted p-3 text-xs text-foreground sm:text-sm">
-                                {visibleSubServices.map((sub: any) => (
-                                    <label
-                                      key={sub._id}
-                                      className="flex cursor-pointer items-center justify-between gap-3 rounded-lg border border-border bg-background px-3 py-2 hover:border-primary/70"
-                                    >
-                                      <div className="flex items-center gap-2">
-                                        <span>{sub.name}</span>
-                                      </div>
-                                      <div className="flex items-center gap-1">
-                                        <button
-                                          type="button"
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            setSubServiceCounts((prev) => {
-                                              const current = prev[sub._id] ?? 0;
-                                              const next = Math.max(0, current - 1);
-                                              return { ...prev, [sub._id]: next };
-                                            });
-                                          }}
-                                          className="h-6 w-6 rounded-full border border-border text-xs text-foreground hover:border-primary"
-                                        >
-                                          -
-                                        </button>
-                                        <span className="w-6 text-center text-xs font-medium">
-                                          {subServiceCounts[sub._id] ?? 0}
-                                        </span>
-                                        <button
-                                          type="button"
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            setSubServiceCounts((prev) => {
-                                              const current = prev[sub._id] ?? 0;
-                                              const next = Math.min(99, current + 1);
-                                              return { ...prev, [sub._id]: next };
-                                            });
-                                          }}
-                                          className="h-6 w-6 rounded-full border border-border text-xs text-foreground hover:border-primary"
-                                        >
-                                          +
-                                        </button>
-                                      </div>
-                                    </label>
-                                  ))}
-                              </div>
+                          <div className="space-y-2">
+                            <div className="text-[11px] font-medium uppercase tracking-[0.15em] text-muted-foreground">
+                              Sub services (Included in package)
                             </div>
-                          )}
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 rounded-xl border bg-muted/40 p-3 text-xs text-foreground">
+                              {visibleSubServices.map((sub: any) => (
+                                <label
+                                  key={sub._id}
+                                  className="flex cursor-pointer items-center justify-between gap-2 rounded-lg border border-border bg-background p-2.5 hover:border-primary/70 shadow-sm"
+                                >
+                                  <div className="flex items-center gap-2 font-medium">
+                                    <RedCircleBulletIcon />
+                                    <span>{sub.name}</span>
+                                  </div>
+                                  <div className="flex items-center gap-1 shrink-0">
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setSubServiceCounts((prev) => {
+                                          const current = prev[sub._id] ?? 0;
+                                          const next = Math.max(0, current - 1);
+                                          return { ...prev, [sub._id]: next };
+                                        });
+                                      }}
+                                      className="h-5 w-5 rounded-full border border-border text-xs text-foreground hover:border-primary flex items-center justify-center"
+                                    >
+                                      -
+                                    </button>
+                                    <span className="w-5 text-center text-xs font-semibold">
+                                      {subServiceCounts[sub._id] ?? 0}
+                                    </span>
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setSubServiceCounts((prev) => {
+                                          const current = prev[sub._id] ?? 0;
+                                          const next = Math.min(99, current + 1);
+                                          return { ...prev, [sub._id]: next };
+                                        });
+                                      }}
+                                      className="h-5 w-5 rounded-full border border-border text-xs text-foreground hover:border-primary flex items-center justify-center"
+                                    >
+                                      +
+                                    </button>
+                                  </div>
+                                </label>
+                              ))}
+                            </div>
+                          </div>
+                        )}
 
-                        {selectedServiceConfig.addons &&
-                          visibleAddons.length > 0 && (
-                            <div className="space-y-2">
-                              <div className="text-[11px] font-medium uppercase tracking-[0.15em] text-muted-foreground">
-                                Add-ons
-                              </div>
-                              <div className="space-y-2 rounded-xl border bg-muted p-3 text-xs text-foreground sm:text-sm">
-                                {visibleAddons.map((addon: any) => (
-                                    <label
-                                      key={addon._id}
-                                      className="flex cursor-pointer items-center justify-between gap-3 rounded-lg border border-border bg-background px-3 py-2 hover:border-primary/70"
-                                    >
-                                      <div className="flex items-center gap-2">
-                                        <span>{addon.name}</span>
-                                      </div>
-                                      <div className="flex items-center gap-1">
-                                        <button
-                                          type="button"
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            setAddonCounts((prev) => {
-                                              const current = prev[addon._id] ?? 0;
-                                              const next = Math.max(0, current - 1);
-                                              return { ...prev, [addon._id]: next };
-                                            });
-                                          }}
-                                          className="h-6 w-6 rounded-full border border-border text-xs text-foreground hover:border-primary"
-                                        >
-                                          -
-                                        </button>
-                                        <span className="w-6 text-center text-xs font-medium">
-                                          {addonCounts[addon._id] ?? 0}
-                                        </span>
-                                        <button
-                                          type="button"
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            setAddonCounts((prev) => {
-                                              const current = prev[addon._id] ?? 0;
-                                              const next = Math.min(99, current + 1);
-                                              return { ...prev, [addon._id]: next };
-                                            });
-                                          }}
-                                          className="h-6 w-6 rounded-full border border-border text-xs text-foreground hover:border-primary"
-                                        >
-                                          +
-                                        </button>
-                                      </div>
-                                    </label>
-                                  ))}
-                              </div>
+                        {selectedServiceConfig.addons && visibleAddons.length > 0 && (
+                          <div className="space-y-2">
+                            <div className="text-[11px] font-medium uppercase tracking-[0.15em] text-muted-foreground">
+                              Add-ons
                             </div>
-                          )}
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 rounded-xl border bg-muted/40 p-3 text-xs text-foreground">
+                              {visibleAddons.map((addon: any) => (
+                                <label
+                                  key={addon._id}
+                                  className="flex cursor-pointer items-center justify-between gap-2 rounded-lg border border-border bg-background p-2.5 hover:border-primary/70 shadow-sm"
+                                >
+                                  <div className="flex items-center gap-2 font-medium">
+                                    <RedCircleBulletIcon />
+                                    <span>{addon.name}</span>
+                                  </div>
+                                  <div className="flex items-center gap-1 shrink-0">
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setAddonCounts((prev) => {
+                                          const current = prev[addon._id] ?? 0;
+                                          const next = Math.max(0, current - 1);
+                                          return { ...prev, [addon._id]: next };
+                                        });
+                                      }}
+                                      className="h-5 w-5 rounded-full border border-border text-xs text-foreground hover:border-primary flex items-center justify-center"
+                                    >
+                                      -
+                                    </button>
+                                    <span className="w-5 text-center text-xs font-semibold">
+                                      {addonCounts[addon._id] ?? 0}
+                                    </span>
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setAddonCounts((prev) => {
+                                          const current = prev[addon._id] ?? 0;
+                                          const next = Math.min(99, current + 1);
+                                          return { ...prev, [addon._id]: next };
+                                        });
+                                      }}
+                                      className="h-5 w-5 rounded-full border border-border text-xs text-foreground hover:border-primary flex items-center justify-center"
+                                    >
+                                      +
+                                    </button>
+                                  </div>
+                                </label>
+                              ))}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     )}
 
@@ -2172,29 +2390,345 @@ export function PublicTemplateA({
       </main>
 
       {showThankYou && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="w-full max-w-md rounded-xl bg-background p-6 shadow-lg">
-            <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-sm font-semibold text-foreground">Thank you for your booking</h2>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto">
+          <div className="w-full max-w-lg rounded-2xl bg-background p-6 shadow-2xl border border-border space-y-5 animate-in fade-in zoom-in-95">
+            <div className="flex items-center justify-between border-b pb-3">
+              <div>
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                  ✓ Booking Confirmed
+                </span>
+                <h2 className="mt-1 text-lg font-bold text-foreground">
+                  Booking Summary
+                </h2>
+              </div>
               <button
                 type="button"
                 onClick={closeThankYouAndRefresh}
-                className="h-6 w-6 rounded-full border border-border text-xs font-bold text-muted-foreground hover:border-primary hover:text-primary"
+                className="h-7 w-7 rounded-full border border-border flex items-center justify-center text-xs font-bold text-muted-foreground hover:bg-muted"
               >
                 ×
               </button>
             </div>
-            <p className="text-xs text-muted-foreground">
-              We&apos;ve received your booking request and will send you a confirmation as soon as it
-              is scheduled. You can close this window to continue browsing.
-            </p>
-            <div className="mt-4 flex justify-end">
+
+            {createdBookingDetails && (
+              <div className="space-y-4 text-xs">
+                {/* Order ID & Status */}
+                <div className="flex items-center justify-between rounded-xl bg-muted/60 p-3">
+                  <div>
+                    <p className="text-[11px] font-medium text-muted-foreground">Order Reference</p>
+                    <p className="font-mono text-sm font-bold text-foreground">{createdBookingDetails.orderId}</p>
+                  </div>
+                  <span className="rounded-md bg-amber-500/15 px-2.5 py-1 text-xs font-semibold text-amber-700 dark:text-amber-300 border border-amber-500/20">
+                    Unconfirmed
+                  </span>
+                </div>
+
+                {/* Service Details */}
+                <div className="space-y-2 rounded-xl border p-3.5 bg-card">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <p className="text-[11px] font-medium text-muted-foreground">Main Service</p>
+                      <p className="text-sm font-semibold text-foreground">{createdBookingDetails.serviceName}</p>
+                    </div>
+                  </div>
+
+                  {createdBookingDetails.subServicesNames && createdBookingDetails.subServicesNames.length > 0 && (
+                    <div>
+                      <p className="text-[11px] font-medium text-muted-foreground mt-2">Sub Services</p>
+                      <ul className="mt-1 list-disc list-inside text-muted-foreground">
+                        {createdBookingDetails.subServicesNames.map((s, idx) => (
+                          <li key={idx}>{s}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {createdBookingDetails.addonsNames && createdBookingDetails.addonsNames.length > 0 && (
+                    <div>
+                      <p className="text-[11px] font-medium text-muted-foreground mt-2">Addons</p>
+                      <ul className="mt-1 list-disc list-inside text-muted-foreground">
+                        {createdBookingDetails.addonsNames.map((a, idx) => (
+                          <li key={idx}>{a}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+
+                {/* Schedule & Staff */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="rounded-xl border p-3 bg-card space-y-1">
+                    <p className="text-[11px] font-medium text-muted-foreground">Date & Time</p>
+                    <p className="font-medium text-foreground">{createdBookingDetails.startDateTime}</p>
+                  </div>
+                  <div className="rounded-xl border p-3 bg-card space-y-1">
+                    <p className="text-[11px] font-medium text-muted-foreground">Technician</p>
+                    <p className="font-medium text-foreground">{createdBookingDetails.technicianName}</p>
+                  </div>
+                </div>
+
+                {/* Customer Info */}
+                <div className="rounded-xl border p-3 bg-card space-y-1">
+                  <p className="text-[11px] font-medium text-muted-foreground">Customer & Address</p>
+                  <p className="font-medium text-foreground">{createdBookingDetails.customerName}</p>
+                  {createdBookingDetails.address && (
+                    <p className="text-muted-foreground">{createdBookingDetails.address}</p>
+                  )}
+                </div>
+
+                {/* Pricing Summary */}
+                <div className="rounded-xl border p-3 bg-muted/40 space-y-1.5">
+                  <div className="flex justify-between text-muted-foreground">
+                    <span>Subtotal</span>
+                    <span>${(createdBookingDetails.subTotal || 0).toFixed(2)}</span>
+                  </div>
+                  {!!createdBookingDetails.addonsTotal && (
+                    <div className="flex justify-between text-muted-foreground">
+                      <span>Addons</span>
+                      <span>${createdBookingDetails.addonsTotal.toFixed(2)}</span>
+                    </div>
+                  )}
+                  {!!createdBookingDetails.discount && (
+                    <div className="flex justify-between text-emerald-600">
+                      <span>Discount</span>
+                      <span>-${createdBookingDetails.discount.toFixed(2)}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between font-bold text-sm text-foreground border-t pt-1.5 mt-1">
+                    <span>Total Amount</span>
+                    <span className="text-primary">${(createdBookingDetails.finalAmount || 0).toFixed(2)}</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div className="pt-2 flex flex-col sm:flex-row gap-2.5 justify-end">
               <button
                 type="button"
                 onClick={closeThankYouAndRefresh}
-                className="rounded-md bg-primary px-4 py-1.5 text-xs font-semibold text-primary-foreground hover:bg-primary/90"
+                className="w-full sm:w-auto rounded-full border border-border px-5 py-2 text-xs font-semibold text-foreground hover:bg-muted"
               >
-                Close
+                Close & Book Another
+              </button>
+              <button
+                type="button"
+                onClick={() => router.push("/dashboard/client-bookings")}
+                className="w-full sm:w-auto rounded-full bg-primary px-6 py-2 text-xs font-bold text-primary-foreground shadow hover:bg-primary/90"
+              >
+                View All My Bookings →
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {zipDetailsModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto">
+          <div className="w-full max-w-4xl rounded-2xl bg-background p-6 sm:p-8 shadow-2xl border border-border space-y-6 animate-in fade-in zoom-in-95 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b pb-3">
+              <div>
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary border border-primary/20">
+                  📍 Area & Coverage Details
+                </span>
+                <h2 className="mt-1 text-xl font-bold text-foreground">
+                  Zip Code: <span className="font-mono text-primary">{searchZip.trim()}</span>
+                </h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => setZipDetailsModalOpen(false)}
+                className="h-8 w-8 rounded-full border border-border flex items-center justify-center text-sm font-bold text-muted-foreground hover:bg-muted"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="space-y-6 text-xs">
+              {/* Coverage Status Banner */}
+              {filteredMainServices.length > 0 ? (
+                <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3.5 space-y-1">
+                  <div className="flex items-center gap-2 text-emerald-700 dark:text-emerald-300 font-bold text-xs">
+                    <span>✓ Service Available in Zip Code {searchZip.trim()}</span>
+                  </div>
+                  <p className="text-[11px] text-emerald-600/90 dark:text-emerald-400/90">
+                    Great news! We have active staff and services available in your service area.
+                  </p>
+                </div>
+              ) : (
+                <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-3.5 space-y-1">
+                  <div className="flex items-center gap-2 text-red-700 dark:text-red-300 font-bold text-xs">
+                    <span>⚠ No Service Coverage Currently</span>
+                  </div>
+                  <p className="text-[11px] text-red-600/90 dark:text-red-400/90">
+                    No active technicians or main services are currently assigned for zip code {searchZip.trim()}.
+                  </p>
+                </div>
+              )}
+
+              {/* Assigned Technicians */}
+              <div className="space-y-2 rounded-xl border p-3.5 bg-card">
+                <div className="flex justify-between items-center">
+                  <span className="font-semibold text-foreground uppercase tracking-wider text-[11px]">
+                    Assigned Technicians
+                  </span>
+                  <span className="text-[10px] text-muted-foreground">
+                    {activeTechnicians.filter((t: any) =>
+                      (t.workingZipCodes || []).some(
+                        (z: string) => z && z.replace(/\s+/g, "").toLowerCase() === searchZip.trim().toLowerCase()
+                      )
+                    ).length} technician(s) in area
+                  </span>
+                </div>
+                {activeTechnicians.filter((t: any) =>
+                  (t.workingZipCodes || []).some(
+                    (z: string) => z && z.replace(/\s+/g, "").toLowerCase() === searchZip.trim().toLowerCase()
+                  )
+                ).length === 0 ? (
+                  <p className="text-muted-foreground italic text-[11px]">No assigned technicians listed for this area.</p>
+                ) : (
+                  <div className="flex flex-wrap gap-2 pt-1">
+                    {activeTechnicians
+                      .filter((t: any) =>
+                        (t.workingZipCodes || []).some(
+                          (z: string) => z && z.replace(/\s+/g, "").toLowerCase() === searchZip.trim().toLowerCase()
+                        )
+                      )
+                      .map((tech: any) => (
+                        <div key={tech.id} className="flex items-center gap-2 rounded-lg border bg-muted/50 px-3 py-1.5">
+                          <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">
+                            {(tech.title || "T").slice(0, 2).toUpperCase()}
+                          </div>
+                          <div>
+                            <p className="font-semibold text-foreground">{tech.title}</p>
+                            {tech.group && <p className="text-[10px] text-muted-foreground">Zone: {tech.group}</p>}
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Available Main Services & Package Inclusions */}
+              <div className="space-y-6 rounded-xl border p-6 bg-card">
+                <span className="font-semibold text-foreground uppercase tracking-wider text-xs block text-center border-b pb-3">
+                  Available Packages & Inclusions
+                </span>
+                {(() => {
+                  const defaultPkgsAsServices = DEFAULT_CLEANING_PACKAGES.map((pkg, i) => ({
+                    _id: `def_pkg_${i}`,
+                    name: pkg.name,
+                    description: pkg.description,
+                    basePrice: 0,
+                    priceType: "fixed",
+                    subServices: pkg.items.map((item, idx) => ({ _id: `def_sub_${i}_${idx}`, name: item }))
+                  }));
+
+                  // Combine company services with 4 default packages so all 4 are always present
+                  const packagesToDisplay: any[] = [...filteredMainServices];
+                  DEFAULT_CLEANING_PACKAGES.forEach((defPkg, i) => {
+                    const exists = packagesToDisplay.some(s => 
+                      s.name && (
+                        s.name.toLowerCase().includes(defPkg.name.toLowerCase()) || 
+                        defPkg.name.toLowerCase().includes(s.name.toLowerCase())
+                      )
+                    );
+                    if (!exists) {
+                      packagesToDisplay.push(defaultPkgsAsServices[i]);
+                    }
+                  });
+
+                  return (
+                    <div className="space-y-10 pt-2">
+                      {packagesToDisplay.map((svc: any, idx: number) => {
+                        const svcNameLower = String(svc.name || "").trim().toLowerCase();
+                        const matchedPkg = DEFAULT_CLEANING_PACKAGES.find(
+                          (p) => p.name.toLowerCase() === svcNameLower || 
+                                 svcNameLower.includes(p.name.toLowerCase()) || 
+                                 p.name.toLowerCase().includes(svcNameLower)
+                        ) || DEFAULT_CLEANING_PACKAGES[idx % DEFAULT_CLEANING_PACKAGES.length];
+
+                        const rawDescription = svc.description || matchedPkg?.description || `Our ${svc.name} service is perfect for giving your home a fresh start. We meticulously clean every area to create a spotless environment.`;
+                        const descriptionText = rawDescription.replace(/This package includes:\s*$/i, "").trim();
+
+                        let itemsToRender: any[] = [];
+                        if (matchedPkg) {
+                          const dbItems = (svc.subServices || []).map((sub: any) => typeof sub === "string" ? sub : sub.name);
+                          const combinedNames = Array.from(new Set([...matchedPkg.items, ...dbItems]));
+                          itemsToRender = combinedNames.map((name, i) => ({ _id: `item_${i}`, name }));
+                        } else if (svc.subServices && svc.subServices.length > 0) {
+                          itemsToRender = svc.subServices;
+                        }
+
+                        return (
+                          <div key={svc._id || idx} className={cn("space-y-4", idx > 0 && "pt-8 border-t border-border")}>
+                            {/* Title & Price Header */}
+                            <div className="text-center space-y-2">
+                              <h3 className="font-serif text-2xl sm:text-3xl font-bold text-foreground tracking-tight">
+                                {svc.name}
+                              </h3>
+                              {svc.basePrice > 0 && (
+                                <span className="inline-block rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary border border-primary/20">
+                                  {svc.priceType === "hourly" ? `$${svc.hourlyRate || 0}/hr` : `$${svc.basePrice || 0}`}
+                                </span>
+                              )}
+                            </div>
+
+                            {/* Description & Intro Text */}
+                            <div className="text-center max-w-xl mx-auto space-y-1">
+                              {descriptionText && (
+                                <p className="text-muted-foreground text-xs sm:text-sm leading-relaxed">
+                                  {descriptionText}
+                                </p>
+                              )}
+                              <p className="text-muted-foreground text-xs sm:text-sm leading-relaxed font-medium pt-1">
+                                This package includes:
+                              </p>
+                            </div>
+
+                            {/* Sub-services 2-column Grid */}
+                            {itemsToRender.length > 0 && (
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-3 max-w-2xl mx-auto pt-2 px-4">
+                                {itemsToRender.map((sub: any, itemIdx: number) => (
+                                  <div key={sub._id || itemIdx} className="flex items-center gap-3 text-xs sm:text-sm font-medium text-foreground">
+                                    <RedCircleBulletIcon />
+                                    <span>{typeof sub === "string" ? sub : sub.name}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+
+                            {/* Addons 2-column Grid */}
+                            {svc.addons && svc.addons.length > 0 && (
+                              <div className="space-y-2 pt-3">
+                                <p className="text-xs font-semibold text-center text-muted-foreground uppercase tracking-wider">
+                                  Available Add-ons:
+                                </p>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-3 max-w-2xl mx-auto pt-1 px-4">
+                                  {svc.addons.map((addon: any) => (
+                                    <div key={addon._id} className="flex items-center gap-3 text-xs sm:text-sm font-medium text-foreground">
+                                      <RedCircleBulletIcon />
+                                      <span>{addon.name}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })()}
+              </div>
+            </div>
+
+            <div className="pt-2 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setZipDetailsModalOpen(false)}
+                className="rounded-full bg-primary px-6 py-2 text-xs font-bold text-primary-foreground shadow hover:bg-primary/90"
+              >
+                Close & Continue Booking
               </button>
             </div>
           </div>
