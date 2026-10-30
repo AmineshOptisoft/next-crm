@@ -698,9 +698,11 @@ type DateTimePickerProps = {
    **/
   granularity?: Granularity;
   className?: string;
-} & Pick<
-  CalendarProps,
-  "locale" | "weekStartsOn" | "showWeekNumber" | "showOutsideDays"
+} & Partial<
+  Pick<
+    CalendarProps,
+    "locale" | "weekStartsOn" | "showWeekNumber" | "showOutsideDays"
+  >
 >;
 
 type DateTimePickerRef = {

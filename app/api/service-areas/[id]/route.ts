@@ -7,9 +7,10 @@ import { ZipCode } from "@/app/models/ZipCode";
 // PUT - Update a service area
 export async function PUT(
     req: NextRequest,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
     try {
+        const { id } = await params;
         const user = await getCurrentUser();
         if (!user || !user.companyId) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -28,7 +29,7 @@ export async function PUT(
         }
 
         const serviceArea = await ServiceArea.findOneAndUpdate(
-            { _id: params.id, companyId: user.companyId },
+            { _id: id, companyId: user.companyId },
             { name: name.trim() },
             { new: true, runValidators: true }
         );
@@ -61,9 +62,10 @@ export async function PUT(
 // DELETE - Delete a service area
 export async function DELETE(
     req: NextRequest,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
     try {
+        const { id } = await params;
         const user = await getCurrentUser();
         if (!user || !user.companyId) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -73,7 +75,7 @@ export async function DELETE(
 
         // Check if any zip codes are using this service area
         const zipCodesCount = await ZipCode.countDocuments({
-            serviceAreaId: params.id,
+            serviceAreaId: id,
         });
 
         if (zipCodesCount > 0) {
@@ -84,7 +86,7 @@ export async function DELETE(
         }
 
         const serviceArea = await ServiceArea.findOneAndDelete({
-            _id: params.id,
+            _id: id,
             companyId: user.companyId,
         });
 

@@ -16,7 +16,7 @@ export async function GET(req: NextRequest) {
   }
 
   // Populate custom role to get permissions and company to get company details
-  const populatedUser = await User.findById(authUser.userId)
+  const populatedUser: any = await User.findById(authUser.userId)
     .populate("customRoleId")
     .populate("companyId")
     .lean();

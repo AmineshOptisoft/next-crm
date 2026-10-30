@@ -28,7 +28,7 @@ async function migrateRoles() {
       process.exit(0);
     }
 
-    const updatePromises = rolesToUpdate.map(async (role) => {
+    const updatePromises = rolesToUpdate.map(async (role: any) => {
       return Role.findByIdAndUpdate(
         role._id,
         {

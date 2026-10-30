@@ -32,7 +32,7 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
     ) as AuthPayload;
 
     await connectDB();
-    const user = await User.findById(payload.userId)
+    const user: any = await User.findById(payload.userId)
       .populate("customRoleId")
       .populate("companyId")
       .lean();

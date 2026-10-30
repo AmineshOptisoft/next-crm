@@ -16,7 +16,7 @@ export async function POST(req: NextRequest) {
         const { companyId, to, subject, html } = body;
 
         // Security check: ensure the user belongs to the company they are trying to send from
-        if (user.companyId.toString() !== companyId) {
+        if (!user.companyId || user.companyId.toString() !== companyId) {
             return NextResponse.json({ error: "Forbidden: Company ID mismatch" }, { status: 403 });
         }
 

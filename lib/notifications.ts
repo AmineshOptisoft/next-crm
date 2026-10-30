@@ -104,7 +104,7 @@ export async function checkUpcomingMeetings() {
         userId: meeting.ownerId.toString(),
         type: "meeting_reminder",
         title: "Upcoming Meeting",
-        message: `Meeting "${meeting.title}" starts in ${meeting.reminder.minutesBefore} minutes`,
+        message: `Meeting "${meeting.title}" starts in ${meeting.reminder?.minutesBefore ?? 0} minutes`,
         relatedTo: {
           model: "Meeting",
           id: meeting._id.toString(),

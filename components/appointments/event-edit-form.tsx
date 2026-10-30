@@ -42,10 +42,10 @@ const eventEditFormSchema = z.object({
     .string()
     .min(1, { message: "Must provide a description for this event." }),
   start: z.date({
-    invalid_type_error: "That's not a date!",
+    message: "That's not a date!",
   }),
   end: z.date({
-    invalid_type_error: "That's not a date!",
+    message: "That's not a date!",
   }),
   color: z
     .string()

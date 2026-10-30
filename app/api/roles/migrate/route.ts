@@ -38,7 +38,7 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    const updatePromises = rolesToUpdate.map(async (role) => {
+    const updatePromises = rolesToUpdate.map(async (role: any) => {
       return Role.findByIdAndUpdate(
         role._id,
         {
@@ -55,12 +55,12 @@ export async function GET(req: NextRequest) {
 
 
     // Verify the update
-    const verifyRoles = await Role.find({}).select('name isParent parentRoleId');
+    const verifyRoles: any[] = await Role.find({}).select('name isParent parentRoleId');
 
     return NextResponse.json({
       message: "Migration completed successfully!",
       updated: rolesToUpdate.length,
-      roles: verifyRoles.map(role => ({
+      roles: verifyRoles.map((role: any) => ({
         name: role.name,
         isParent: role.isParent,
         parentRoleId: role.parentRoleId
