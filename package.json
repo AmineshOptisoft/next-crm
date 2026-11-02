@@ -73,7 +73,7 @@
     "@types/react-date-range": "^1.4.10",
     "@types/react-dom": "^19",
     "@types/uuid": "^10.0.0",
-    "baseline-browser-mapping": "^2.8.32",
+    "baseline-browser-mapping": "^2.11.34",
     "eslint": "^9",
     "eslint-config-next": "16.0.5",
     "tailwindcss": "^4",

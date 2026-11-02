@@ -129,7 +129,6 @@ const PaymentSettingsSchema = new Schema({
     timestamps: true
 });
 
-// Index for faster queries
-PaymentSettingsSchema.index({ companyId: 1 });
+// companyId index is already created via unique: true in schema definition above
 
 export const PaymentSettings = models.PaymentSettings || model<IPaymentSettings>("PaymentSettings", PaymentSettingsSchema);
